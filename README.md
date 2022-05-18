@@ -5,9 +5,9 @@
 
 A python library to create **meaningful** OHLCV datasets.
 
-Works out-the-box with prices from the Yahoo Finance API (see [Disclaimers](#disclaimers)).
+Works out-the-box with prices from the Yahoo Finance API (see [Disclaimers](https://github.com/maread99/market_prices#disclaimers)).
 
-![screenshot](./docs/media/readme_pt.jpg)
+![screenshot](https://raw.githubusercontent.com/maread99/market_prices/master/docs/media/readme_pt.jpg?token=GHSAT0AAAAAABUW5NILN6BR4M66EGRTZLKAYUFPWLA)
 
 ## Features include:
 * Include **securities trading on different exchanges** with differing opening hours across different time zones.
@@ -38,9 +38,9 @@ pip will also take care of installing any missing dependencies.
 Although not a dependency, it's anticipated that `market_prices` will be used within a [Jupyter](https://jupyter.org/) environment (JupyterLab or a Jupyter Notebook).
 
 ## Tutorials / Documentation
-`market_prices` comes with a host of notebook [tutorials](./docs/tutorials_docs#tutorials) that show example usage and explain every aspect of what's on offer. Check out [quickstart.ipynb](./docs/tutorials/quickstart.ipynb) for a taster.
+`market_prices` comes with a host of notebook [tutorials](https://github.com/maread99/market_prices/blob/master/docs/tutorials_docs.md#tutorials) that show example usage and explain every aspect of what's on offer. Check out [quickstart.ipynb](https://github.com/maread99/market_prices/blob/master/docs/tutorials/quickstart.ipynb) for a taster.
 
-All tutorials and other documentation are indexed [here](./docs/tutorials_docs.md).
+All tutorials and other documentation are indexed [here](https://github.com/maread99/market_prices/blob/master/docs/tutorials_docs.md).
 
 Each method's own documentation is also pretty comprehensive.
 
@@ -65,7 +65,7 @@ If you come across missing prices or sessions then the first port of call is to 
 
 All calendars are maintained by user-contributions. If you find one that needs updating, PR the required changes over at `exchange_calendars` and it'll filter into `market_prices` on the next `exchange_calendars` release. Links to the workflow to update calendars can be found [here](https://github.com/gerrymanoim/exchange_calendars#frequently-asked-questions).
 
-The [prices tutorial](./docs/tutorials/prices.ipynb) covers how `market_prices` associates calendars with symbols.
+The [prices tutorial](https://github.com/maread99/market_prices/blob/master/docs/tutorials/prices.ipynb) covers how `market_prices` associates calendars with symbols.
 
 ## Release schedule, bugs, development and feedback
 
@@ -97,4 +97,4 @@ Further, it should NOT be assumed that price data returned by the `PricesYahoo` 
 
 ## License
 
-[MIT License](./LICENSE.txt)
+[MIT License](https://github.com/maread99/market_prices/blob/master/LICENSE.txt)
