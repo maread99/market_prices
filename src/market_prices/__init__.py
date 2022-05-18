@@ -8,7 +8,7 @@ __all__ = [
     get_exchange_info
 ]
 
-__version__ = 0.8
+__version__ = "0.8.1"
 
 __title__ = "market_prices"
 __description__ = "Meaningful OHLCV datasets"
