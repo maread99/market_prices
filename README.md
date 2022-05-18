@@ -7,7 +7,7 @@ A python library to create **meaningful** OHLCV datasets.
 
 Works out-the-box with prices from the Yahoo Finance API (see [Disclaimers](https://github.com/maread99/market_prices#disclaimers)).
 
-![screenshot](https://raw.githubusercontent.com/maread99/market_prices/master/docs/media/readme_pt.jpg?token=GHSAT0AAAAAABUW5NILN6BR4M66EGRTZLKAYUFPWLA)
+<img src="./docs/media/readme_pt.jpg" alt="screenshot">
 
 ## Features include:
 * Include **securities trading on different exchanges** with differing opening hours across different time zones.
