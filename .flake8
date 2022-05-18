@@ -1,0 +1,23 @@
+[flake8]
+
+ignore = 
+    # E203 (not PEP 8 compliant) ignored to not conflict with black
+    E203,
+    # W503 (not PEP 8 compliant) ignored to not conflict with black
+    W503,
+    # D105 Missing docstring in magic method. I have no issue with this.
+    D105
+
+per-file-ignores =
+    # D103 Missing docstring in public function - not required for all tests
+    # D102 Missing docstring in public function - not required for all tests
+    # D401 First line should be in imperative moood - not useful to describe fixtures
+    tests/*.py:D103,D102,D401
+    # E501 line-too-long, provides for a doctest line that overruns
+    market_prices/utils/pandas_utils.py:E501
+
+
+#max-line-length extended in line with black default style
+max-line-length = 100
+
+docstring-convention=numpy
