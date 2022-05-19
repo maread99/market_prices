@@ -6,7 +6,8 @@ ignore =
     # W503 (not PEP 8 compliant) ignored to not conflict with black
     W503,
     # D105 Missing docstring in magic method. I have no issue with this.
-    D105
+    # D Let pylint pick up all the doc errors
+    D
 
 exclude =
     *.ipynb_checkpoints
