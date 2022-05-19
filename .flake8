@@ -18,7 +18,7 @@ per-file-ignores =
     # D401 First line should be in imperative moood - not useful to describe fixtures
     tests/*.py:D103,D102,D401
     # E501 line-too-long, provides for a doctest line that overruns
-    market_prices/utils/pandas_utils.py:E501
+    src/market_prices/utils/pandas_utils.py:E501
 
 
 #max-line-length extended in line with black default style
