@@ -18,9 +18,8 @@ Errors arising for reasons listed in the comments towards the top fo the `mypy.i
 
 ### mptypes.py
 
-Types defined by `market_prices` are defined on the `mptypes.py` module.
-
-In addition to type aliases and custom pydantic types internal enum types are also defined on `mptypes.py`. 
+Types specific to `market_prices` are defined on the `mptypes.py` module. These include
+type aliases, custom pydantic types and internal enums.
 
 The annotation of any public parameter that takes an mptype should begin `mptypes.` in order to explictly declare the type as being specific to `market_prices`.
 

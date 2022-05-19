@@ -61,7 +61,7 @@ This knowledge and functionality allows `market_prices` to:
 If you come across missing prices or sessions then the first port of call is to check that the associated calendar is accurate - it may need updating.
 
 * If prices are not included for a session, the calendar may be assuming that day is a holiday.
-* If prices are showing as missing on a day when the exchange was closed, the calendar is probably assuming that day represents a trading session.
+* If prices are included on a day when the exchange was closed, the calendar is probably assuming that day represents a trading session. In this case prices for the non-trading day will have a constant value and a `errors.PricesMissingWarning` will have been raised when the prices were requested.
 
 All calendars are maintained by user-contributions. If you find one that needs updating, PR the required changes over at `exchange_calendars` and it'll filter into `market_prices` on the next `exchange_calendars` release. Links to the workflow to update calendars can be found [here](https://github.com/gerrymanoim/exchange_calendars#frequently-asked-questions).
 
