@@ -8,6 +8,10 @@ ignore =
     # D105 Missing docstring in magic method. I have no issue with this.
     D105
 
+exclude =
+    *.ipynb_checkpoints
+
+
 per-file-ignores =
     # D103 Missing docstring in public function - not required for all tests
     # D102 Missing docstring in public function - not required for all tests

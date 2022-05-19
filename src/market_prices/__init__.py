@@ -3,10 +3,7 @@
 from .prices.yahoo import PricesYahoo
 from .utils.calendar_utils import get_exchange_info
 
-__all__ = [
-    PricesYahoo,
-    get_exchange_info
-]
+__all__ = [PricesYahoo, get_exchange_info]
 
 __version__ = "0.8.1"
 

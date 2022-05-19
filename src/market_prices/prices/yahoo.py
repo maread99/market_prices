@@ -154,7 +154,7 @@ class PricesYahoo(base.PricesBase):
     under which the 'Yahoo APIs' may be accessed, to include restrictions
     concerning NO COMMERCIAL USE. See the `market_prices` home page for
     references.
-    
+
     This following sections are likely to be of interest only to
     developers.
 
@@ -503,7 +503,7 @@ class PricesYahoo(base.PricesBase):
             if not daily:
                 df.index = df.index.tz_convert(tz)
             else:
-                last_trade_secs = data[s]["meta"]["regularMarketTime"] * 10 ** 9
+                last_trade_secs = data[s]["meta"]["regularMarketTime"] * 10**9
                 last_t = pd.Timestamp(last_trade_secs, tz="UTC")
                 live_indice = df.index[-1] >= last_t - pd.Timedelta(2, "S")
                 slce = slice(-1) if live_indice else slice(None)
