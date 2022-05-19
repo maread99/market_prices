@@ -96,6 +96,9 @@ Contributions to `market_prices` are certainly welcome. If you are looking to co
 * typing specifications.
 * documentation specifications.
 
+[testing.md](./developers/testing.md) :
+* Data from yahoo API is unreliable for test suite
+
 [other_internals.md](./developers/other_internals.md) :
 * Considerations for intervals that are not a factor of (sub)session length.
 * `daterange.GetterIntraday.daterange_tight`
