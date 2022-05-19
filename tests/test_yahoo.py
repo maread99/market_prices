@@ -47,9 +47,9 @@ from market_prices.utils import calendar_utils as calutils
 
 UTC = pytz.UTC
 
-# sessions that Yahoo temporarily fails to return prices for if (apparently) send
-# a high frequency of requests for prices from the same IP address.
-# TODO INCLUDE REFERENCE to wherever this issue ends up being more fully explained.
+# NOTE See ../docs/developers/testing.md...
+# ...sessions that yahoo temporarily fails to return prices for if (seemingly)
+# send a high frequency of requests for prices from the same IP address.
 _blacklist = (
     pd.Timestamp("2022-05-10"),
     pd.Timestamp("2022-04-27"),

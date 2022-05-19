@@ -805,7 +805,7 @@ class PricesYahoo(base.PricesBase):
             # fill forwards in first instance
             adj_close = adj_close.ffill()
             if adj_close.isna().any():
-                # Values missing for at least one session at start of df
+                # Values missing for at least one session at start of df, fill backwards
                 bv = adj_close.isna()
                 adj_close[bv] = df.open.bfill()[bv]
             warnings.warn(errors.PricesMissingWarning(symbol, bi, sessions, "Yahoo"))
