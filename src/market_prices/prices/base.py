@@ -3806,7 +3806,7 @@ class PricesBase(metaclass=abc.ABCMeta):
 
         bi = bis_stored[-1] if bis_stored else ma_bis[-1]  # type: ignore[assignment]
         table = self._get_bi_table(bi, rngs[bi])
-        
+
         minute_ma = ma_tss[bi]
         if minute_advanced and self._ignore_breaks_any:
             # where breaks are ignored and minute falls in break would otherwise return
@@ -3814,7 +3814,7 @@ class PricesBase(metaclass=abc.ABCMeta):
             # (rather than close of that last am subsession indice). The minus one_min
             # ensures that last indice is last indice of am subsession (which will have
             # right side as `minute_ma`), thereby precluding knowledge of next indice).
-            table = table.loc[:minute_ma - helpers.ONE_MIN]
+            table = table.loc[: minute_ma - helpers.ONE_MIN]
         table_pa = table.pt.operate(fill="ffill").pt.price_at(minute_ma)
         indice = table_pa.index[0]
         if (
