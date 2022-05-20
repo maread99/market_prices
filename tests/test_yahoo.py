@@ -1469,22 +1469,25 @@ class TestRequestDataIntraday:
             expected_num_rows + 2,
         )
 
-    def test_start_end_non_session_minutes(self, pricess):
+    def test_start_end_non_session_minutes(
+        self, pricess, session_length_xnys, session_length_xlon
+    ):
         """Verify where start and end are not session minutes."""
         prices = pricess["us_lon"]
         interval = prices.BaseInterval.T5
-        _, _, slc_cal = get_data_bounds(prices, interval)
-
         xnys = prices.calendars["MSFT"]
         xlon = prices.calendars["AZN.L"]
-        start = xlon.opens[slc_cal][0]
-        end = xnys.closes[slc_cal][-1]
 
-        start = helpers.to_utc(start)  # TODO xcals 4.0 lose line
-        end = helpers.to_utc(end)  # TODO xcals 4.0 lose line
-
+        session_start, _, session_end = get_valid_conforming_sessions(
+            prices,
+            interval,
+            [xnys, xlon],
+            [session_length_xnys, session_length_xlon],
+            3,
+        )
+        start = xlon.session_open(session_start)
+        end = xnys.session_close(session_end)
         df = prices._request_data(interval, start, end)
-
         delta = pd.Timedelta(20, "T")
         start_ = start - delta
         end_ = end + delta
