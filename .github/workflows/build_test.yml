@@ -10,6 +10,15 @@ on: workflow_dispatch
 #       - master
 
 jobs:
+  check-black:
+      # fail it if doesn't conform to black
+      runs-on: ubuntu-latest
+      steps:
+        - uses: actions/checkout@v3
+        - uses: psf/black@stable
+          with:
+            options: "--check --verbose"
+
   build-and-test:
 
     runs-on: ${{ matrix.os }}
@@ -32,8 +41,10 @@ jobs:
           pip install -r requirements_dev.txt
           pip install -e .
       - name: Lint with flake8
+        # fail it if doesn't pass flake8
         run: |
           flake8 . --statistics
       - name: Test with pytest
+        # fail it if doesn't pass test suite
         run: |
           pytest

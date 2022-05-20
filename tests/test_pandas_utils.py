@@ -37,7 +37,7 @@ def interval():
 
 @pytest.fixture
 def interval_index_non_overlapping(
-    datetime_index_hourly_freq
+    datetime_index_hourly_freq,
 ) -> abc.Iterator[pd.IntervalIndex]:
     """1H between indices. Interval 30min. 30min gap from right to next left."""
     right = datetime_index_hourly_freq + pd.Timedelta(30, "T")
@@ -46,7 +46,7 @@ def interval_index_non_overlapping(
 
 @pytest.fixture
 def interval_index_overlapping(
-    interval_index_non_overlapping
+    interval_index_non_overlapping,
 ) -> abc.Iterator[pd.IntervalIndex]:
     """One indice of interval index fully overlaps following indice."""
     index = interval_index_non_overlapping

@@ -43,6 +43,7 @@ import market_prices.utils.pandas_utils as pdutils
 
 # Any flake8 disabled violations handled via per-file-ignores on .flake8
 
+
 def test_get_exchange_info():
     df = m.get_exchange_info()
     assert isinstance(df, pd.DataFrame) and len(df) > 45

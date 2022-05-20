@@ -353,12 +353,11 @@ class Answers:
         if not self.session_has_break(session):
             return pd.DatetimeIndex([])
         else:
-            # gets 2 items as has break
-            am_minutes, pm_minutes = (  # pylint: disable=unbalanced-tuple-unpacking
-                self.get_session_minutes(session)
-            )
-        first = am_minutes[-1] + self.ONE_MIN
-        last = pm_minutes[0] - self.ONE_MIN
+            minutes = self.get_session_minutes(session)
+            # pylint - `get_session_minutes` got 2 items as session had break
+            am_mins, pm_mins = minutes  # pylint: disable=unbalanced-tuple-unpacking
+        first = am_mins[-1] + self.ONE_MIN
+        last = pm_mins[0] - self.ONE_MIN
         return pd.date_range(first, last, freq="T")
 
     def get_session_edge_minutes(

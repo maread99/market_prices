@@ -963,14 +963,10 @@ class GetterIntraday(_Getter):
             else:
                 raise errors.StartOutOfBoundsError(self.cal) from None
 
-        if (
-            minute.value in self.cal.last_minutes_nanos
-            and (
-                minute.minute,
-                minute.hour,
-            )
-            != (ts.minute, ts.hour)
-        ):
+        if minute.value in self.cal.last_minutes_nanos and (
+            minute.minute,
+            minute.hour,
+        ) != (ts.minute, ts.hour):
             # offset to non-trading minute which was forced to last trading minute.
             # Want as close.
             minute += helpers.ONE_MIN
