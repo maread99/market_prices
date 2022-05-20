@@ -97,7 +97,12 @@ Contributions to `market_prices` are certainly welcome. If you are looking to co
 * documentation specifications.
 
 [testing.md](./developers/testing.md) :
-* Data from yahoo API is unreliable for test suite
+* Data from yahoo API is unreliable for test suite.
+
+[releases.md](./developers/releases.md) :
+* Versioning.
+* Draft release notes.
+* Release workflow.
 
 [other_internals.md](./developers/other_internals.md) :
 * Considerations for intervals that are not a factor of (sub)session length.
