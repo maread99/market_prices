@@ -12,7 +12,7 @@ import re
 import exchange_calendars as xcals
 import numpy as np
 import pandas as pd
-from pandas.testing import assert_frame_equal, assert_index_equal
+from pandas.testing import assert_frame_equal, assert_index_equal, assert_series_equal
 import pydantic
 import pytest
 import pytz
@@ -1489,7 +1489,9 @@ class TestRequestDataIntraday:
         start_ = start - delta
         end_ = end + delta
         df_not_mins = prices._request_data(interval, start_, end_)
-        assert_frame_equal(df, df_not_mins)
+        # rtol for rare inconsistency in data returned by yahoo API when hit with
+        # high frequency of requests, e.g. such as executing the test suite
+        assert_frame_equal(df, df_not_mins, rtol=0.03)
 
     def test_start_none(self, pricess):
         """Verify as expected when start is None."""
@@ -1621,7 +1623,9 @@ class TestRequestDataIntraday:
                 # hist will be missing any row for which at least one tick not registered
                 hist_vol = hist_s[1:].volume
                 df_vol = df.pt.indexed_left.loc[hist_vol.index].volume
-                assert (df_vol == hist_vol).all()
+                # rtol for rare inconsistency in yahoo data when receives high freq of
+                # requests, e.g. under execution of test suite.
+                assert_series_equal(hist_vol, df_vol, rtol=0.02, check_dtype=False)
 
                 not_in_hist = df[1:].pt.indexed_left.index.difference(hist_vol.index)
                 bv = df.loc[not_in_hist].volume == 0  # pylint: disable=compare-to-zero
@@ -2723,8 +2727,6 @@ class TestGetComposite:
                 break
 
         # verify T5 parts of composite tables are the same
-        assert_frame_equal(table_edgecase1[:-3], table[:-7])
-        # verify T5 parts of composite tables are the same
         # NB doesn't check the frame as chances are the volume data won't match due to
         # being unable to fix the yahoo volume glitch given lack of availability (with
         # the mock) of prior data
@@ -2738,7 +2740,7 @@ class TestGetComposite:
         prices = set_get_prices_params(prices, pp, ds_interval=None, lead_symbol=lead)
         table_edgecase2 = prices._get_table_composite()
         # verify T5 parts of composite tables are the same
-        assert_frame_equal(table_edgecase2[:-4], table[:-7])
+        assert_index_equal(table_edgecase2[:-4].index, table[:-7].index)
         # verify other part is being met from T2 data, and table ends one minute short
         # of what would be max accuaracy
         T2_data = table_edgecase2[-4:]
