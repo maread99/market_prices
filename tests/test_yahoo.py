@@ -4987,6 +4987,7 @@ class TestGet:
         with pytest.raises(errors.PricesUnavailableIntervalPeriodError):
             prices.get(bi, start, end - one_sec, anchor="workback")
 
+    @skip_if_data_unavailable
     def test_raises_PricesUnavailableIntervalPeriodError2(
         self, prices_us, session_length_xnys, one_min
     ):
