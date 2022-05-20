@@ -1574,7 +1574,6 @@ class TestRequestDataIntraday:
             prices: m.PricesYahoo,
             start: pd.Timestamp,
             end: pd.Timestamp,
-            now_close: pd.Timestamp,
             prev_close: pd.Timestamp | None = None,
         ):
             symbol = prices.symbols[0]
@@ -1589,9 +1588,9 @@ class TestRequestDataIntraday:
                     # because v rare bug can introduce an initial row with missing
                     # values and indice < start
                     hist_s = hist_s[1:].copy()
-                if hist_s.index[-1] == now_close:
-                    # bug, _ya_history includes last close regardless of 'end'
-                    hist_s.drop([now_close], inplace=True)
+                if not hist_s.index[-2] + interval == hist_s.index[-1]:
+                    # yahoo can return live indice at end of table
+                    hist_s = hist_s[:-1].copy()
 
                 hist0 = hist_s.iloc[0]
                 indice = hist0.name
@@ -1615,9 +1614,9 @@ class TestRequestDataIntraday:
                 assert isinstance(hist_alt, pd.DataFrame)
                 hist_alt_s = hist_alt.loc[symbol].copy()
 
-                if hist_alt_s.index[-1] == now_close:
-                    # bug, _ya_history includes last close regardless of 'end'
-                    hist_alt_s.drop([now_close], inplace=True)
+                if not hist_alt_s.index[-2] + interval == hist_alt_s.index[-1]:
+                    # yahoo can return live indice at end of table
+                    hist_alt_s = hist_alt_s[:-1].copy()
 
                 assert hist_alt_s.loc[indice].name == df[indice:indice].index[0].left
                 assert hist_alt_s.loc[indice].volume == df0_vol
@@ -1645,8 +1644,7 @@ class TestRequestDataIntraday:
         # extra 30T to cover unaligned end of 1H interval
         end = cal.session_close(session) + pd.Timedelta(30, "T")
         start = cal.session_open(session) + pd.Timedelta(1, "H")
-        now_close = cal.previous_close(now)
-        assertions(prices, start, end, now_close)
+        assertions(prices, start, end)
 
         # Verify for lon prices
         prices = m.PricesYahoo(["AZN.L"])
@@ -1658,9 +1656,8 @@ class TestRequestDataIntraday:
         # extra 30T to cover unaligned end of 1H interval
         end = cal.session_close(session) + pd.Timedelta(30, "T")
         start = cal.session_open(session)
-        now_close = cal.previous_close(now)
         prev_close = cal.previous_close(session)
-        assertions(prices, start, end, now_close, prev_close)
+        assertions(prices, start, end, prev_close)
 
 
 def test_prices_for_symbols():
