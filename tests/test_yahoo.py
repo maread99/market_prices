@@ -2212,7 +2212,13 @@ class TestTableIntraday:
             prices, pp_oob, ds_interval, anchor=anchor, strict=False
         )
         table = f()
-        assert_frame_equal(table, table_T4_T1)
+        try:
+            assert_frame_equal(table, table_T4_T1)
+        except AssertionError:
+            # Not impossible that, as time has moved on, the limit hasn't moved to
+            # the next minute, in which case first minute of the original table is no
+            # longer available.
+            assert_frame_equal(table, table_T4_T1[1:])
 
         # verify `priority` being passed through. If  PERIOD then will get table
         # covering full period using T2 base data, such that end is a minute off.
