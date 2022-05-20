@@ -1,0 +1,24 @@
+name-template: 'v$NEXT_PATCH_VERSION 🎈'
+tag-template: 'v$NEXT_PATCH_VERSION'
+template: |
+  # What's Changed
+
+  $CHANGES
+
+categories:
+  - title: 'New Features'
+    label: 'enhancement'
+  - title: 'Deprecation'
+    label: 'deprecation'
+  - title: 'Bug Fixes'
+    label: 'bug'
+  - title: 'Documentation'
+    label: 'documentation'
+  - title: 'Maintenance'
+    label: 'maintenance'
+  - title: 'Testing'
+    label: 'tests'
+  - title: 'Under the Bonnet'
+    label: 'code improvement'
+  - title: 'Continuous Integration'
+    label: 'CI'
