@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections import abc
 import datetime
-from functools import wraps
+import functools
 import itertools
 import typing
 import re
@@ -104,7 +104,7 @@ class skip_if_fails_and_today_blacklisted:
         return calutils.CompositeCalendar(cals)
 
     def __call__(self, f) -> abc.Callable:
-        @wraps(f)
+        @functools.wraps(f)
         def wrapped_test(*args, **kwargs):
             try:
                 f(*args, **kwargs)
@@ -114,6 +114,43 @@ class skip_if_fails_and_today_blacklisted:
                 raise
 
         return wrapped_test
+
+
+class TestDataUnavailableError(Exception):
+    """Base error class for unavailable test data."""
+
+    def __str__(self) -> str:
+        return getattr(self, "_msg", "Test Data unavailable.")
+
+    def __unicode__(self) -> str:
+        return self.__str__()
+
+    def __repr__(self) -> str:
+        return self.__str__()
+
+
+def skip_if_data_unavailable(f: abc.Callable) -> abc.Callable:
+    """Decorator to skip test if fails on `TestDataUnavailableError`."""
+    @functools.wraps(f)
+    def wrapped_test(*args, **kwargs):
+        try:
+            f(*args, **kwargs)
+        except TestDataUnavailableError:
+            pytest.skip("Valid test inputs unavailable.")
+    return wrapped_test
+
+
+class ValidSessionUnavailableError(TestDataUnavailableError):
+    """No valid session available for requested restrictions.
+
+    Parameters as for `get_valid_session`.
+    """
+
+    def __init__(self, session: pd.Timestamp, limit: pd.Timestamp):
+        # pylint: disable=super-init-not-called
+        self._msg = (
+            f"There are no valid sessions from {session} and with limit as {limit}."
+        )
 
 
 def get_valid_session(
@@ -128,18 +165,19 @@ def get_valid_session(
     nearest session to `session`, in the direction of `direction`, that is
     not in blacklist. Sessions evaluated against `calendar`.
 
-    Raises `AssertionError` if session would be `limit` or 'beyond'.
+    Raises `ValidSessionUnavailableError` if session would be `limit` or 'beyond'.
     """
+    session_received = session
     while session in _blacklist:
         # xcals 4.0 lose wrappers within clause
         if direction == "next":
             session = helpers.to_tz_naive(calendar.next_session(session))
-            if limit is not None:
-                assert session < limit, "cannot get session for test."
+            if limit is not None and session >= limit:
+                raise ValidSessionUnavailableError(session_received, limit)
         else:
             session = helpers.to_tz_naive(calendar.previous_session(session))
-            if limit is not None:
-                assert session > limit, "cannot get session for test."
+            if limit is not None and session <= limit:
+                raise ValidSessionUnavailableError(session_received, limit)
     return session
 
 
@@ -545,17 +583,17 @@ class TestConstructor:
 
 @pytest.fixture
 def session_length_xnys() -> abc.Iterator[pd.Timedelta]:
-    yield pd.Timedelta(6.5, "H")  # type: ignore[arg-type]  # float ok
+    yield pd.Timedelta(6.5, "H")
 
 
 @pytest.fixture
 def session_length_xhkg() -> abc.Iterator[pd.Timedelta]:
-    yield pd.Timedelta(6.5, "H")  # type: ignore[arg-type]  # float ok
+    yield pd.Timedelta(6.5, "H")
 
 
 @pytest.fixture
 def session_length_xlon() -> abc.Iterator[pd.Timedelta]:
-    yield pd.Timedelta(8.5, "H")  # type: ignore[arg-type]  # float ok
+    yield pd.Timedelta(8.5, "H")
 
 
 @pytest.fixture(scope="module")
@@ -1540,6 +1578,10 @@ class TestRequestDataIntraday:
                 )
                 assert isinstance(hist, pd.DataFrame)
                 hist_s = hist.loc[symbol].copy()
+                if hist_s.iloc[0].isna().any() and hist_s.index[0] < start:
+                    # because v rare bug can introduce an initial row with missing
+                    # values and indice < start
+                    hist_s = hist_s[1:].copy()
                 if hist_s.index[-1] == now_close:
                     # bug, _ya_history includes last close regardless of 'end'
                     hist_s.drop([now_close], inplace=True)
@@ -1818,8 +1860,7 @@ def get_prices_limit_mock(
 ) -> m.PricesYahoo:
     """Return instance of m.PricesYahoo with `limit` for `bi` set to limit."""
     limits = m.PricesYahoo.BASE_LIMITS.copy()
-    # typing - values can take Timestamp, just that the underlying takes Timedelta
-    limits[bi] = limit  # type: ignore[assignment]
+    limits[bi] = limit
 
     class PricesMock(m.PricesYahoo):
         """Mock PricesYahoo class."""
@@ -2368,16 +2409,12 @@ class TestTableIntraday:
 
             for start, exp_start in zip(starts, expected_starts):
                 for factor in factors:
-                    ds_interval = intervals.to_ptinterval(
-                        bi * factor  # type: ignore[arg-type]
-                    )
+                    ds_interval = intervals.to_ptinterval(bi * factor)
                     pp = get_pp(start=start, end=end)
                     kwargs = dict(ds_interval=ds_interval, openend=OpenEnd.MAINTAIN)
                     if lead_symbol is not None:
-                        kwargs["lead_symbol"] = lead_symbol  # type: ignore[assignment]
-                    prices = set_get_prices_params(
-                        prices, pp, **kwargs  # type: ignore[arg-type]
-                    )
+                        kwargs["lead_symbol"] = lead_symbol
+                    prices = set_get_prices_params(prices, pp, **kwargs)
                     df_bi, bi_ = prices._get_bi_table_intraday()
                     assert bi_ is bi
                     assert isinstance(ds_interval, TDInterval)
@@ -2394,11 +2431,11 @@ class TestTableIntraday:
 
                     for row in rtrn.iterrows():
                         row = rtrn.iloc[0]
-                        left = row.name.left  # type: ignore[attr-defined]
-                        right = row.name.right - one_sec  # type: ignore[attr-defined]
+                        left = row.name.left
+                        right = row.name.right - one_sec
                         subset = df_bi[left:right]
                         for s in prices.symbols:
-                            subset_s, row_s = subset[s], row[s]  # type: ignore[misc]
+                            subset_s, row_s = subset[s], row[s]
                             if subset_s.isna().all(axis=None):
                                 assert row_s.isna().all(axis=None)
                                 continue
@@ -2646,12 +2683,12 @@ class TestGetComposite:
         # start available for intervals >= T5.
         calendars = prices.calendars["MSFT"], prices.calendars["AZN.L"]
         session_length = [session_length_xnys, session_length_xlon]
-        _, end_session = get_valid_comforming_sessions(
+        _, end_session = get_valid_conforming_sessions(
             prices, prices.bis.T1, calendars, session_length, 2
         )
         end_session_open = prices.cc.session_open(end_session)
         end = end_session_open + pd.Timedelta(7, "T")
-        _, start_session = get_valid_comforming_sessions(
+        _, start_session = get_valid_conforming_sessions(
             prices, prices.bis.T5, calendars, session_length, 2
         )
         pp = get_pp(start=start_session, end=end)
@@ -3136,7 +3173,41 @@ def mock_now(monkeypatch, now: pd.Timestamp):
     monkeypatch.setattr("pandas.Timestamp.now", mock_now_)
 
 
-def get_valid_comforming_sessions(
+class ValidSessionsUnavailableError(TestDataUnavailableError):
+    """Test data unavailable to 'get_valid_conforming_sessions'.
+
+    There are an insufficient number of consecutive sessions of the
+    requested lengths between the requested limits.
+
+    Parameters
+    ----------
+    Parameters as receieved to `get_valid_conforming_sessions` except:
+
+    start
+        Start limit from which can evaluate valid sessions.
+
+    end
+        End limit to which can evaluate valid sessions.
+    """
+
+    def __init__(
+        self,
+        start: pd.Timestamp,
+        end: pd.Timestamp,
+        calendars: list[xcals.ExchangeCalendar],
+        session_length: list[pd.Timedelta],
+        num_sessions: int,
+    ):
+        # pylint: disable=super-init-not-called
+        self._msg = (
+            f"{num_sessions} valid consecutive sessions of the requested lengths"
+            f" are not available from {start} through {end}."
+            f"\n`calendars` receieved as {calendars}."
+            f"\n`session_length` receieved as {session_length}."
+        )
+
+
+def get_valid_conforming_sessions(
     prices: m.PricesYahoo,
     bi: intervals.BI,
     calendars: list[xcals.ExchangeCalendar],
@@ -3149,16 +3220,26 @@ def get_valid_comforming_sessions(
 
     Prices will be available at bi for at least one session (evaluated
     against CompositeCalendar) prior to first session.
+
+    Raises `ValidSessionsUnavailableError` if there no sessions conform
+    with the requirements.
     """
     # get sessions for which price data available at all base intervals
     session_start, session_end = th.get_sessions_range_for_bi(prices, bi)
+    session_first = session_start
 
     # margin allowing for prices at bi to be available over at least one prior session
     session_start = prices.cc.next_session(session_start)
     session_start = get_valid_session(session_start, prices.cc, "next", session_end)
-    sessions = th.get_conforming_sessions(
-        calendars, session_length, session_start, session_end, num_sessions
-    )
+
+    try:
+        sessions = th.get_conforming_sessions(
+            calendars, session_length, session_start, session_end, num_sessions
+        )
+    except errors.TutorialDataUnavailableError:
+        raise ValidSessionsUnavailableError(
+            session_first, session_end, calendars, session_length, num_sessions
+        ) from None
     while (
         any(sessions.isin(_blacklist))
         # make sure prices also available for session prior to conforming sessions
@@ -3167,10 +3248,16 @@ def get_valid_comforming_sessions(
         # TODO xcals 4.0 lose wrapper
         session_start = helpers.to_tz_naive(prices.cc.next_session(session_start))
         session_start = get_valid_session(session_start, prices.cc, "next", session_end)
-        assert session_start < session_end, "cannot get valid sessions for test"
-        sessions = th.get_conforming_sessions(
-            calendars, session_length, session_start, session_end, num_sessions
-        )
+        if session_start >= session_end:
+            raise ValidSessionsUnavailableError(
+                session_first, session_end, calendars, session_length, num_sessions
+            )
+        try:
+            sessions = th.get_conforming_sessions(
+                calendars, session_length, session_start, session_end, num_sessions
+            )
+        except errors.TutorialDataUnavailableError:
+            continue
     return sessions
 
 
@@ -3192,12 +3279,11 @@ def get_sessions_xnys_xhkg_xlon(bi: TDInterval, num: int = 2) -> pd.DatetimeInde
 
     for bi_ in prices.bis_intraday:
         # convert `bi` from TDInteval to a BI
-        # typing - unhappy as doesn't consider TDInterval as a subclass of Timedelta
-        if bi_ == bi:  # type: ignore[comparison-overlap]
+        if bi_ == bi:
             bi_req = bi_
             break
 
-    return get_valid_comforming_sessions(prices, bi_req, calendars, session_length, num)
+    return get_valid_conforming_sessions(prices, bi_req, calendars, session_length, num)
 
 
 @pytest.fixture(scope="class")
@@ -3234,12 +3320,11 @@ def get_sessions_xnys_xhkg(bi: TDInterval, num: int = 2) -> pd.DatetimeIndex:
 
     for bi_ in prices.bis_intraday:
         # convert `bi` from TDInteval to a BI
-        # typing - unhappy as doesn't consider TDInterval as a subclass of Timedelta
-        if bi_ == bi:  # type: ignore[comparison-overlap]
+        if bi_ == bi:
             bi_req = bi_
             break
 
-    return get_valid_comforming_sessions(prices, bi_req, calendars, session_length, num)
+    return get_valid_conforming_sessions(prices, bi_req, calendars, session_length, num)
 
 
 class TestGet:
@@ -4662,10 +4747,10 @@ class TestGet:
             for interval in (13, 8, 7, 5, 4, 3, 2):
                 interval_str = str(interval) + "D"
                 df = prices.get(
-                    interval_str,  # type: ignore[arg-type]  # expects mptype
+                    interval_str,
                     period_start,
                     period_end,
-                    lead_symbol=lead,  # type: ignore[arg-type]  # expects mptype
+                    lead_symbol=lead,
                 )
                 cal = prices.calendars[lead]
                 assert df.pt.last_ts == exp_end
@@ -4917,12 +5002,12 @@ class TestGet:
         prices = prices_us
         cal = prices.calendar_default
 
-        session = get_valid_comforming_sessions(
+        session = get_valid_conforming_sessions(
             prices, prices.bis.T5, [cal], [session_length_xnys], 4
         )[-2]
         session_open = cal.session_open(session)
 
-        _, prev_session_T1, session_T1, _ = get_valid_comforming_sessions(
+        _, prev_session_T1, session_T1, _ = get_valid_conforming_sessions(
             prices, prices.bis.T1, [cal], [session_length_xnys], 4
         )
         session_open_T1 = cal.session_open(session_T1)
@@ -5897,7 +5982,7 @@ class TestPriceAt:
         delta = pd.Timedelta(33, "T")
 
         bi = prices.bis.T1
-        session_prev, session = get_valid_comforming_sessions(
+        session_prev, session = get_valid_conforming_sessions(
             prices, bi, [xlon], [session_length_xlon], 2
         )
         session_before = prices.cc.previous_session(session_prev)
@@ -6185,6 +6270,7 @@ class TestPriceAt:
         values = values  # unchanged
         self.assertions(table, df, indice, values)
 
+    @skip_if_data_unavailable
     def test_data_available_from_T5(self, prices_us_lon_hkg, one_min):
         """Test with minutes for which data only available at bi >= T5."""
         prices = prices_us_lon_hkg
@@ -6750,7 +6836,7 @@ class TestPriceAt:
         bi_less_one_min = bi - one_min
         half_hour = pd.Timedelta(30, "T")
         # four consecutive sessions
-        sessions = get_valid_comforming_sessions(
+        sessions = get_valid_conforming_sessions(
             prices, bi, [xhkg], [session_length_xhkg], 4
         )
         session_before, session_prev, session, session_after = sessions
@@ -6962,7 +7048,7 @@ def test_price_range(prices_us_lon_hkg, one_day, monkeypatch):
         """Standard test for `kwargs`."""
         table = get(kwargs)
         if pt_type is not None:
-            assert isinstance(table.pt, pt_type)  # type: ignore[arg-type]  # is valid
+            assert isinstance(table.pt, pt_type)
         rng = f(**kwargs)
         assertions(rng, table, to_now=to_now)
 

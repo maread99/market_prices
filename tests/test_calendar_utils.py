@@ -985,8 +985,6 @@ class TestCompositeCalendar:
             tb = sys.exc_info()
             tbexc = traceback.TracebackException(*tb)
             framesummary = tbexc.stack[-2]
-            error_file = ["exchange_calendars", "errors.py"]
-            assert framesummary.filename.split("\\")[-2:] == error_file
             assert framesummary.line == "if self.date < self.calendar.first_session:"
 
         # TODO xcals 4.0 lose the try / except (leave as the try clause)
@@ -1008,8 +1006,6 @@ class TestCompositeCalendar:
             tb = sys.exc_info()
             tbexc = traceback.TracebackException(*tb)
             framesummary = tbexc.stack[-2]
-            error_file = ["exchange_calendars", "errors.py"]
-            assert framesummary.filename.split("\\")[-2:] == error_file
             assert framesummary.line == "if self.date < self.calendar.first_session:"
 
         # minimal check that returns as expected

@@ -10,6 +10,7 @@ from exchange_calendars.exchange_calendar import ExchangeCalendar
 import pandas as pd
 
 from market_prices import helpers, intervals, mptypes
+from market_prices.utils import calendar_utils as calutils
 from market_prices.helpers import fts
 from market_prices.intervals import BI
 
@@ -649,6 +650,45 @@ class IndexConflictError(MarketPricesError):
             f"Table index not compatible with calendar {calendar.name}. At least one"
             " table indice would conflict with a calendar indice for each of the"
             f" following sessions: \n{non_compat_sessions}."
+        )
+
+
+class TutorialDataUnavailableError(MarketPricesError):
+    """No sessions conform with the requested restrictions.
+
+    There are an insufficient number of consecutive sessions of the
+    requested length between the requested limits.
+
+    Parameters
+    ----------
+    start
+        Start limit from which can evaluate conforming sessions.
+
+    end
+        End limit to which can evaluate conforming sessions.
+
+    cal_param
+        Calendars with sessions that are required at lengths descibed
+        by `lengths_param`.
+
+    lengths_param
+        Required lengths of sessions of calendars receieved as
+        `cal_param`.
+    """
+
+    def __init__(
+        self,
+        start: pd.Timestamp,
+        end: pd.Timestamp,
+        cal_param: list[xcals.ExchangeCalendar] | calutils.CompositeCalendar,
+        lengths_param: pd.Timedelta | list[pd.Timedelta] | list[list[pd.Timedelta]],
+    ):
+        self._msg = (
+            "The requested number of consecutive sessions of the requested length(s)"
+            f" are not available from {start} through {end}."
+            f"\nThe `calendars` or `cc` parameter was receieved as {cal_param}."
+            "\nThe `sessions_lengths` or `session_length` parameter was receieved"
+            f" as {lengths_param}."
         )
 
 

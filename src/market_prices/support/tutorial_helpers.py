@@ -5,7 +5,7 @@ from __future__ import annotations
 import exchange_calendars as xcals
 import pandas as pd
 
-from market_prices import intervals
+from market_prices import intervals, errors
 from market_prices.prices.base import PricesBase
 from market_prices.utils import calendar_utils as calutils
 
@@ -83,10 +83,6 @@ def get_sessions_range_for_bi(
         end_session = end_session.tz_convert(None)
 
     return start_session, end_session
-
-
-def _raise_not_found_error():
-    raise ValueError("Required sessions lengths not found!")
 
 
 def _required_session_lengths(
@@ -171,10 +167,10 @@ def get_conforming_sessions_var(
             break
         sessions = available_sessions[i : i + number]
         if _required_sessions_lengths(
-            sessions, calendars, sessions_lengths  # type: ignore[arg-type]  # as req.
+            sessions, calendars, sessions_lengths
         ):
             return pd.DatetimeIndex(sessions)
-    return _raise_not_found_error()
+    raise errors.TutorialDataUnavailableError(start, end, calendars, sessions_lengths)
 
 
 def get_conforming_sessions(
@@ -211,7 +207,7 @@ def get_conforming_sessions(
 
     Raises
     ------
-    ValueError
+    errors.TutorialDataUnavailableError
         If no run of `number` sessions from `start` through `end` fulfill
         the defined `session_length`.
     """
@@ -267,8 +263,8 @@ def get_conforming_cc_sessions_var(
             break
         sessions = available_sessions[i : i + number]
         if cc.sessions_length(sessions[0], sessions[-1]).to_list() == sessions_lengths:
-            return sessions  # type: ignore[return-value]  # is Datetimeindex as req.
-    return _raise_not_found_error()
+            return sessions
+    raise errors.TutorialDataUnavailableError(start, end, cc, sessions_lengths)
 
 
 def get_conforming_cc_sessions(
@@ -309,8 +305,8 @@ def get_conforming_cc_sessions(
     """
     srs = cc.sessions_length(start, end) == session_length
     if not srs.any():
-        _raise_not_found_error()
+        raise errors.TutorialDataUnavailableError(start, end, cc, session_length)
     sessions = xcals.utils.pandas_utils.longest_run(srs)
     if len(sessions) < number:
-        _raise_not_found_error()
+        raise errors.TutorialDataUnavailableError(start, end, cc, session_length)
     return sessions[:number]

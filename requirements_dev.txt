@@ -16,6 +16,8 @@ black==22.3.0
     # via market-prices (setup.cfg)
 certifi==2021.10.8
     # via requests
+cfgv==3.3.1
+    # via pre-commit
 charset-normalizer==2.0.12
     # via requests
 click==8.1.3
@@ -30,8 +32,12 @@ colorama==0.4.4
     #   tqdm
 dill==0.3.4
     # via pylint
+distlib==0.3.4
+    # via virtualenv
 exchange-calendars==3.6.2
     # via market-prices (setup.cfg)
+filelock==3.7.0
+    # via virtualenv
 flake8==4.0.1
     # via
     #   flake8-docstrings
@@ -40,6 +46,8 @@ flake8-docstrings==1.6.0
     # via market-prices (setup.cfg)
 hypothesis==6.46.6
     # via market-prices (setup.cfg)
+identify==2.5.1
+    # via pre-commit
 idna==3.3
     # via requests
 iniconfig==1.1.1
@@ -63,6 +71,8 @@ mypy-extensions==0.4.3
     #   black
     #   market-prices (setup.cfg)
     #   mypy
+nodeenv==1.6.0
+    # via pre-commit
 numexpr==2.8.1
     # via tables
 numpy==1.22.3
@@ -94,8 +104,11 @@ platformdirs==2.5.2
     # via
     #   black
     #   pylint
+    #   virtualenv
 pluggy==1.0.0
     # via pytest
+pre-commit==2.19.0
+    # via market-prices (setup.cfg)
 py==1.11.0
     # via pytest
 pycodestyle==2.8.0
@@ -127,18 +140,24 @@ pytz==2022.1
     #   exchange-calendars
     #   market-prices (setup.cfg)
     #   pandas
+pyyaml==6.0
+    # via pre-commit
 requests==2.27.1
     # via requests-futures
 requests-futures==1.0.0
     # via yahooquery
 six==1.16.0
-    # via python-dateutil
+    # via
+    #   python-dateutil
+    #   virtualenv
 snowballstemmer==2.2.0
     # via pydocstyle
 sortedcontainers==2.4.0
     # via hypothesis
 tables==3.7.0
     # via market-prices (setup.cfg)
+toml==0.10.2
+    # via pre-commit
 tomli==2.0.1
     # via
     #   black
@@ -161,6 +180,8 @@ typing-extensions==4.2.0
     #   pylint
 urllib3==1.26.9
     # via requests
+virtualenv==20.14.1
+    # via pre-commit
 wheel==0.37.1
     # via pip-tools
 wrapt==1.14.1

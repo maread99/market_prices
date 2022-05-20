@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections import abc
+import re
 
 import pytest
 import pandas as pd
@@ -11,7 +12,7 @@ from pandas import Timestamp as T
 from pytz import UTC
 import exchange_calendars as xcals
 
-from market_prices import intervals
+from market_prices import intervals, errors
 from market_prices.utils import calendar_utils as calutils
 from market_prices.prices.base import PricesBase
 import market_prices.support.tutorial_helpers as m
@@ -260,7 +261,19 @@ def test_get_conforming_sessions(xlon, xhkg, xnys):
     f_cc = m.get_conforming_cc_sessions
     f_cc_var = m.get_conforming_cc_sessions_var
 
-    match = "Required sessions lengths not found!"
+    def match(
+        cal_param: list[xcals.ExchangeCalendar] | calutils.CompositeCalendar,
+        lengths_param: pd.Timedelta | list[pd.Timedelta] | list[list[pd.Timedelta]],
+        start: pd.Timestamp,
+        end: pd.Timestamp,
+    ):
+        return re.escape(
+            "The requested number of consecutive sessions of the requested length(s)"
+            f" are not available from {start} through {end}."
+            f"\nThe `calendars` or `cc` parameter was receieved as {cal_param}."
+            "\nThe `sessions_lengths` or `session_length` parameter was receieved"
+            f" as {lengths_param}."
+        )
 
     def assertion(rtrn: pd.DatetimeIndex, expected: pd.DatetimeIndex):
         # TODO xcals 4.0 lose this function / move clients to direct assert statements
@@ -295,15 +308,19 @@ def test_get_conforming_sessions(xlon, xhkg, xnys):
 
     # beyond limit
     num += 1
-    with pytest.raises(ValueError, match=match):
+    msg = match(cals, [[length] * num], start, end)
+    with pytest.raises(errors.TutorialDataUnavailableError, match=msg):
         f(cals, [length], start, end, num)
-    with pytest.raises(ValueError, match=match):
-        f_cc(cc, length, start, end, num)
+    args = cc, length, start, end
+    with pytest.raises(errors.TutorialDataUnavailableError, match=match(*args)):
+        f_cc(*args, num)
     lengths = [[full_session_xlon] * num]
-    with pytest.raises(ValueError, match=match):
-        f_var(cals, lengths, start, end)
-    with pytest.raises(ValueError, match=match):
-        f_cc_var(cc, [length] * num, start, end)
+    args = cals, lengths, start, end
+    with pytest.raises(errors.TutorialDataUnavailableError, match=match(*args)):
+        f_var(*args)
+    args = cc, [length] * num, start, end
+    with pytest.raises(errors.TutorialDataUnavailableError, match=match(*args)):
+        f_cc_var(*args)
 
     length = half_session_xlon
     lengths = [[length]]
@@ -315,27 +332,35 @@ def test_get_conforming_sessions(xlon, xhkg, xnys):
     assertion(f_cc_var(cc, [length], start, end), expected)
 
     num += 1
-    with pytest.raises(ValueError, match=match):
+    msg = match(cals, [[length] * num], start, end)
+    with pytest.raises(errors.TutorialDataUnavailableError, match=msg):
         f(cals, [length], start, end, num)
-    with pytest.raises(ValueError, match=match):
-        f_cc(cc, length, start, end, num)
+    args = cc, length, start, end
+    with pytest.raises(errors.TutorialDataUnavailableError, match=match(*args)):
+        f_cc(*args, num)
     lengths = [[length] * num]
-    with pytest.raises(ValueError, match=match):
-        f_var(cals, lengths, start, end)
-    with pytest.raises(ValueError, match=match):
-        f_cc_var(cc, [length] * num, start, end)
+    args = cals, lengths, start, end
+    with pytest.raises(errors.TutorialDataUnavailableError, match=match(*args)):
+        f_var(*args)
+    args = cc, [length] * num, start, end
+    with pytest.raises(errors.TutorialDataUnavailableError, match=match(*args)):
+        f_cc_var(*args)
 
     length = pd.Timedelta(4, "H")
     lengths = [[length]]
     num = 1
-    with pytest.raises(ValueError, match=match):
+    msg = match(cals, [[length] * num], start, end)
+    with pytest.raises(errors.TutorialDataUnavailableError, match=msg):
         assert f(cals, [length], start, end, num)
-    with pytest.raises(ValueError, match=match):
-        assert f_cc(cc, length, start, end, num)
-    with pytest.raises(ValueError, match=match):
-        assert f_var(cals, lengths, start, end)
-    with pytest.raises(ValueError, match=match):
-        assert f_cc_var(cc, [length], start, end)
+    args = cc, length, start, end
+    with pytest.raises(errors.TutorialDataUnavailableError, match=match(*args)):
+        assert f_cc(*args, num)
+    args = cals, lengths, start, end
+    with pytest.raises(errors.TutorialDataUnavailableError, match=match(*args)):
+        assert f_var(*args)
+    args = cc, [length], start, end
+    with pytest.raises(errors.TutorialDataUnavailableError, match=match(*args)):
+        assert f_cc_var(*args)
 
     # test var for variatons
     full_expected = pd.DatetimeIndex(
@@ -377,15 +402,22 @@ def test_get_conforming_sessions(xlon, xhkg, xnys):
 
     # beyond limit
     num += 1
-    with pytest.raises(ValueError, match=match):
+    lengths_msg_arg = [
+        [session_length_cal] * num for session_length_cal in length_by_cal
+    ]
+    msg = match(cals, lengths_msg_arg, start, end)
+    with pytest.raises(errors.TutorialDataUnavailableError, match=msg):
         f(cals, length_by_cal, start, end, num)
-    with pytest.raises(ValueError, match=match):
-        f_cc(cc, length_cc, start, end, num)
+    args = cc, length_cc, start, end
+    with pytest.raises(errors.TutorialDataUnavailableError, match=match(*args)):
+        f_cc(*args, num)
     lengths_by_cal = [[full_session_xlon] * num, [full_session_xnys] * num]
-    with pytest.raises(ValueError, match=match):
-        f_var(cals, lengths_by_cal, start, end)
-    with pytest.raises(ValueError, match=match):
-        f_cc_var(cc, [length_cc] * num, start, end)
+    args = cals, lengths_by_cal, start, end
+    with pytest.raises(errors.TutorialDataUnavailableError, match=match(*args)):
+        f_var(*args)
+    args = cc, [length_cc] * num, start, end
+    with pytest.raises(errors.TutorialDataUnavailableError, match=match(*args)):
+        f_cc_var(*args)
 
     lengths = [half_session_xlon, no_session]
     length_cc = half_session_xlon
@@ -398,15 +430,22 @@ def test_get_conforming_sessions(xlon, xhkg, xnys):
     assertion(f_cc_var(cc, [length_cc], start, end), expected)
 
     num += 1
-    with pytest.raises(ValueError, match=match):
+    lengths_msg_arg = [
+        [session_length_cal] * num for session_length_cal in lengths
+    ]
+    msg = match(cals, lengths_msg_arg, start, end)
+    with pytest.raises(errors.TutorialDataUnavailableError, match=msg):
         f(cals, lengths, start, end, num)
-    with pytest.raises(ValueError, match=match):
-        f_cc(cc, length_cc, start, end, num)
+    args = cc, length_cc, start, end
+    with pytest.raises(errors.TutorialDataUnavailableError, match=match(*args)):
+        f_cc(*args, num)
     lengths_by_cal = [[half_session_xlon] * num, [no_session] * num]
-    with pytest.raises(ValueError, match=match):
-        f_var(cals, lengths_by_cal, start, end)
-    with pytest.raises(ValueError, match=match):
-        f_cc_var(cc, [length_cc] * num, start, end)
+    args = cals, lengths_by_cal, start, end
+    with pytest.raises(errors.TutorialDataUnavailableError, match=match(*args)):
+        f_var(*args)
+    args = cc, [length_cc] * num, start, end
+    with pytest.raises(errors.TutorialDataUnavailableError, match=match(*args)):
+        f_cc_var(*args)
 
     # test var for variatons
     full_expected = pd.DatetimeIndex(
@@ -471,19 +510,26 @@ def test_get_conforming_sessions(xlon, xhkg, xnys):
 
     # beyond limit
     num += 1
-    with pytest.raises(ValueError, match=match):
+    lengths_msg_arg = [
+        [session_length_cal] * num for session_length_cal in length_by_cal
+    ]
+    msg = match(cals, lengths_msg_arg, start, end)
+    with pytest.raises(errors.TutorialDataUnavailableError, match=msg):
         f(cals, length_by_cal, start, end, num)
-    with pytest.raises(ValueError, match=match):
-        f_cc(cc, length_cc, start, end, num)
+    args = cc, length_cc, start, end
+    with pytest.raises(errors.TutorialDataUnavailableError, match=match(*args)):
+        f_cc(*args, num)
     lengths_by_cal = [
         [full_session_xlon] * num,
         [full_session_xnys] * num,
         [full_session_xhkg] * num,
     ]
-    with pytest.raises(ValueError, match=match):
-        f_var(cals, lengths_by_cal, start, end)
-    with pytest.raises(ValueError, match=match):
-        f_cc_var(cc, [length_cc] * num, start, end)
+    args = cals, lengths_by_cal, start, end
+    with pytest.raises(errors.TutorialDataUnavailableError, match=match(*args)):
+        f_var(*args)
+    args = cc, [length_cc] * num, start, end
+    with pytest.raises(errors.TutorialDataUnavailableError, match=match(*args)):
+        f_cc_var(*args)
 
     # test var for variatons
     lengths = [
