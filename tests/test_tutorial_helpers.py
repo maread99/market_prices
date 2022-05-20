@@ -430,9 +430,7 @@ def test_get_conforming_sessions(xlon, xhkg, xnys):
     assertion(f_cc_var(cc, [length_cc], start, end), expected)
 
     num += 1
-    lengths_msg_arg = [
-        [session_length_cal] * num for session_length_cal in lengths
-    ]
+    lengths_msg_arg = [[session_length_cal] * num for session_length_cal in lengths]
     msg = match(cals, lengths_msg_arg, start, end)
     with pytest.raises(errors.TutorialDataUnavailableError, match=msg):
         f(cals, lengths, start, end, num)

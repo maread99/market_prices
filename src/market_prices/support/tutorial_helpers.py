@@ -166,9 +166,7 @@ def get_conforming_sessions_var(
         if stop > num_available_sessions:
             break
         sessions = available_sessions[i : i + number]
-        if _required_sessions_lengths(
-            sessions, calendars, sessions_lengths
-        ):
+        if _required_sessions_lengths(sessions, calendars, sessions_lengths):
             return pd.DatetimeIndex(sessions)
     raise errors.TutorialDataUnavailableError(start, end, calendars, sessions_lengths)
 

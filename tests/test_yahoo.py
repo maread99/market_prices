@@ -131,12 +131,14 @@ class TestDataUnavailableError(Exception):
 
 def skip_if_data_unavailable(f: abc.Callable) -> abc.Callable:
     """Decorator to skip test if fails on `TestDataUnavailableError`."""
+
     @functools.wraps(f)
     def wrapped_test(*args, **kwargs):
         try:
             f(*args, **kwargs)
         except TestDataUnavailableError:
             pytest.skip("Valid test inputs unavailable.")
+
     return wrapped_test
 
 
