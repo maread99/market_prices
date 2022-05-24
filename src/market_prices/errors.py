@@ -618,6 +618,19 @@ class CalendarExpiredError(CalendarError):
         )
 
 
+class CalendarTooShortError(CalendarError):
+    """Calendar is too short to support intraday price history."""
+
+    def __init__(self, calendar: xcals.ExchangeCalendar, limit: pd.Timestamp):
+        self._msg = (
+            f"Calendar '{calendar.name}' is too short to support all available intraday"
+            f" price history. Calendar starts '{calendar.first_minute}' whilst earliest"
+            f" minute for which intraday price history is available is '{limit}'"
+            " (all calendars must be valid over at least the period for which intraday"
+            " price data is available)."
+        )
+
+
 class CompositeIndexConflict(MarketPricesError):
     """Some indices of composite trading index are misaligned."""
 
@@ -710,8 +723,8 @@ class PricesMissingWarning(PricesWarning):
         date_format = "%Y-%m-%d"
         sessions = sessions.format(date_format=date_format)
         self._msg = (
-            f"Intraday prices from {source} are missing for '{symbol}' at the"
-            f" base interval '{bi}' for the following sessions: {sessions}"
+            f"Prices from {source} are missing for '{symbol}' at the"
+            f" base interval '{bi}' for the following sessions: {sessions}."
         )
 
 
@@ -722,7 +735,7 @@ class DuplicateIndexWarning(PricesWarning):
         self._msg = (
             f"\nThe following indices for symbol '{symbol}' have"
             f" been removed as they were duplicated in data receieved from"
-            f" source:\n{duplicates}"
+            f" source:\n{duplicates}."
         )
 
 

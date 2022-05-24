@@ -2554,6 +2554,7 @@ class TestGetterIntraday:
 
             drg = self.get_drg(cal, pp, strict=True, **drg_kwargs)
             start = end - (cal.day * pp["days"])
+            start = start if cal.is_trading_minute(start) else cal.previous_close(start)
             error_msg = re.escape(
                 f"Prices unavailable as start ({helpers.fts(start)}) is earlier than"
                 " the earliest minute for which price data is available. The earliest"

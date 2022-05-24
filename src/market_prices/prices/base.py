@@ -571,7 +571,8 @@ class PricesBase(metaclass=abc.ABCMeta):
 
         ll = None if self.bi_daily is None else self.base_limits[self.bi_daily]
         if isinstance(ll, pd.Timedelta):
-            ll = pd.Timestamp.now().floor("D") - ll
+            # typing - recognises as datetime rather than timestamp
+            ll = helpers.now(intervals.BI_ONE_DAY) - ll  # type: ignore[assignment]
         # margin to ensure calendar's first session is not later than limit.
         kwargs = {"start": ll - pd.Timedelta(14, "D")} if ll is not None else {}
         for k, v in d.items():
@@ -590,9 +591,22 @@ class PricesBase(metaclass=abc.ABCMeta):
             if cal.last_minute < required_bound:
                 raise errors.CalendarExpiredError(cal, cal.last_minute, required_bound)
 
-            assert isinstance(ll, pd.Timestamp) or ll is None
+            # raise error if calendar does not cover period over which intraday
+            # prices are available. Could lose this restriction although would add
+            # complexity. Cleaner to restrict the calendars here.
+            intraday_ll = self.base_limits[self.bis_intraday[-1]]
+            if isinstance(intraday_ll, pd.Timedelta):
+                # typing - recognises as datetime rather than timestamp
+                intraday_ll = helpers.now() - intraday_ll  # type: ignore[assignment]
+            if cal.first_minute > intraday_ll:
+                assert isinstance(intraday_ll, pd.Timestamp)
+                raise errors.CalendarTooShortError(cal, intraday_ll)
             # TODO xcals 4.0 lose wrapper
+
+            assert isinstance(ll, pd.Timestamp) or ll is None
             if ll is not None and helpers.to_tz_naive(cal.first_session) > ll:
+                # raise warning if calendar does not cover period over which daily
+                # prices available.
                 warnings.warn(errors.CalendarTooShortWarning(cal, ll))
 
         self._calendars = d
@@ -730,18 +744,29 @@ class PricesBase(metaclass=abc.ABCMeta):
         """Intraday base intervals."""
         return self.bis.intraday_bis()
 
+    @functools.cached_property
+    def _calendars_latest_first_session(self) -> pd.Timestamp:
+        """Latest first session of any calendar."""
+        return self.cc.first_session
+
     def _set_pdata(self):
         """Set --_pdata-- to dict with key as bi and value as `data.Data`."""
         d = {}
         max_delay = self.max_delay
         for bi in self.bis:
             delay = max_delay if bi.is_intraday else None
+            ll = self.base_limits[bi]
+            if bi.is_daily and ll is not None:
+                # Consider any calendar limitations
+                if isinstance(ll, pd.Timedelta):
+                    ll = helpers.now(bi) - ll
+                ll = max(ll, self._calendars_latest_first_session)
             d[bi] = data.Data(
                 request=self._request_data,
                 cc=self.cc,
                 bi=bi,
                 delay=delay,
-                left_limit=self.base_limits[bi],
+                left_limit=ll,
             )
         self._pdata = d
 
@@ -861,10 +886,7 @@ class PricesBase(metaclass=abc.ABCMeta):
                 if ll is None:
                     start = None
                 else:
-                    try:
-                        start = self.cc.date_to_session(ll, "next")
-                    except xcals.errors.DateOutOfBounds:
-                        start = self.cc.first_session
+                    start = self.cc.date_to_session(ll, "next")
                 end = self.cc.date_to_session(rl, "previous")
             else:
                 assert ll is not None
@@ -1763,7 +1785,7 @@ class PricesBase(metaclass=abc.ABCMeta):
         # NOTE: If develop data.Data to not have a hard right limit then will be able
         # to simply pass through drg.daterange[0] to ._get_bi_table.
         bi_now = helpers.now(bi) - self.gpp.delay + bi  # + bi to include live interval
-        end = min(end, bi_now)
+        end = min(end, bi_now)  # type: ignore[assignment]  # datetime Timestamp issue
         table = self._get_bi_table(bi, (start, end))
         return table, bi
 
@@ -1793,7 +1815,9 @@ class PricesBase(metaclass=abc.ABCMeta):
         df = df.groupby(target_indices).agg(agg_f)
         df.index = pd.IntervalIndex(df.index)  # convert from CategoricalIndex
         df = helpers.volume_to_na(df)
-        df.index = pdutils.interval_index_new_tz(df.index, pytz.UTC)
+        df.index = pdutils.interval_index_new_tz(
+            df.index, pytz.UTC  # type: ignore[arg-type]  # expects mptype
+        )
         if df.pt.interval is None:
             # Overlapping indices of a calendar-specific trading trading were curtailed.
             warnings.warn(errors.IntervalIrregularWarning())
@@ -1989,7 +2013,9 @@ class PricesBase(metaclass=abc.ABCMeta):
             else:  # downsample for monthly
                 pdfreq = ds_interval.as_pdfreq
                 df = helpers.resample(df_bi, pdfreq, origin="start")
-                df.index = pdutils.get_interval_index(df.index, pdfreq)
+                df.index = pdutils.get_interval_index(
+                    df.index, pdfreq  # type: ignore[arg-type]  # expects mptype
+                )
                 if df.pt.first_ts < self.limits[intervals.BI_ONE_DAY][0]:
                     # This can happen if getting all data. As the Getter's .daterange
                     # can return start as None (at least as at April 22). Ideal would
@@ -2089,6 +2115,7 @@ class PricesBase(metaclass=abc.ABCMeta):
             if self.gpp.intraday_duration:
                 raise
             # context manager won't have exited when error raised
+            # pylint: disable=used-before-assignment
             self.gpp.strict, self.gpp.priority = saved_values
             intraday_available = False
 
@@ -3452,7 +3479,7 @@ class PricesBase(metaclass=abc.ABCMeta):
         T = pd.Timestamp  # pylint: disable=invalid-name
         # next line and `session_` only required so mypy accepts change of type from
         # pydantic mptype to Timestamp.
-        session_ = None if session is None else T(session)  # type: ignore[call-overload]
+        session_ = None if session is None else T(session)  # type: ignore[arg-type]
         mr_session = self.last_requestable_session_any
         if session_ is None:
             table = self._get_bi_table(self.bi_daily, (mr_session, mr_session))
@@ -3516,9 +3543,7 @@ class PricesBase(metaclass=abc.ABCMeta):
         assert self.bi_daily is not None
         # next line and `date_` only required so mypy accepts change of type from
         # pydantic mptype to Timestamp.
-        date_ = (
-            None if date is None else pd.Timestamp(date)  # type: ignore[call-overload]
-        )
+        date_ = None if date is None else pd.Timestamp(date)  # type: ignore[arg-type]
         mr_session = self.last_requestable_session_any
         if date_ is None:
             date_ = mr_session
@@ -3742,12 +3767,13 @@ class PricesBase(metaclass=abc.ABCMeta):
         """
         # pylint: disable=missing-param-doc, differing-type-doc, differing-param-doc
         # pylint: disable=too-complex, too-many-locals, too-many-branches
+        # pylint: disable=too-many-statements
         assert tz is None or isinstance(tz, pytz.BaseTzInfo)
         tz_ = tz if tz is not None else self.tz_default
         T = pd.Timestamp  # pylint: disable=invalid-name
         # next line and `minute_` only required so mypy accepts change of type from
         # pydantic mptype to Timestamp.
-        minute_ = None if minute is None else T(minute)  # type: ignore[call-overload]
+        minute_ = None if minute is None else T(minute)  # type: ignore[arg-type]
         l_limit, r_limit = self.earliest_requestable_minute, helpers.now()
         if minute_ is not None:
             minute_ = parsing.parse_timestamp(minute_, tz_)

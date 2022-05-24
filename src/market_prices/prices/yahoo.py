@@ -324,6 +324,10 @@ class PricesYahoo(base.PricesBase):
             symbols, formatted=False, asynchronous=True, max_workers=8, proxies=None
         )  # other options not exposed
 
+        self._yahoo_exchange_name: dict[str, str]
+        # Will raise error if any symbol not valid
+        self._set_yahoo_exchange_name()
+
         if calendars is None or (
             isinstance(calendars, dict) and len(calendars) < len(symbols)
         ):
@@ -338,8 +342,21 @@ class PricesYahoo(base.PricesBase):
 
     # Methods called via constructor
 
-    def _yahoo_exchange_name(self, symbol: str) -> str:
-        return self._ticker.quotes[symbol]["fullExchangeName"]
+    def _set_yahoo_exchange_name(self):
+        d = {}
+        for s in self._ticker.symbols:
+            try:
+                d[s] = self._ticker.quotes[s]["fullExchangeName"]
+            except (KeyError, TypeError) as err:
+                if isinstance(err, TypeError) and not err.args[0].startswith(
+                    "string indices must be integers"
+                ):
+                    raise
+                else:
+                    raise ValueError(
+                        f"Symbol '{s}' is not recognised by the yahoo API."
+                    ) from None
+        self._yahoo_exchange_name = d
 
     def _ascertain_calendars(
         self, calendars: dict[str, Calendar] | None
@@ -354,7 +371,7 @@ class PricesYahoo(base.PricesBase):
         for s in self._ticker.symbols:
             if s in calendars:
                 continue
-            exchange = self._yahoo_exchange_name(s)
+            exchange = self._yahoo_exchange_name[s]
             if exchange in all_names:
                 cal = exchange
             elif exchange in self.YAHOO_EXCHANGE_TO_CALENDAR:
@@ -417,7 +434,7 @@ class PricesYahoo(base.PricesBase):
                 delay = 0
             elif "=F" in s:
                 delay = 10
-            elif self._yahoo_exchange_name(s) in ["CCC", "CCY"]:
+            elif self._yahoo_exchange_name[s] in ["CCC", "CCY"]:
                 delay = 0
             else:
                 msg = (
@@ -430,15 +447,22 @@ class PricesYahoo(base.PricesBase):
             d[s] = delay
         return d
 
-    def _set_daily_bi_limit(self):
+    @functools.cached_property
+    def _first_trade_dates(self) -> dict[str, pd.Timestamp | None]:
         quote_type = self._ticker.quote_type
-        earliest_dates = []
+        first_trade_dates: dict[str, pd.Timestamp | None] = {}
         for s in self._ticker.symbols:
-            date_str = quote_type[s]["firstTradeDateEpochUtc"]
-            if date_str is not None:
-                earliest_dates.append(pd.Timestamp(date_str))
-        if earliest_dates:
-            earliest = min(earliest_dates).normalize()
+            first_trade_str = quote_type[s]["firstTradeDateEpochUtc"]
+            if first_trade_str is None:
+                first_trade_dates[s] = None
+            else:
+                first_trade_dates[s] = pd.Timestamp(first_trade_str).normalize()
+        return first_trade_dates
+
+    def _set_daily_bi_limit(self):
+        dates = [date for date in self._first_trade_dates.values() if date is not None]
+        if dates:
+            earliest = min(dates)
             self._update_base_limits({self.BaseInterval.D1: earliest})
 
     # Localised yahooquery methods.
@@ -798,7 +822,7 @@ class PricesYahoo(base.PricesBase):
             # assert all values for missing sessions are missing
             assert missing_sessions_groupby.value_counts().empty
             group_sizes = missing_sessions_groupby.size()
-            bv_sizes = group_sizes != 0  # pylint: disable[compare-to-zero]
+            bv_sizes = group_sizes != 0  # pylint: disable=compare-to-zero
             sessions = group_sizes[bv_sizes].index
             if isinstance(sessions[0], (float, int)):
                 sessions = pd.DatetimeIndex([opens.index[int(i)] for i in sessions])
@@ -815,6 +839,40 @@ class PricesYahoo(base.PricesBase):
             df.loc[na_rows, [col]] = adj_close[na_rows]
 
         df["volume"] = df["volume"].fillna(value=0)
+        return df
+
+    def _fill_reindexed_daily(
+        self,
+        df: pd.DataFrame,
+        cal: xcals.ExchangeCalendar,
+        symbol: str,
+    ) -> pd.DataFrame:
+        """Fill, for a single `symbol`, rows with missing data."""
+        na_rows = df.close.isna() & (df.index > self._first_trade_dates[symbol])
+        if not na_rows.any():
+            return df
+
+        delay = self.delays[symbol]
+        if na_rows[-1] and helpers.now() <= cal.session_open(df.index[-1]) + delay:
+            na_rows.iloc[-1] = False
+            if not na_rows.any():
+                return df
+
+        # fill
+        adj_close = df["close"].ffill()
+        bv = adj_close.isna()
+        if bv.any():
+            # bfill open to fill any missing initial rows with next available
+            # session's open
+            adj_close[bv] = df["open"].bfill()[bv]
+
+        df.loc[na_rows, ["open", "high", "low", "close"]] = adj_close[na_rows]
+        df.loc[na_rows, "volume"] = 0
+        warnings.warn(
+            errors.PricesMissingWarning(
+                symbol, self.bis.D1, na_rows.index[na_rows], "Yahoo"
+            )
+        )
         return df
 
     @staticmethod
@@ -921,6 +979,7 @@ class PricesYahoo(base.PricesBase):
     ) -> pd.DataFrame:
         """Tidy DataFrame of prices returned by `_request_yahoo--`."""
         # pylint: disable=too-complex, too-many-locals, too-many-branches
+        # pylint: disable=too-many-statements
         df = helpers.order_cols(df)
         groupby = df.groupby(level="symbol")
         sdfs, empty_sdfs = [], []
@@ -957,18 +1016,16 @@ class PricesYahoo(base.PricesBase):
                 continue
             sdf = self._remove_yahoo_duplicates(sdf, symbol)
             start = start if start is not None else sdf.index[0]
-            if interval.is_intraday:
-                end_ = end
-            else:
-                end_ = sdf.index[-1]
             calendar = self.calendars[symbol]
-            index = self._get_trading_index(calendar, interval, start, end_)
+            index = self._get_trading_index(calendar, interval, start, end)
             reindex_index = (
                 index if interval.is_daily else index.left  # type: ignore[attr-defined]
             )
             sdf = sdf.reindex(reindex_index)
             if interval.is_intraday:
                 sdf = self._fill_reindexed(sdf, calendar, interval, symbol)
+            else:
+                sdf = self._fill_reindexed_daily(sdf, calendar, symbol)
             sdf.index = index
             sdf.columns = get_columns_index(sdf.columns)
             if sdf.empty:

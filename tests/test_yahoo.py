@@ -51,6 +51,7 @@ UTC = pytz.UTC
 # ...sessions that yahoo temporarily fails to return prices for if (seemingly)
 # send a high frequency of requests for prices from the same IP address.
 _blacklist = (
+    pd.Timestamp("2022-05-23"),
     pd.Timestamp("2022-05-10"),
     pd.Timestamp("2022-04-27"),
     pd.Timestamp("2022-04-22"),
@@ -95,13 +96,8 @@ class skip_if_fails_and_today_blacklisted:
     corresponding with calendar names passed to decorator.
     """
 
-    def __init__(self, cal_names: list[str]):
+    def __init__(self, cal_names: tuple[list[str]]):
         self.cal_names = cal_names
-
-    @property
-    def cc(self) -> calutils.CompositeCalendar:
-        cals = [xcals.get_calendar(name) for name in self.cal_names]
-        return calutils.CompositeCalendar(cals)
 
     def __call__(self, f) -> abc.Callable:
         @functools.wraps(f)
@@ -109,8 +105,10 @@ class skip_if_fails_and_today_blacklisted:
             try:
                 f(*args, **kwargs)
             except errors.PricesUnavailableFromSourceError:
-                if current_session_in_blacklist(self.cc):
-                    pytest.skip("Today in blacklist.")
+                for names in self.cal_names:
+                    cals = [xcals.get_calendar(name) for name in names]
+                    if current_session_in_blacklist(calutils.CompositeCalendar(cals)):
+                        pytest.skip(f"Skipping {f.__name__}: today in blacklist.")
                 raise
 
         return wrapped_test
@@ -137,7 +135,7 @@ def skip_if_data_unavailable(f: abc.Callable) -> abc.Callable:
         try:
             f(*args, **kwargs)
         except TestDataUnavailableError:
-            pytest.skip("Valid test inputs unavailable.")
+            pytest.skip(f"Skipping {f.__name__}: valid test inputs unavailable.")
 
     return wrapped_test
 
@@ -359,8 +357,8 @@ def test__fill_reindexed():
     )
     df = pd.DataFrame(ohlcv, index=index, columns=columns)
     match = re.escape(
-        f"Intraday prices from Yahoo are missing for '{mock_symbol}' at the"
-        f" base interval '{mock_bi}' for the following sessions: ['2022-01-02']"
+        f"Prices from Yahoo are missing for '{mock_symbol}' at the base interval"
+        f" '{mock_bi}' for the following sessions: ['2022-01-02']"
     )
     with pytest.warns(errors.PricesMissingWarning, match=match):
         rtrn = f(df, xlon)
@@ -397,8 +395,8 @@ def test__fill_reindexed():
     )
     df = pd.DataFrame(ohlcv, index=index, columns=columns)
     match = re.escape(
-        f"Intraday prices from Yahoo are missing for '{mock_symbol}' at the"
-        f" base interval '{mock_bi}' for the following sessions: ['2022-01-01']"
+        f"Prices from Yahoo are missing for '{mock_symbol}' at the base interval"
+        f" '{mock_bi}' for the following sessions: ['2022-01-01']"
     )
     with pytest.warns(errors.PricesMissingWarning, match=match):
         rtrn = f(df, xlon)
@@ -468,8 +466,8 @@ def test__fill_reindexed():
     df = pd.DataFrame(ohlcv, index=index, columns=columns)
     match_sessions = ["2022-01-05", "2022-01-07", "2022-01-10", "2022-01-12"]
     match = re.escape(
-        f"Intraday prices from Yahoo are missing for '{mock_symbol}' at the"
-        f" base interval '{mock_bi}' for the following sessions: {match_sessions}"
+        f"Prices from Yahoo are missing for '{mock_symbol}' at the base interval"
+        f" '{mock_bi}' for the following sessions: {match_sessions}"
     )
     with pytest.warns(errors.PricesMissingWarning, match=match):
         rtrn = f(df, xlon)
@@ -505,6 +503,163 @@ def test__fill_reindexed():
     assert_frame_equal(rtrn, expected)
 
 
+def test__fill_reindexed_daily(one_min, monkeypatch):
+    """Verify staticmethod PricesYahoo._fill_reindexed_daily."""
+    columns = pd.Index(["open", "high", "low", "close", "volume"])
+    symbol = "AZN.L"
+    xlon = xcals.get_calendar("XLON", start="1990-01-01", side="left")
+    delay = pd.Timedelta(15, "T")
+    prices = m.PricesYahoo(symbol, calendars=xlon, delays=delay.components.minutes)
+
+    def f(df: pd.DataFrame, cal: xcals.ExchangeCalendar) -> pd.DataFrame:
+        return prices._fill_reindexed_daily(df, cal, symbol)
+
+    def match(sessions: pd.DatetimeIndex) -> str:
+        return re.escape(
+            f"Prices from Yahoo are missing for '{symbol}' at the base"
+            f" interval '{prices.bis.D1}' for the following sessions:"
+            f" {sessions}."
+        )
+
+    index = pd.DatetimeIndex(
+        [
+            "2021-01-04",
+            "2021-01-05",
+            "2021-01-06",
+            "2021-01-07",
+            "2021-01-08",
+            "2021-01-11",
+            "2021-01-12",
+            "2021-01-13",
+            "2021-01-14",
+        ]
+    )
+    ohlcv = (
+        [np.NaN, np.NaN, np.NaN, np.NaN, np.NaN],
+        [1.4, 1.8, 1.2, 1.6, 11],
+        [2.4, 2.8, 2.2, 2.6, 22],
+        [np.NaN, np.NaN, np.NaN, np.NaN, np.NaN],
+        [np.NaN, np.NaN, np.NaN, np.NaN, np.NaN],
+        [5.4, 5.8, 5.2, 5.6, 55],
+        [np.NaN, np.NaN, np.NaN, np.NaN, np.NaN],
+        [7.4, 7.8, 7.2, 7.6, 77],
+        [np.NaN, np.NaN, np.NaN, np.NaN, np.NaN],
+    )
+
+    df = pd.DataFrame(ohlcv, index=index, columns=columns)
+
+    # verify when now is after session open + delay missing values are filled
+    # and a missing prices warning is raised.
+    now = xlon.session_open(index[-1]) + delay + one_min
+    mock_now(monkeypatch, now)
+    missing_sessions = pd.DatetimeIndex(
+        [
+            "2021-01-04",
+            "2021-01-07",
+            "2021-01-08",
+            "2021-01-12",
+            "2021-01-14",
+        ]
+    ).format(date_format="%Y-%m-%d")
+
+    with pytest.warns(errors.PricesMissingWarning, match=match(missing_sessions)):
+        rtrn = f(df.copy(), xlon)
+
+    ohlcv_expected = (
+        [1.4, 1.4, 1.4, 1.4, 0],
+        [1.4, 1.8, 1.2, 1.6, 11],
+        [2.4, 2.8, 2.2, 2.6, 22],
+        [2.6, 2.6, 2.6, 2.6, 0],
+        [2.6, 2.6, 2.6, 2.6, 0],
+        [5.4, 5.8, 5.2, 5.6, 55],
+        [5.6, 5.6, 5.6, 5.6, 0],
+        [7.4, 7.8, 7.2, 7.6, 77],
+        [7.6, 7.6, 7.6, 7.6, 0],
+    )
+    expected = pd.DataFrame(
+        ohlcv_expected, index=index, columns=columns, dtype="float64"
+    )
+    assert_frame_equal(rtrn, expected)
+
+    # verify when now is on limit of session open + delay missing values for
+    # last row are included and raised warning does not include last row.
+    mock_now(monkeypatch, now - one_min)
+    missing_sessions = missing_sessions[:-1]
+
+    with pytest.warns(errors.PricesMissingWarning, match=match(missing_sessions)):
+        rtrn = f(df.copy(), xlon)
+
+    missing_row = pd.DataFrame(
+        [[np.NaN] * 5], index=index[-1:], columns=columns, dtype="float64"
+    )
+    expected = pd.concat([expected[:-1], missing_row])
+    assert_frame_equal(rtrn, expected)
+
+    # verify as expected when no missing values to last row
+    mock_now(monkeypatch, now)
+    last_row = pd.DataFrame(
+        [[8.4, 8.8, 8.2, 8.6, 88]], index=index[-1:], columns=columns, dtype="float64"
+    )
+    df = pd.concat([df[:-1], last_row])
+    with pytest.warns(errors.PricesMissingWarning, match=match(missing_sessions)):
+        rtrn = f(df.copy(), xlon)
+    expected = pd.concat([expected[:-1], last_row])
+    assert_frame_equal(rtrn, expected)
+
+    # verify returns unchanged and without raising error when no other missing
+    # prices except last row
+    mock_now(monkeypatch, now - one_min)
+    ohlcv = (
+        [0.4, 0.8, 0.2, 0.6, 10],
+        [1.4, 1.8, 1.2, 1.6, 11],
+        [2.4, 2.8, 2.2, 2.6, 22],
+        [3.4, 3.8, 3.2, 3.6, 33],
+        [4.4, 4.8, 4.2, 4.6, 44],
+        [5.4, 5.8, 5.2, 5.6, 55],
+        [6.4, 6.8, 6.2, 6.6, 66],
+        [7.4, 7.8, 7.2, 7.6, 77],
+        [np.NaN, np.NaN, np.NaN, np.NaN, np.NaN],
+    )
+    df = pd.DataFrame(ohlcv, index=index, columns=columns)
+    rtrn = f(df.copy(), xlon)
+
+    assert_frame_equal(rtrn, df)
+
+    # verify returns unchanged when no missing prices
+    ohlcv = (
+        [0.4, 0.8, 0.2, 0.6, 10],
+        [1.4, 1.8, 1.2, 1.6, 11],
+        [2.4, 2.8, 2.2, 2.6, 22],
+        [3.4, 3.8, 3.2, 3.6, 33],
+        [4.4, 4.8, 4.2, 4.6, 44],
+        [5.4, 5.8, 5.2, 5.6, 55],
+        [6.4, 6.8, 6.2, 6.6, 66],
+        [7.4, 7.8, 7.2, 7.6, 77],
+        [8.4, 8.8, 8.2, 8.6, 88],
+    )
+    df = pd.DataFrame(ohlcv, index=index, columns=columns)
+    rtrn = f(df.copy(), xlon)
+    assert_frame_equal(rtrn, df)
+
+    # verify that missing prices before first trade date are not filled and
+    # that no warning raised. Mocks first trade date...
+    prices._first_trade_dates[symbol] = pd.Timestamp("2021-01-06")
+    ohlcv = (
+        [np.NaN, np.NaN, np.NaN, np.NaN, np.NaN],
+        [np.NaN, np.NaN, np.NaN, np.NaN, np.NaN],
+        [2.4, 2.8, 2.2, 2.6, 22],
+        [3.4, 3.8, 3.2, 3.6, 33],
+        [4.4, 4.8, 4.2, 4.6, 44],
+        [5.4, 5.8, 5.2, 5.6, 55],
+        [5.4, 5.8, 5.2, 5.6, 66],
+        [7.4, 7.8, 7.2, 7.6, 77],
+        [8.4, 8.8, 8.2, 8.6, 88],
+    )
+    df = pd.DataFrame(ohlcv, index=index, columns=columns)
+    rtrn = f(df.copy(), xlon)
+    assert_frame_equal(rtrn, df)
+
+
 class TestConstructor:
     """Tests for attributes defined by PricesYahoo constructor.
 
@@ -518,6 +673,16 @@ class TestConstructor:
             "GOOG IT4500.MI ^IBEX ^FTMC 9988.HK GBPEUR=X GC=F BTC-GBP CL=F"
             " ES=F ZB=F HG=F GEN.L QAN.AX CA.PA BAS.DE FER.MC"
         )
+
+    def test_invalid_symbol(self, symbols):
+        invalid_symbol = "INVALIDSYMB"
+        match = f"Symbol '{invalid_symbol}' is not recognised by the yahoo API."
+        with pytest.raises(ValueError, match=match):
+            _ = m.PricesYahoo(invalid_symbol)
+        symbols_ = symbols.split()
+        symbols_ = symbols_[:4] + [invalid_symbol] + symbols_[4:]
+        with pytest.raises(ValueError, match=match):
+            _ = m.PricesYahoo(symbols_)
 
     @pytest.fixture(scope="class")
     def prices(self, symbols) -> abc.Iterator[m.PricesYahoo]:
@@ -3357,7 +3522,7 @@ class TestGet:
     Tests broadly follow the tutorials.
     """
 
-    @skip_if_fails_and_today_blacklisted(["XLON", "XNYS"])
+    @skip_if_fails_and_today_blacklisted((["XLON"], ["XNYS"]))
     def test_gpp(self, prices_us_lon):
         """Test `PricesBase.GetPricesParams` is being initialised.
 
@@ -3500,7 +3665,7 @@ class TestGet:
         with pytest.raises(pydantic.ValidationError, match=match):
             prices_us.get("3G")
 
-    @skip_if_fails_and_today_blacklisted(["XLON"])
+    @skip_if_fails_and_today_blacklisted((["XLON"],))
     def test_interval_only_param(self, prices_us, one_day, one_min):
         """Test passing interval as only parameter.
 
@@ -3562,7 +3727,7 @@ class TestGet:
         next_end_ms = pd_offset.rollforward(end_ms + one_day)
         assert df_monthly.pt.last_ts in (end_ms, next_end_ms)
 
-    @skip_if_fails_and_today_blacklisted(["XNYS"])
+    @skip_if_fails_and_today_blacklisted((["XNYS"],))
     def test_intervals_inferred(self, prices_us):
         """Test intervals inferred as expected."""
         prices = prices_us
@@ -3672,7 +3837,7 @@ class TestGet:
         df = prices.get()
         assertions_daily(df, prices, limit_left, last_session)
 
-    @skip_if_fails_and_today_blacklisted(["XNYS"])
+    @skip_if_fails_and_today_blacklisted((["XNYS"],))
     def test_interval_invalid(self, prices_us, session_length_xnys, one_min):
         """Tests errors raised when interval invalid.
 
@@ -3912,7 +4077,7 @@ class TestGet:
         assert_frame_equal(df[:-1], prices.get("5T", start_session, end - one_sec))
         assert_frame_equal(df, prices.get("5T", start, end_session))
 
-    @skip_if_fails_and_today_blacklisted(["XNYS"])
+    @skip_if_fails_and_today_blacklisted((["XNYS"],))
     def test_start_end_none(self, prices_us, session_length_xnys, one_sec, monkeypatch):
         """Test `start` and `end` as None."""
         prices = prices_us
@@ -4674,9 +4839,8 @@ class TestGet:
         prices = prices_us
         xnys = prices.calendar_default
 
-        sessions_range = th.get_sessions_range_for_bi(prices, prices.bis.T5, xnys)
-        session = th.get_conforming_cc_sessions(
-            prices.cc, session_length_xnys, *sessions_range, 1
+        session = get_valid_conforming_sessions(
+            prices, prices.bis.T5, [xnys], [session_length_xnys], 1
         )[0]
         start, end = xnys.session_open_close(session)
 
@@ -4705,9 +4869,8 @@ class TestGet:
         # verify maintain when no symbol trades after unaligned close
         prices = m.PricesYahoo(["AZN.L", "BTC-USD"], lead_symbol="AZN.L")
         xlon = prices.calendars["AZN.L"]
-        sessions_range = th.get_sessions_range_for_bi(prices, prices.bis.T5, xlon)
-        session = th.get_conforming_sessions(
-            [xlon], [session_length_xlon], *sessions_range, 1
+        session = get_valid_conforming_sessions(
+            prices, prices.bis.T5, [xnys], [session_length_xnys], 1
         )[0]
         start, end = xlon.session_open_close(session)
 
@@ -4729,9 +4892,8 @@ class TestGet:
         assertions_intraday(df[:-1], prices.bis.H1, prices, start, exp_end, 8)
 
         # verify shorten as maintain when data not available to crete short indice
-        sessions_range = th.get_sessions_range_for_bi(prices, prices.bis.H1, xlon)
-        session = th.get_conforming_sessions(
-            [xlon], [session_length_xlon], *sessions_range, 1
+        session = get_valid_conforming_sessions(
+            prices, prices.bis.H1, [xnys], [session_length_xnys], 1
         )[0]
         start, end = xlon.session_open_close(session)
         df = prices.get("1H", start, end, openend="shorten")
@@ -5461,7 +5623,7 @@ def test_request_all_prices(prices_us_lon, one_min):
             raise
 
 
-@skip_if_fails_and_today_blacklisted(["XLON", "XNYS"])
+@skip_if_fails_and_today_blacklisted((["XLON", "XNYS"],))
 def test_session_prices(prices_us_lon, one_day):
     prices = prices_us_lon
     f = prices.session_prices
@@ -5496,7 +5658,7 @@ def test_session_prices(prices_us_lon, one_day):
         f(date)  # a sunday
 
     # verify raises errors if `session` oob
-    today = helpers.now(intervals.ONE_DAY)
+    today = prices.cc.minute_to_sessions(helpers.now(), "previous")[-1]
     limit_right = prices.cc.date_to_session(today, "previous")
     df = f(limit_right)  # at limit
     assert df.index[0] == limit_right
@@ -5536,7 +5698,7 @@ def test__date_to_session(prices_us_lon_hkg):
     assert f(date, "latest", "previous") == pd.Timestamp("2021-12-24")
 
 
-@skip_if_fails_and_today_blacklisted(["XLON", "XNYS", "XHKG"])
+@skip_if_fails_and_today_blacklisted((["XLON", "XNYS", "XHKG"],))
 def test_close_at(prices_us_lon_hkg, one_day, monkeypatch):
     prices = prices_us_lon_hkg
     xhkg = prices.calendars["9988.HK"]
@@ -5559,7 +5721,7 @@ def test_close_at(prices_us_lon_hkg, one_day, monkeypatch):
     assert_frame_equal(rtrn, expected)
 
     # verify raises errors if `date` oob
-    today = helpers.now(intervals.ONE_DAY)
+    today = prices.cc.minute_to_sessions(helpers.now(), "previous")[-1]
     limit_right = prices.cc.date_to_session(today, "previous")
     df_limit_right = prices.close_at(limit_right)  # at limit
     assert df_limit_right.index[0] == limit_right
@@ -5632,7 +5794,7 @@ class TestPriceAt:
         for s, (session, col) in values.items():
             assert df[s][0] == self.get_cell(table, s, session, col)
 
-    @skip_if_fails_and_today_blacklisted(["XNYS", "XLON", "XHKG"])
+    @skip_if_fails_and_today_blacklisted((["XNYS", "XLON", "XHKG"],))
     def test_oob(self, prices_us_lon_hkg, one_min):
         """Test raises errors when minute out-of-bounds.
 
