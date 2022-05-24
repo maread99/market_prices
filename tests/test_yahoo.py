@@ -51,6 +51,7 @@ UTC = pytz.UTC
 # ...sessions that yahoo temporarily fails to return prices for if (seemingly)
 # send a high frequency of requests for prices from the same IP address.
 _blacklist = (
+    pd.Timestamp("2022-05-24"),
     pd.Timestamp("2022-05-23"),
     pd.Timestamp("2022-05-10"),
     pd.Timestamp("2022-04-27"),
@@ -114,7 +115,7 @@ class skip_if_fails_and_today_blacklisted:
         return wrapped_test
 
 
-class TestDataUnavailableError(Exception):
+class DataUnavailableForTestError(Exception):
     """Base error class for unavailable test data."""
 
     def __str__(self) -> str:
@@ -134,13 +135,13 @@ def skip_if_data_unavailable(f: abc.Callable) -> abc.Callable:
     def wrapped_test(*args, **kwargs):
         try:
             f(*args, **kwargs)
-        except TestDataUnavailableError:
+        except DataUnavailableForTestError:
             pytest.skip(f"Skipping {f.__name__}: valid test inputs unavailable.")
 
     return wrapped_test
 
 
-class ValidSessionUnavailableError(TestDataUnavailableError):
+class ValidSessionUnavailableError(DataUnavailableForTestError):
     """No valid session available for requested restrictions.
 
     Parameters as for `get_valid_session`.
@@ -3348,7 +3349,7 @@ def mock_now(monkeypatch, now: pd.Timestamp):
     monkeypatch.setattr("pandas.Timestamp.now", mock_now_)
 
 
-class ValidSessionsUnavailableError(TestDataUnavailableError):
+class ValidSessionsUnavailableError(DataUnavailableForTestError):
     """Test data unavailable to 'get_valid_conforming_sessions'.
 
     There are an insufficient number of consecutive sessions of the
