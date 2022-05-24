@@ -77,17 +77,17 @@ _blacklist = (
 def current_session_in_blacklist(cc: calutils.CompositeCalendar) -> bool:
     """Query if current session is in the blacklist.
 
-    Current session is considered to be the most recent session of any
-    calendar that is currently open or, if all calendars are currently
-    closed, the most recently closed session of any calendar.
+    Will return True if most recent session of any underlying calendar
+    is blacklisted.
 
     Parameters
     ----------
     cc
-        Composite calendar against which to evaluate current session.
+        Composite calendar against which to evaluate current session(s).
     """
-    current_session = cc.minute_to_sessions(helpers.now(), "previous")[-1]
-    return current_session in _blacklist
+    current_range = cc.minute_to_sessions(helpers.now(), "previous")
+    dates = pd.date_range(current_range[0], current_range[-1], freq="D")
+    return dates.isin(_blacklist).any()
 
 
 class skip_if_fails_and_today_blacklisted:
@@ -101,13 +101,10 @@ class skip_if_fails_and_today_blacklisted:
     ----------
     cal_names
         Names of calendars against which to evaluate 'today'. 'today' will
-        be evaluted as the most recent session of a composite calendar
-        comprised of the defined calendars. Must be passed as tuple of
-        lists of str where lists of str are lists of calendar names, with
-        each list representing a composite calendar that 'today' is to be
-        evaluated against (test will be skipped if the error is raised and
-        the blacklist includes 'today' as evaluated against any of the
-        composite calendars).
+        be evaluted as all dates between the earliest and latest sessions
+        that 'now' evaluates to for any of the calendars (test will be
+        skipped if the error is raised and the blacklist includes and of
+        these dates).
 
     exceptions
         Additional exception types. In addition to
@@ -120,10 +117,12 @@ class skip_if_fails_and_today_blacklisted:
 
     def __init__(
         self,
-        cal_names: tuple[list[str], ...],
+        cal_names: list[str],
         exceptions: list[type[Exception]] | None = None,
     ):
-        self.cal_names = cal_names
+        cals = [xcals.get_calendar(name) for name in cal_names]
+        self.cc = calutils.CompositeCalendar(cals)
+
         permitted_exceptions = [errors.PricesUnavailableFromSourceError]
         if exceptions is not None:
             permitted_exceptions += exceptions
@@ -135,13 +134,81 @@ class skip_if_fails_and_today_blacklisted:
             try:
                 f(*args, **kwargs)
             except self.permitted_exceptions:
-                for names in self.cal_names:
-                    cals = [xcals.get_calendar(name) for name in names]
-                    if current_session_in_blacklist(calutils.CompositeCalendar(cals)):
-                        pytest.skip(f"Skipping {f.__name__}: today in blacklist.")
+                if current_session_in_blacklist(self.cc):
+                    pytest.skip(f"Skipping {f.__name__}: today in blacklist.")
                 raise
 
         return wrapped_test
+
+
+class skip_if_prices_unavailable_for_blacklisted_session:
+    """Decorator to skip test if fails due to unavailable prices.
+
+    Skips test if raises `errors.PricesUnavailableFromSourceError` for a
+    period bounded on either side by a minute or date that corresponds with
+    a _blacklisted session.
+
+    Parameters
+    ----------
+    cal_names
+        Names of calendars against which to evaluate sessions corresponding
+        with period bounds.
+    """
+
+    # pylint: disable=too-few-public-methods
+
+    def __init__(self, cal_names: list[str]):
+        cals = [xcals.get_calendar(name) for name in cal_names]
+        self.cc = calutils.CompositeCalendar(cals)
+
+    def _black_sessions(
+        self, start: pd.Timestamp, end: pd.Timestamp
+    ) -> list[pd.Timestamp]:
+        rtrn = []
+        for bound in (start, end):
+            if helpers.is_date(bound):
+                if bound in _blacklist:
+                    rtrn.append(bound)
+            elif self.cc.minute_to_sessions(bound).isin(_blacklist).any():
+                rtrn.append(bound)
+        return rtrn
+
+    def __call__(self, f) -> abc.Callable:
+        @functools.wraps(f)
+        def wrapped_test(*args, **kwargs):
+            try:
+                f(*args, **kwargs)
+            except errors.PricesUnavailableFromSourceError as err:
+                sessions = self._black_sessions(err.params["start"], err.params["end"])
+                if sessions:
+                    pytest.skip(
+                        f"Skipping {f.__name__}: prices unavailable for period bound"
+                        f" with blacklisted session(s) {sessions}."
+                    )
+                raise
+
+        return wrapped_test
+
+
+# NOTE: Leave commented out. Uncomment to test decorator locally.
+# @skip_if_prices_unavailable_for_blacklisted_session(["XLON"])
+# def test_skip_if_prices_unavailable_for_blacklisted_session_decorator():
+#     xlon = xcals.get_calendar("XLON", side="left")
+#     params = {
+#         'interval': '5m',
+#         'start': xlon.session_open(_blacklist[2]),
+#         'end': xlon.session_close(_blacklist[1]), # helpers.now() to test single bound
+#     }
+#     raise errors.PricesUnavailableFromSourceError(params, None)
+
+# @skip_if_prices_unavailable_for_blacklisted_session(["XLON"])
+# def test_skip_if_prices_unavailable_for_blacklisted_session_decorator2():
+#     params = {
+#         'interval': '5m',
+#         'start': _blacklist[2],
+#         'end': _blacklist[1],
+#     }
+#     raise errors.PricesUnavailableFromSourceError(params, None)
 
 
 class DataUnavailableForTestError(Exception):
@@ -1731,7 +1798,7 @@ class TestRequestDataIntraday:
     # on AssertionError as opposed to PricesUnavailableFromSource given that prices
     # are seemingly always available for BTC-GBP (if today if blacklisted then
     # fails on comparing checking `subset` and `equiv` for equality for "AZN.L").
-    @skip_if_fails_and_today_blacklisted((["XLON"],), [AssertionError])
+    @skip_if_fails_and_today_blacklisted(["XLON"], [AssertionError])
     def test_live_indice(self, pricess):
         """Verify return with live indice as expected."""
         prices = pricess["inc_247"]
@@ -3574,7 +3641,7 @@ class TestGet:
     Tests broadly follow the tutorials.
     """
 
-    @skip_if_fails_and_today_blacklisted((["XLON"], ["XNYS"]))
+    @skip_if_fails_and_today_blacklisted(["XLON", "XNYS"])
     def test_gpp(self, prices_us_lon):
         """Test `PricesBase.GetPricesParams` is being initialised.
 
@@ -3717,7 +3784,7 @@ class TestGet:
         with pytest.raises(pydantic.ValidationError, match=match):
             prices_us.get("3G")
 
-    @skip_if_fails_and_today_blacklisted((["XLON"],))
+    @skip_if_fails_and_today_blacklisted(["XLON"])
     def test_interval_only_param(self, prices_us, one_day, one_min):
         """Test passing interval as only parameter.
 
@@ -3779,7 +3846,7 @@ class TestGet:
         next_end_ms = pd_offset.rollforward(end_ms + one_day)
         assert df_monthly.pt.last_ts in (end_ms, next_end_ms)
 
-    @skip_if_fails_and_today_blacklisted((["XNYS"],))
+    @skip_if_fails_and_today_blacklisted(["XNYS"])
     def test_intervals_inferred(self, prices_us):
         """Test intervals inferred as expected."""
         prices = prices_us
@@ -3889,7 +3956,7 @@ class TestGet:
         df = prices.get()
         assertions_daily(df, prices, limit_left, last_session)
 
-    @skip_if_fails_and_today_blacklisted((["XNYS"],))
+    @skip_if_fails_and_today_blacklisted(["XNYS"])
     def test_interval_invalid(self, prices_us, session_length_xnys, one_min):
         """Tests errors raised when interval invalid.
 
@@ -4129,7 +4196,7 @@ class TestGet:
         assert_frame_equal(df[:-1], prices.get("5T", start_session, end - one_sec))
         assert_frame_equal(df, prices.get("5T", start, end_session))
 
-    @skip_if_fails_and_today_blacklisted((["XNYS"],))
+    @skip_if_fails_and_today_blacklisted(["XNYS"])
     def test_start_end_none(self, prices_us, session_length_xnys, one_sec, monkeypatch):
         """Test `start` and `end` as None."""
         prices = prices_us
@@ -5685,7 +5752,7 @@ def test_request_all_prices(prices_us_lon, one_min):
             raise
 
 
-@skip_if_fails_and_today_blacklisted((["XLON", "XNYS"],))
+@skip_if_fails_and_today_blacklisted(["XLON", "XNYS"])
 def test_session_prices(prices_us_lon, one_day):
     prices = prices_us_lon
     f = prices.session_prices
@@ -5760,7 +5827,7 @@ def test__date_to_session(prices_us_lon_hkg):
     assert f(date, "latest", "previous") == pd.Timestamp("2021-12-24")
 
 
-@skip_if_fails_and_today_blacklisted((["XLON", "XNYS", "XHKG"],))
+@skip_if_fails_and_today_blacklisted(["XLON", "XNYS", "XHKG"])
 def test_close_at(prices_us_lon_hkg, one_day, monkeypatch):
     prices = prices_us_lon_hkg
     xhkg = prices.calendars["9988.HK"]
@@ -5869,7 +5936,6 @@ class TestPriceAt:
                     f" rel diff {diff:.2f}%.\n"
                 )
 
-    @skip_if_fails_and_today_blacklisted((["XNYS", "XLON", "XHKG"],))
     def test_oob(self, prices_us_lon_hkg, one_min):
         """Test raises errors when minute out-of-bounds.
 
@@ -5888,11 +5954,12 @@ class TestPriceAt:
             prices.price_at(limit_left - one_min)
 
         limit_right = now = helpers.now()
-        df_limit_right = prices.price_at(limit_right, UTC)  # at limit
-        current_minute = prices.cc.minute_to_trading_minute(now, "previous")
-        if not prices.cc.is_open_on_minute(now):
-            current_minute += one_min
-        assert df_limit_right.index[0] == current_minute
+        if not current_session_in_blacklist(prices.cc):
+            df_limit_right = prices.price_at(limit_right, UTC)  # at limit
+            current_minute = prices.cc.minute_to_trading_minute(now, "previous")
+            if not prices.cc.is_open_on_minute(now):
+                current_minute += one_min
+            assert df_limit_right.index[0] == current_minute
         with pytest.raises(errors.DatetimeTooLateError):
             limit_right = now = helpers.now()  # reset
             prices.price_at(limit_right + one_min)
@@ -6151,6 +6218,7 @@ class TestPriceAt:
         # treated as having tz as `tz`
         self.assertions(table, df, indice, values, xhkg.tz)
 
+    @skip_if_prices_unavailable_for_blacklisted_session(["XLON", "XNYS", "XHKG"])
     def test_daily(self, prices_us_lon_hkg, monkeypatch):
         """Test returns prices from daily as expected.
 
@@ -6168,11 +6236,10 @@ class TestPriceAt:
         limit_id = prices.limit_intraday()
         minute = limit_id + pd.Timedelta(1, "H")
         df = prices.price_at(minute)
-        df.notna().all(axis=None)
+        assert df.notna().all(axis=None)
         assert prices._pdata[prices.bis.D1]._table is None
-        table_ = prices._pdata[
-            prices.bis.T5
-        ]._table  # only required by assert method for symbols
+        # only required by assert method for symbols...
+        table_ = prices._pdata[prices.bis.T5]._table
         self.assert_price_at_rtrn_format(table_, df)
 
         # verify minute prior to intraday limit returns via _price_at_from_daily
