@@ -95,17 +95,45 @@ class skip_if_fails_and_today_blacklisted:
     Skips test if test raises errors.PricesUnavailableFromSourceError and
     today is in the blacklist. Today evaluted against calendars
     corresponding with calendar names passed to decorator.
+
+    Parameters
+    ----------
+    cal_names
+        Names of calendars against which to evaluate 'today'. 'today' will
+        be evaluted as the most recent session of a composite calendar
+        comprised of the defined calendars. Must be passed as tuple of
+        lists of str where lists of str are lists of calendar names, with
+        each list representing a composite calendar that 'today' is to be
+        evaluated against (test will be skipped if the error is raised and
+        the blacklist includes 'today' as evaluated against any of the
+        composite calendars).
+
+    exceptions
+        Additional exception types. In addition to
+        `errors.PricesUnavailableFromSourceError` test will also be skipped
+        if exception of any of these types is raised and 'today' is
+        blacklisted.
     """
 
-    def __init__(self, cal_names: tuple[list[str]]):
+    # pylint: disable=too-few-public-methods
+
+    def __init__(
+        self,
+        cal_names: tuple[list[str], ...],
+        exceptions: list[type[Exception]] | None = None,
+    ):
         self.cal_names = cal_names
+        permitted_exceptions = [errors.PricesUnavailableFromSourceError]
+        if exceptions is not None:
+            permitted_exceptions += exceptions
+        self.permitted_exceptions = tuple(permitted_exceptions)
 
     def __call__(self, f) -> abc.Callable:
         @functools.wraps(f)
         def wrapped_test(*args, **kwargs):
             try:
                 f(*args, **kwargs)
-            except errors.PricesUnavailableFromSourceError:
+            except self.permitted_exceptions:
                 for names in self.cal_names:
                     cals = [xcals.get_calendar(name) for name in names]
                     if current_session_in_blacklist(calutils.CompositeCalendar(cals)):
@@ -180,6 +208,29 @@ def get_valid_session(
             if limit is not None and session <= limit:
                 raise ValidSessionUnavailableError(session_received, limit)
     return session
+
+
+def get_valid_consecutive_sessions(
+    prices: m.PricesYahoo,
+    bi: intervals.BI,
+    calendar: xcals.ExchangeCalendar | calutils.CompositeCalendar,
+) -> tuple[pd.Timestamp, pd.Timestamp]:
+    """Return two valid consecutive sessions.
+
+    Sessions will be sessions of a given `calendar` for which intraday data
+    is available at a given `bi`.
+
+    Raises `ValidSessionUnavailableError` if no such sessions available.
+    """
+    start, limit = th.get_sessions_range_for_bi(prices, bi)
+    start = get_valid_session(start, calendar, "next", limit)
+    end = prices.cc.next_session(start)
+    while end in _blacklist:
+        start = get_valid_session(end, calendar, "next", limit)
+        end = prices.cc.next_session(start)
+        if end > limit:
+            raise ValidSessionUnavailableError(start, limit)
+    return start, end
 
 
 def test__adjust_high_low():
@@ -1675,6 +1726,11 @@ class TestRequestDataIntraday:
             with pytest.raises(ValueError, match=match):
                 prices._request_data(interval, start, end)
 
+    # Will fail if today, as evaluated against XLON, is blacklisted. Fails
+    # on AssertionError as opposed to PricesUnavailableFromSource given that prices
+    # are seemingly always available for BTC-GBP (if today if blacklisted then
+    # fails on comparing checking `subset` and `equiv` for equality for "AZN.L").
+    @skip_if_fails_and_today_blacklisted((["XLON"],), [AssertionError])
     def test_live_indice(self, pricess):
         """Verify return with live indice as expected."""
         prices = pricess["inc_247"]
@@ -1793,7 +1849,7 @@ class TestRequestDataIntraday:
                 df_vol = df.pt.indexed_left.loc[hist_vol.index].volume
                 # rtol for rare inconsistency in yahoo data when receives high freq of
                 # requests, e.g. under execution of test suite.
-                assert_series_equal(hist_vol, df_vol, rtol=0.02, check_dtype=False)
+                assert_series_equal(hist_vol, df_vol, rtol=0.1, check_dtype=False)
 
                 not_in_hist = df[1:].pt.indexed_left.index.difference(hist_vol.index)
                 bv = df.loc[not_in_hist].volume == 0  # pylint: disable=compare-to-zero
@@ -2627,8 +2683,8 @@ class TestTableIntraday:
         lead = "AZN.L"
         xlon = prices.calendars[lead]
         bi = prices.bis.T5
-        start, _ = th.get_sessions_range_for_bi(prices, bi)
-        end = prices.cc.next_session(start)
+
+        start, end = get_valid_consecutive_sessions(prices, bi, xlon)
         # test start as both session and time
         starts = (start, prices.cc.session_open(start) + one_min)
         xlon_close = xlon.session_close(end)
@@ -2636,14 +2692,12 @@ class TestTableIntraday:
 
         prices = prices_with_break
         bi = prices.bis.T5
-        start, _ = th.get_sessions_range_for_bi(prices, bi)
-        end = prices.cc.next_session(start)
+        start, end = get_valid_consecutive_sessions(prices, bi, prices.cc)
         assertions(prices, (2, 5, 7, 12), bi, start, end)
 
         # Test for interval where breaks are ignored
         bi = prices.bis.H1
-        start, _ = th.get_sessions_range_for_bi(prices, bi)
-        end = prices.cc.next_session(start)
+        start, end = get_valid_consecutive_sessions(prices, bi, prices.cc)
         # test start as both session and time
         starts = (start, prices.cc.session_open(start) + one_min)
         factors = (2, 5)
@@ -2653,13 +2707,10 @@ class TestTableIntraday:
         prices = m.PricesYahoo(["PETR3.SA", "9988.HK"])
         bi = prices.bis.T5
         bvmf = prices.calendars["PETR3.SA"]
-        rng_start, _ = th.get_sessions_range_for_bi(prices, bi)
-        _, rng_end = th.get_sessions_range_for_bi(prices, prices.bis.T1)
         xhkg = prices.calendars["9988.HK"]
-        calendars = [xhkg, bvmf]
         session_length = [pd.Timedelta(hours=6, minutes=30), pd.Timedelta(8, "H")]
-        start, end = th.get_conforming_sessions(
-            calendars, session_length, rng_start, rng_end, 2
+        start, end = get_valid_conforming_sessions(
+            prices, bi, [xhkg, bvmf], session_length, 2
         )
         bvmf_open = bvmf.session_open(start)
         # NB 21 is limit before last indice of hkg am session overlaps with pm session
@@ -2671,9 +2722,8 @@ class TestTableIntraday:
 
         # Test for interval where breaks are ignored
         bi = prices.bis.H1
-        rng_start, _ = th.get_sessions_range_for_bi(prices, bi)
-        start, end = th.get_conforming_sessions(
-            calendars, session_length, rng_start, rng_end, 2
+        start, end = get_valid_conforming_sessions(
+            prices, bi, [xhkg, bvmf], session_length, 2
         )
         bvmf_open = bvmf.session_open(start)
         # test start as both session and time
@@ -5310,15 +5360,14 @@ class TestGet:
         start_T1 = get_valid_session(start_T1, xnys, "next", end_T1)
         end_T1 = get_valid_session(end_T1, xnys, "previous", start_T1)
 
-        start_T5, end_T5 = th.get_sessions_range_for_bi(prices, prices.bis.T5)
-        start_T5 = get_valid_session(start_T5, xnys, "next", end_T5)
+        start_T5_, end_T5 = th.get_sessions_range_for_bi(prices, prices.bis.T5)
+        start_T5 = get_valid_session(start_T5_, xnys, "next", end_T5)
 
-        start_H1, end_H1 = th.get_sessions_range_for_bi(prices, prices.bis.H1)
-        start_H1 = get_valid_session(start_H1, xnys, "next", end_H1)
+        start_H1_, _ = th.get_sessions_range_for_bi(prices, prices.bis.H1)
 
         # TODO xcals 4.0 lose the wrappers from following two lines
-        start_T5_oob = helpers.to_tz_naive(xnys.session_offset(start_T5, -2))
-        start_H1_oob = helpers.to_tz_naive(xnys.session_offset(start_H1, -2))
+        start_T5_oob = helpers.to_tz_naive(xnys.session_offset(start_T5_, -2))
+        start_H1_oob = helpers.to_tz_naive(xnys.session_offset(start_H1_, -2))
 
         limit_T1 = prices.limits[prices.bis.T1][0]
         limit_T5 = prices.limits[prices.bis.T5][0]

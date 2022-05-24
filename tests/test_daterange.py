@@ -108,9 +108,7 @@ class TestGetterDaily:
         """Get m.GetterDaily with default arguments unless otherwise passed."""
         if limit is None:
             limit = helpers.to_tz_naive(calendar.first_session)  # TODO xcals 4.0 CHG
-        return m.GetterDaily(
-            calendar, limit, pp, ds_interval, strict  # type: ignore[arg-type]  # mptype
-        )
+        return m.GetterDaily(calendar, limit, pp, ds_interval, strict)
 
     def test_constructor_properties(self, xlon_calendar, pp_default):
         """Test properties that expose constructor parameters."""
@@ -909,8 +907,8 @@ class TestGetterIntraday:
             delay,
             limit,
             ignore_breaks,
-            pp,  # type: ignore[arg-type]  # takes mptype
-            interval,  # type: ignore[arg-type]  # takes _BaseInterval rather than TDInt
+            pp,
+            interval,
             ds_interval,
             anchor,
             end_alignment,
@@ -2473,18 +2471,21 @@ class TestGetterIntraday:
 
         end_session = cal.minute_to_session(end, "previous")
         target_session = end_session - (pp["days"] * cal.day)
-        # TODO xcals 4.0 THIS helpers.to_utc STAYS STAYS STAYS. Delete this comment.
-        target_day = helpers.to_utc(target_session)
-        day_offset = (end.normalize() - end_session.normalize()).days
-        if day_offset:
-            target_day += day_offset * helpers.ONE_DAY
-        start = target_day.replace(minute=end.minute, hour=end.hour)
-
-        # start can resolve to earlier than open of target_session due to DST changes.
-        start = max(start, cal.session_open(target_session))
-        # or later than target_session close
         target_session_close = cal.session_close(target_session)
-        start = min(start, target_session_close)
+        if end.value in cal.closes_nanos:
+            start = target_session_close
+        else:
+            # TODO xcals 4.0 THIS helpers.to_utc STAYS STAYS STAYS. Delete this comment.
+            target_day = helpers.to_utc(target_session)
+            day_offset = (end.normalize() - end_session.normalize()).days
+            if day_offset:
+                target_day += day_offset * helpers.ONE_DAY
+            start = target_day.replace(minute=end.minute, hour=end.hour)
+
+            # start can resolve to earlier than target_session open due to DST changes.
+            start = max(start, cal.session_open(target_session))
+            # or later than target_session close
+            start = min(start, target_session_close)
 
         try:
             assert drg.daterange == ((start, end), end)
@@ -2496,8 +2497,6 @@ class TestGetterIntraday:
                 or start.value not in cal.minutes_nanos
                 or start_dst < end_dst
             )
-            if start_dst < end_dst and end.value in cal.closes_nanos:
-                start = target_session_close
             start = cal.next_minute(start)
             assert drg.daterange == ((start, end), end)
 
