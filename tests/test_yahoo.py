@@ -3835,28 +3835,25 @@ class TestGet:
 
         cal = prices.calendar_default
         for bi in prices.bis_intraday:
-            df = f(bi)
-            assertions_intraday_common(df, prices, bi)
             limit_left, limit_right = prices.limits[bi]
             first_from = cal.minute_to_trading_minute(limit_left, "next")
             first_to = cal.minute_offset_by_sessions(first_from, 1)
-            last_to = cal.minute_to_trading_minute(limit_right, "previous")
+            last_to = cal.minute_to_trading_minute(limit_right, "previous") + one_min
             last_from = cal.minute_offset_by_sessions(last_to, -1)
-            if not cal.is_trading_minute(limit_right):
-                last_to += one_min
-                last_from += one_min
             if bi is prices.bis.H1:
                 last_to += pd.Timedelta(30, "T")  # provide for possibly unaligned end
+            df = f(bi)
             assert first_from <= df.pt.first_ts <= first_to
             assert last_from <= df.pt.last_ts <= last_to
+            assertions_intraday_common(df, prices, bi)
             # check for interval that requires downsampling
             for factor in (3, 7):
                 interval = bi * factor
-                df = f(interval)
-                assertions_intraday_common(df, prices, interval)
                 last_to_ = last_to + (factor * bi)
+                df = f(interval)
                 assert first_from <= df.pt.first_ts <= first_to
                 assert last_from <= df.pt.last_ts <= last_to_
+                assertions_intraday_common(df, prices, interval)
 
         df_daily = f(prices.bi_daily)
         assert_daily(df_daily, prices)
