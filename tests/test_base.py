@@ -131,9 +131,7 @@ def test_inferred_intraday_interval(calendars_extended, one_min, monkeypatch):
 
     def f(**kwargs) -> bool:
         pp = {**default_kwargs, **kwargs}
-        return m.PricesBase._inferred_intraday_interval(  # typing - expects mptype
-            cal, pp  # type: ignore[arg-type]
-        )
+        return m.PricesBase._inferred_intraday_interval(cal, pp)
 
     def assert_intraday(**kwargs):
         assert f(**kwargs)
@@ -496,14 +494,12 @@ def GetterMock(xnys, xlon) -> abc.Iterator[type[daterange.GetterIntraday]]:
             )
 
         @property
-        def daterange_sessions(  # type: ignore[override]
-            self,  # typing - mock allows for daterange_sessions to return None
-        ) -> tuple[pd.Timestamp, pd.Timestamp] | None:
+        def daterange_sessions(self) -> tuple[pd.Timestamp, pd.Timestamp] | None:
             return self._daterange_sessions
 
         @property
-        def daterange(  # type: ignore[override]
-            self,  # typing - mock allows for daterange to return None
+        def daterange(
+            self,
         ) -> tuple[tuple[pd.Timestamp, pd.Timestamp], pd.Timestamp] | None:
             return self._daterange
 
@@ -863,6 +859,44 @@ class TestPricesBaseSetup:
 
         with pytest.warns(errors.CalendarTooShortWarning, match=match(cal2)):
             PricesMock(symbols, [good_cal, cal, cal2])
+
+    def test_calendar_too_short_error(
+        self, PricesMock, symbols, side, xnys, one_day, monkeypatch
+    ):
+        """Verify raises `CalendarTooShortError`.
+
+        Verify raises `CalendarTooShortError` when a calendar's first
+        minute is later than the earliest minute for which intraday prices
+        are available for any symbol.
+        """
+        now = helpers.now()
+
+        def mock_now(*_, tz=None, **__) -> pd.Timestamp:
+            return pd.Timestamp(now.tz_convert(None), tz=tz)
+
+        monkeypatch.setattr("pandas.Timestamp.now", mock_now)
+
+        intraday_limit = now - PricesMock.BASE_LIMITS[intervals.TDInterval.H1]
+        start = intraday_limit.normalize() + one_day
+        cal = xcals.get_calendar("XLON", start=start, side=side)
+        good_cal = xnys
+
+        msg = re.escape(
+            f"Calendar '{cal.name}' is too short to support all available intraday"
+            f" price history. Calendar starts '{cal.first_minute}' whilst earliest"
+            f" minute for which intraday price history is available is"
+            f" '{intraday_limit}' (all calendars must be valid over at least the"
+            " period for which intraday price data is available)."
+        )
+
+        with pytest.raises(errors.CalendarTooShortError, match=msg):
+            _ = PricesMock(symbols, cal)
+
+        with pytest.raises(errors.CalendarTooShortError, match=msg):
+            _ = PricesMock(symbols, [good_cal, cal, cal])
+
+        # just to verify is a good cal...
+        _ = PricesMock(symbols, good_cal)
 
     def test_calendar_expired_error(self, PricesMock, symbols, cal_start, side):
         """Verify raises `CalendarExpiredError`.
@@ -1869,7 +1903,7 @@ class TestBis:
         dr = (start, end), end
         daterange_sessions = self.get_start_end_sessions(cc, start, end)
         return GetterMock(
-            daterange_sessions=daterange_sessions,  # type: ignore[call-arg]
+            daterange_sessions=daterange_sessions,
             daterange=dr,
             **kwargs,
         )
@@ -1949,8 +1983,8 @@ class TestBis:
         prices: m.PricesBase, drg: daterange.GetterIntraday
     ):
         """Set all drg properties of `prices`.gpp to `drg`."""
-        prices.gpp.drg_intraday = drg  # type: ignore[misc]  # override read-only props
-        prices.gpp.drg_intraday_no_limit = drg  # type: ignore[misc]
+        prices.gpp.drg_intraday = drg
+        prices.gpp.drg_intraday_no_limit = drg
 
     def test__bis_valid(self, PricesMockBis, GetterMock, symbols, xlon, xnys):
         """Test `_bis_valid`."""
@@ -2011,7 +2045,7 @@ class TestBis:
                 limit=xnys.first_minute,
                 ignore_breaks=False,
                 ds_interval=None,
-                pp=pp,  # type: ignore[arg-type]  # expected mptype PP
+                pp=pp,
             )
 
         # a trading hour, from inspection of schedules
@@ -2539,10 +2573,7 @@ def test_get_prices_params_cls(PricesMock, xnys, xhkg):
             assert drg._limit == prices._earliest_requestable_calendar_minute(drg.cal)
         else:
             for bi in gpp.prices.bis_intraday:
-                # typing - gpp.intraday_limit is a property that returns a callable...
-                assert drg._limit(bi) == gpp.intraday_limit(
-                    bi
-                )  # type: ignore[operator]
+                assert drg._limit(bi) == gpp.intraday_limit(bi)
         assert drg._strict is strict
         assert drg.pp == gpp.pp(intraday=True)
         assert drg.anchor == gpp.anchor
