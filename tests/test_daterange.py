@@ -2472,7 +2472,7 @@ class TestGetterIntraday:
         end_session = cal.minute_to_session(end, "previous")
         target_session = end_session - (pp["days"] * cal.day)
         target_session_close = cal.session_close(target_session)
-        if end.value in cal.closes_nanos:
+        if end.value in cal.closes_nanos and end.value not in cal.opens_nanos:
             start = target_session_close
         else:
             # TODO xcals 4.0 THIS helpers.to_utc STAYS STAYS STAYS. Delete this comment.

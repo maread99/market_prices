@@ -12,6 +12,6 @@ All seems to suggest that, maybe, the API is implemented to, knowingly or otherw
 
 (NOTE: when data is not available for all indices of a session the missing data is filled with data from the prior or following session and a `PricesMissingWarning` is raised.)
 
-The sessions for which data becomes unavailable are always the same ones. They are listed in `_blacklist` towards the top of `test_yahoo.py`. **Tests should be written so as to avoid requesting data for a period that starts or ends on any of these blacklisted sessions**. To this end the `test_yahoo.py` module provides the following methods to evaluate sessions that are not blacklisted:
+The sessions for which data becomes unavailable are always the same ones. They are listed in `_flakylist` towards the top of `test_yahoo.py`. **Tests should be written so as to avoid requesting data for a period that starts or ends on any of these flakylisted sessions**. To this end the `test_yahoo.py` module provides the following methods to evaluate sessions that are not flakylisted:
 * `get_valid_sessions`
 * `get_valid_conforming_sessions`
