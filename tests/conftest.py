@@ -5,8 +5,7 @@ from __future__ import annotations
 from collections import abc
 import os
 
-from hypothesis import settings as hypo_settings
-from hypothesis import HealthCheck
+from hypothesis import settings, HealthCheck
 import exchange_calendars as xcals
 import pandas as pd
 import pytest
@@ -17,8 +16,8 @@ from .utils import Answers
 # pylint: disable=missing-any-param-doc,redefined-outer-name,
 # pylint: unused-argument  # `mock_now` has effect in background
 
-hypo_settings.register_profile("ci", suppress_health_check=[HealthCheck.too_slow])
-hypo_settings.load_profile(os.getenv("HYPOTHESIS_PROFILE", "default"))
+settings.register_profile("ci", suppress_health_check=[HealthCheck.too_slow])
+settings.load_profile(os.getenv("HYPOTHESIS_PROFILE", "default"))
 
 # pylint: disable=no-member
 base_intervals_sample = [
