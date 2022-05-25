@@ -74,37 +74,37 @@ _blacklist = (
 )
 
 
-def current_session_in_blacklist(cc: calutils.CompositeCalendar) -> bool:
+def current_session_in_blacklist(calendars: list[xcals.ExchangeCalendar]) -> bool:
     """Query if current session is in the blacklist.
 
-    Will return True if most recent session of any underlying calendar
-    is blacklisted.
+    Will return True if most recent session of any of `calendars` is
+    blacklisted.
 
     Parameters
     ----------
-    cc
-        Composite calendar against which to evaluate current session(s).
+    calendars
+        Calendars against which to evaluate current session.
     """
-    current_range = cc.minute_to_sessions(helpers.now(), "previous")
-    dates = pd.date_range(current_range[0], current_range[-1], freq="D")
-    return dates.isin(_blacklist).any()
+    for cal in calendars:
+        # TODO xcals 4.0 lose wrapper
+        today = helpers.to_tz_naive(cal.minute_to_session(helpers.now(), "previous"))
+        if today in _blacklist:
+            return True
+    return False
 
 
 class skip_if_fails_and_today_blacklisted:
     """Decorator to skip test if fails due to today being blacklisted.
 
     Skips test if test raises errors.PricesUnavailableFromSourceError and
-    today is in the blacklist. Today evaluted against calendars
-    corresponding with calendar names passed to decorator.
+    today is in the blacklist.
 
     Parameters
     ----------
     cal_names
-        Names of calendars against which to evaluate 'today'. 'today' will
-        be evaluted as all dates between the earliest and latest sessions
-        that 'now' evaluates to for any of the calendars (test will be
-        skipped if the error is raised and the blacklist includes and of
-        these dates).
+        Names of calendars against which to evaluate 'today'. Test will be
+        skipped if a defined exception is raised and the blacklist includes
+        'today' as evaluated against any of these calendars.
 
     exceptions
         Additional exception types. In addition to
@@ -120,8 +120,7 @@ class skip_if_fails_and_today_blacklisted:
         cal_names: list[str],
         exceptions: list[type[Exception]] | None = None,
     ):
-        cals = [xcals.get_calendar(name) for name in cal_names]
-        self.cc = calutils.CompositeCalendar(cals)
+        self.cals = [xcals.get_calendar(name) for name in cal_names]
 
         permitted_exceptions = [errors.PricesUnavailableFromSourceError]
         if exceptions is not None:
@@ -134,7 +133,7 @@ class skip_if_fails_and_today_blacklisted:
             try:
                 f(*args, **kwargs)
             except self.permitted_exceptions:
-                if current_session_in_blacklist(self.cc):
+                if current_session_in_blacklist(self.cals):
                     pytest.skip(f"Skipping {f.__name__}: today in blacklist.")
                 raise
 
@@ -5745,7 +5744,7 @@ def test_request_all_prices(prices_us_lon, one_min):
     try:
         assert last_ts == latest_session
     except AssertionError:
-        if current_session_in_blacklist(prices.cc):
+        if current_session_in_blacklist(prices.calendars_unique):
             latest_session = get_valid_session(latest_session, xnys, "previous")
             assert last_ts == latest_session
         else:
@@ -5954,7 +5953,7 @@ class TestPriceAt:
             prices.price_at(limit_left - one_min)
 
         limit_right = now = helpers.now()
-        if not current_session_in_blacklist(prices.cc):
+        if not current_session_in_blacklist(prices.calendars_unique):
             df_limit_right = prices.price_at(limit_right, UTC)  # at limit
             current_minute = prices.cc.minute_to_trading_minute(now, "previous")
             if not prices.cc.is_open_on_minute(now):
