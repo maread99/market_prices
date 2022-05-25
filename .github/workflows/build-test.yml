@@ -46,4 +46,4 @@ jobs:
       - name: Test with pytest
         # fail it if doesn't pass test suite
         run: |
-          pytest
+          pytest --hypothesis-profile ci
