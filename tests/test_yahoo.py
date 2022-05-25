@@ -1357,7 +1357,7 @@ def assertions_intraday(
                     caller = stack[i].function
                 print(
                     f"\n{caller}: in assertions_intraday letting pass lack of equality"
-                    "with reindexed equiv as at least one period bound is flakylisted."
+                    " with reindexed equiv as at least one period bound is flakylisted."
                 )
             else:
                 raise
@@ -1957,7 +1957,7 @@ class TestRequestDataIntraday:
                     diff = bv.sum() / len(bv)
                     print(
                         "\ntest_volume_glitch: letting hist_vol == df_vol assertion"
-                        f"pass with discrepancies in {diff:.2%} of rows."
+                        f" pass with discrepancies in {diff:.2%} of rows."
                     )
                 not_in_hist = df[1:].pt.indexed_left.index.difference(hist_vol.index)
                 bv = df.loc[not_in_hist].volume == 0  # pylint: disable=compare-to-zero
@@ -3838,18 +3838,19 @@ class TestGet:
             limit_left, limit_right = prices.limits[bi]
             first_from = cal.minute_to_trading_minute(limit_left, "next")
             first_to = cal.minute_offset_by_sessions(first_from, 1)
-            last_to = cal.minute_to_trading_minute(limit_right, "previous") + one_min
+            last_to = cal.minute_to_trading_minute(limit_right, "previous")
             last_from = cal.minute_offset_by_sessions(last_to, -1)
             if bi is prices.bis.H1:
                 last_to += pd.Timedelta(30, "T")  # provide for possibly unaligned end
             df = f(bi)
             assert first_from <= df.pt.first_ts <= first_to
-            assert last_from <= df.pt.last_ts <= last_to
+            # + one_min to cover processing between evaluating last_to and evaluating df
+            assert last_from <= df.pt.last_ts <= last_to + one_min
             assertions_intraday_common(df, prices, bi)
             # check for interval that requires downsampling
             for factor in (3, 7):
                 interval = bi * factor
-                last_to_ = last_to + (factor * bi)
+                last_to_ = last_to + (factor * bi) + one_min
                 df = f(interval)
                 assert first_from <= df.pt.first_ts <= first_to
                 assert last_from <= df.pt.last_ts <= last_to_
@@ -5425,7 +5426,7 @@ class TestGet:
 
     # ------------------- Tests related to data availability ------------------
 
-    def test_raises_PricesIntradayUnavailableError(self, prices_us):
+    def test_raises_PricesIntradayUnavailableError(self, prices_us, one_min):
         prices = prices_us
         start_T5 = th.get_sessions_range_for_bi(prices, prices.bis.T5)[0]
         session_T5 = start_T5
@@ -5465,7 +5466,7 @@ class TestGet:
 
         # although returns data from limit if strict False
         df = prices.get("3T", session_T5, strict=False)
-        assert df.pt.first_ts >= prices.limits[prices.bis.T1][0]
+        assert df.pt.first_ts >= prices.limits[prices.bis.T1][0] - one_min
         assert df.pt.interval == TDInterval.T3
 
     def test_raises_LastIndiceInaccurateError(self, prices_us):
