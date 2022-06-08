@@ -56,8 +56,7 @@ from .hypstrtgy import get_pp_default
 def get_today(calendar: xcals.ExchangeCalendar) -> pd.Timestamp:
     """Return today for a given `calendar`."""
     now_utc = conftest._now_utc
-    # TODO xcals 4.0 lose wrapper
-    return helpers.to_tz_naive(calendar.minute_to_session(now_utc, "previous"))
+    return calendar.minute_to_session(now_utc, "previous")
 
 
 @pytest.fixture
@@ -107,13 +106,13 @@ class TestGetterDaily:
     ) -> m.GetterDaily:
         """Get m.GetterDaily with default arguments unless otherwise passed."""
         if limit is None:
-            limit = helpers.to_tz_naive(calendar.first_session)  # TODO xcals 4.0 CHG
+            limit = calendar.first_session
         return m.GetterDaily(calendar, limit, pp, ds_interval, strict)
 
     def test_constructor_properties(self, xlon_calendar, pp_default):
         """Test properties that expose constructor parameters."""
         cal = xlon_calendar
-        limit = helpers.to_tz_naive(cal.first_session)  # TODO xcals 4.0 CHG
+        limit = cal.first_session
 
         # required arguments only, options as default
         for drg in (
@@ -277,9 +276,7 @@ class TestGetterDaily:
         """
         last_indice_right = ds_interval.as_offset_ms.rollforward(end)
         latest_start = last_indice_right - ds_interval.as_offset()
-        # TODO xcals 4.0 lose wrapper
-        cal_first_session = helpers.to_tz_naive(cal.first_session)
-        if latest_start < cal_first_session:
+        if latest_start < cal.first_session:
             return None
         return latest_start
 
@@ -545,8 +542,7 @@ class TestGetterDaily:
 
         end = pp["end"] = data.draw(stmp.calendar_session(cal.name, (None, None)))
         drg = self.get_drg(cal, pp, None, ds_interval, True)
-
-        start = helpers.to_tz_naive(cal.first_session)  # TODO xcals 4.0 lose wrapper
+        start = cal.first_session
 
         if ds_interval.is_daily:
             end_session = ans.date_to_session(end, "previous")
@@ -1306,7 +1302,6 @@ class TestGetterIntraday:
         drg_kwargs = dict(interval=bi, ds_interval=ds_interval)
         drg = self.get_drg(cal, pp, **drg_kwargs)
         end_now, end_now_accuracy = drg.end_now
-        # TODO xcals 4.0 CHG
         today = get_today(cal)
         prev_session = ans.get_prev_session(today)
         latest_valid_start = max(end_now - interval, ans.opens[today])
@@ -2392,16 +2387,16 @@ class TestGetterIntraday:
 
         start = pp["start"]
         start_session = cal.minute_to_session(start)
-        # TODO xcals 4.0 CHG to lose the wrapper
-        target_session = helpers.to_tz_naive(start_session + (pp["days"] * cal.day))
+        target_session = start_session + (pp["days"] * cal.day)
         if start.value in cal.opens_nanos and start.value not in cal.closes_nanos:
             end = ans.closes[target_session - cal.day]
         elif start.value in cal.break_ends_nanos:
             end = ans.break_starts[target_session]
         else:
-            # TODO xcals 4.0 THIS helpers.to_utc STAYS STAYS STAYS. Delete this comment.
             target_day = helpers.to_utc(target_session)
-            day_offset = (start.normalize() - start_session.normalize()).days
+            day_offset = (
+                start.normalize() - helpers.to_utc(start_session).normalize()
+            ).days
             if day_offset:
                 target_day += day_offset * helpers.ONE_DAY
             end = target_day.replace(minute=start.minute, hour=start.hour)
@@ -2475,9 +2470,10 @@ class TestGetterIntraday:
         if end.value in cal.closes_nanos and end.value not in cal.opens_nanos:
             start = target_session_close
         else:
-            # TODO xcals 4.0 THIS helpers.to_utc STAYS STAYS STAYS. Delete this comment.
             target_day = helpers.to_utc(target_session)
-            day_offset = (end.normalize() - end_session.normalize()).days
+            day_offset = (
+                end.normalize() - helpers.to_utc(end_session).normalize()
+            ).days
             if day_offset:
                 target_day += day_offset * helpers.ONE_DAY
             start = target_day.replace(minute=end.minute, hour=end.hour)
@@ -2920,11 +2916,7 @@ class TestGetterIntraday:
             for start, end in itertools.product(starts, ends):
                 pp["start"], pp["end"] = start, end
                 drg = self.get_drg(cal, pp, interval=TDInterval.T1)
-                # TODO xcals 4.0 CHG  next couple of lines to expect session as tz_naive
-                rtrn = [
-                    helpers.to_tz_naive(session) for session in drg.daterange_sessions
-                ]
-                assert rtrn == [start_session, end_session], (start, end)
+                assert drg.daterange_sessions == (start_session, end_session)
 
         # test for a few combinations of sample sessions
         today = get_today(cal)

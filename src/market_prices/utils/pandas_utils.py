@@ -5,7 +5,6 @@ from __future__ import annotations
 import warnings
 from collections import abc
 from contextlib import contextmanager
-from pprint import pprint  # noqa: F401  # pylint: disable=unused-import  # for doctests
 from typing import Any, List, Literal, Union
 
 import numpy as np
@@ -508,6 +507,7 @@ def remove_intervals_from_interval(
 
     Examples
     --------
+    >>> from pprint import pprint
     >>> left = pd.date_range('2021-05-01 12:00', periods=5, freq='1H')
     >>> right = left + pd.Timedelta(30, 'T')
     >>> intervals = pd.IntervalIndex.from_arrays(left, right)

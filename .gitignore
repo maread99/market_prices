@@ -142,3 +142,6 @@ etc/solar-ecliptic-longitude/*
 
 # Vscode
 .vscode
+
+# Local files not intended for inclusion public project
+_local/

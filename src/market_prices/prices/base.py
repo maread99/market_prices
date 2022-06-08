@@ -601,10 +601,9 @@ class PricesBase(metaclass=abc.ABCMeta):
             if cal.first_minute > intraday_ll:
                 assert isinstance(intraday_ll, pd.Timestamp)
                 raise errors.CalendarTooShortError(cal, intraday_ll)
-            # TODO xcals 4.0 lose wrapper
 
             assert isinstance(ll, pd.Timestamp) or ll is None
-            if ll is not None and helpers.to_tz_naive(cal.first_session) > ll:
+            if ll is not None and cal.first_session > ll:
                 # raise warning if calendar does not cover period over which daily
                 # prices available.
                 warnings.warn(errors.CalendarTooShortWarning(cal, ll))
@@ -804,7 +803,6 @@ class PricesBase(metaclass=abc.ABCMeta):
                     continue
         f = min if extreme == "earliest" else max
         session = f(sessions)
-        session = helpers.to_tz_naive(session)  # TODO xcals 4.0 lose line
         return session
 
     def _minute_to_latest_trading_minute(self, minute: pd.Timestamp) -> pd.Timestamp:
@@ -917,7 +915,6 @@ class PricesBase(metaclass=abc.ABCMeta):
             session = calendar.date_to_session(self.limit_daily, "next")
         else:
             session = calendar.minute_to_session(self.limit_intraday(calendar))
-        session = helpers.to_tz_naive(session)  # TODO xcals 4.0 lose line
         return session
 
     @property
@@ -953,7 +950,6 @@ class PricesBase(metaclass=abc.ABCMeta):
                     if self._indices_aligned[bi][ll:rl].all()
                 ]
             )
-        session = helpers.to_tz_naive(session)  # TODO xcals 4.0 lose line
         return session
 
     def _earliest_requestable_calendar_minute(
@@ -983,7 +979,6 @@ class PricesBase(metaclass=abc.ABCMeta):
             minute = calendar.session_open(session)
         else:
             minute = self.limit_intraday(calendar)
-        minute = helpers.to_utc(minute)  # TODO xcals 4.0 lose line
         return minute
 
     @property
@@ -1933,7 +1928,7 @@ class PricesBase(metaclass=abc.ABCMeta):
                 )
                 accuracy_is_close = (
                     daterange[1].tz_convert(None) in drg.cal.closes.values
-                )  # TODO xcals 4.0 STAYS STAYS STAYS as is
+                )
 
                 _, end = daterange[0]
                 last_indice_is_live = end >= helpers.now(bi) + bi
@@ -2261,8 +2256,7 @@ class PricesBase(metaclass=abc.ABCMeta):
 
         if start is not None:
             if end is None:
-                # TODO xcals 4.0 lose wrapper
-                end = helpers.to_tz_naive(cal.minute_to_past_session(helpers.now()))
+                end = cal.minute_to_past_session(helpers.now())
 
             if start > (end - 5 * cal.day):
                 return True
@@ -3504,7 +3498,7 @@ class PricesBase(metaclass=abc.ABCMeta):
         """Convert date to a session an associated calendars."""
         f = min if extreme == "earliest" else max
         session = f([c.date_to_session(date, direction) for c in self.calendars_unique])
-        return helpers.to_tz_naive(session)  # TODO xcals 4.0 lose wrapper
+        return session
 
     @pydantic.validate_arguments
     def close_at(self, date: Optional[mptypes.DateTimestamp] = None) -> pd.DataFrame:
@@ -4026,7 +4020,6 @@ class PricesBase(metaclass=abc.ABCMeta):
         else:
             left, right = df.pt.first_ts, df.pt.last_ts
             if isinstance(df.pt, pt.PTDailyIntradayComposite):
-                # TODO xcals 4.0 wrapper STAYS STAYS STAYS
                 first_session = helpers.to_tz_naive(left)
                 left = self.cc.session_open(first_session)
         right = min(right, helpers.now())

@@ -794,11 +794,6 @@ class PricesYahoo(base.PricesBase):
 
         grouper: pd.Series | pd.Grouper
         if (opens.dt.day != closes.dt.day).any():
-            # TODO 4.0 xcals del clause
-            if opens.dt.tz is None:
-                opens = opens.dt.tz_localize(pytz.UTC)
-                closes = closes.dt.tz_localize(pytz.UTC)
-
             grouper = pd.Series(index=df.index, dtype="int32")
             for i, (open_, close) in enumerate(zip(opens, closes)):
                 grouper[(grouper.index >= open_) & (grouper.index < close)] = i
@@ -932,8 +927,7 @@ class PricesYahoo(base.PricesBase):
         last_ts = df.index[-1]
         if last_ts != last_ts.normalize():
             cal = self.calendars[symbol]
-            # TODO xcals 4.0 lose wrapper
-            session = helpers.to_tz_naive(cal.minute_to_session(last_ts, "previous"))
+            session = cal.minute_to_session(last_ts, "previous")
             if len(df) == 1:
                 df.index = pd.DatetimeIndex([session])
             else:

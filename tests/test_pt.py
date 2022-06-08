@@ -870,9 +870,6 @@ class TestIndicesTradingStatus:
             assert_index_equal(df.pt.indices_non_trading(cal), indices_non_trading)
 
             all_sessions = cal.sessions
-            # TODO xcals 4.0 lose if clause
-            if all_sessions.tz is not None:
-                all_sessions = all_sessions.tz_convert(None)
             left, right = df.pt.first_ts, df.pt.last_ts
             bv_sessions = (df.pt.first_ts <= all_sessions) & (
                 all_sessions <= df.pt.last_ts
@@ -3038,8 +3035,6 @@ class TestPTIntraday:
             closes_ = pd.DatetimeIndex(cal.closes.values, tz=pytz.UTC)
             closes_arr = closes_.get_indexer(df.pt.utc.index.left, "bfill")
             sessions = cal.sessions
-            if sessions.tz is not None:  # TODO xcals 4.0 lose if clause
-                sessions = cal.sessions.tz_convert(None)
             srs = pd.Series(pd.NaT, index=df.index, name="session")
             bv = srs.index.left.isin(opens_)
             bv = bv | ((opens_arr == closes_arr) & (~srs.index.left.isin(closes_)))

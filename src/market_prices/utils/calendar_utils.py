@@ -153,83 +153,26 @@ def get_trading_index(
     force: bool = False,
     ignore_breaks: bool = False,
     curtail_overlaps: bool = False,
-) -> pd.IntervalIndex:
-    """Return index covering only trading times or sessions.
+) -> pd.IntervalIndex | pd.DatetimeIndex:
+    """Return trading index for a calendar.
 
-    All intraday indices have a left side that falls within trading hours.
+    Convenience function that returns `calendar.trading_index` with
+    'intervals' and 'closed' options as required for market_prices.
 
     Parameters
     ----------
     calendar
-        Calendar against which to evaluate trading times.
-
-    start
-        Timestamp from which index is to commence (can be inside or
-        outside of trading hours). If `interval` is intraday then `start`
-        can be a time or date (where date represented by tz-naive timestamp
-        with no time component). If `interval` is one day then `start`
-        must be a date.
-
-    end
-        Timestamp at which index is to end (can be inside or outside
-        of trading hours). All indicies with right side before or on
-        timestamp will be included. If `interval` is intraday then `end`
-        can be a time or date (where date represented by tz-naive timestamp
-        with no time component). If `interval` is one day then `end`
-        must be a date.
+        Calendar against which to evaluate trading index.
 
     interval
         Time delta between each indice. Cannot be higher than one day.
 
-    force
-        Force right side of last indice of each session to session
-        close if doesn't otherwise coincide. If calendar has breaks,
-        also force right side of last indice of morning subsession to
-        break start.
-
-        Has no effect if interval is one day.
-
-    ignore_breaks
-        True: include indices through any break, as if the session were
-        continuous.
-
-        False: do not include any indices that would otherwise commence
-        during the break. Start afternoon session with an indice with
-        left side on pm subsession open.
-
-        Has no effect if interval is one day.
-
-    curtail_overlaps : default: False
-        Determines action to take if an inteval ends after the start of the
-        next interval. (This can occur if interval is longer than a break
-        or the gap between one session's close and the next session's
-        open.)
-
-        True: Right of the earlier of any two overlapping intervals will be
-        curtailed to the left of the latter interval. (NB consequently the
-        interval length will not be constant for all indices.)
-
-        False: Raises IntervalsOverlapError if any interval overlaps with
-        the following interval.
+    All other parameters as calendar.trading_index.
     """
     # pylint: disable=missing-param-doc, too-many-arguments
-    if interval.is_daily:
-        index = calendar.sessions_in_range(start, end)
-        # TODO xcals 4.0 delete if clause
-        if index.tz is not None:
-            index = index.tz_convert(None)
-        return index
-
-    # TODO xcals 4.0 CHG. In 4.0 trading_index should accept a date or time (as
-    # opposed to only dates). NB when incorp that functionality to xcals can
-    # lift most of the test for this method and then strip from the local test.
-    start_is_date, end_is_date = helpers.is_date(start), helpers.is_date(end)
-    start_s = start if start_is_date else calendar.minute_to_session(start, "next")
-    end_s = end if end_is_date else calendar.minute_to_session(end, "previous")
-
-    index = calendar.trading_index(
-        start_s,
-        end_s,
+    return calendar.trading_index(
+        start,
+        end,
         interval,
         intervals=True,
         closed="left",
@@ -237,17 +180,6 @@ def get_trading_index(
         ignore_breaks=ignore_breaks,
         curtail_overlaps=curtail_overlaps,
     )
-
-    bv: np.ndarray | None = None
-    if not start_is_date:
-        bv = index.left >= start
-    if not end_is_date:
-        bv_end = index.right <= end
-        bv = bv & bv_end if bv is not None else bv_end
-    if bv is not None:
-        index = index[bv]
-
-    return index
 
 
 def composite_schedule(calendars: abc.Sequence[xcals.ExchangeCalendar]) -> pd.DataFrame:
@@ -272,17 +204,11 @@ def composite_schedule(calendars: abc.Sequence[xcals.ExchangeCalendar]) -> pd.Da
     schedules = [c.schedule[first_session:last_session] for c in calendars]
     index = pdutils.index_union(schedules)
     schedules = [sch.reindex(index) for sch in schedules]
-    columns = pd.Index(["market_open", "market_close"])
+    columns = pd.Index(["open", "close"])
     opens = pd.DataFrame([sch[columns[0]] for sch in schedules]).min()
     closes = pd.DataFrame([sch[columns[1]] for sch in schedules]).max()
-    if opens.dt.tz is None:  # TODO xcals 4.0 lose if clause
-        opens = opens.dt.tz_localize(pytz.UTC)
-    if closes.dt.tz is None:  # TODO xcals 4.0 lose if clause
-        closes = closes.dt.tz_localize(pytz.UTC)
     schedule = pd.concat([opens, closes], axis=1)
     schedule.columns = columns
-    if schedule.index.tz is pytz.UTC:  # TODO xcals 4.0 lose if clause
-        schedule.index = schedule.index.tz_convert(None)
     return schedule
 
 
@@ -354,8 +280,6 @@ class CompositeCalendar:
     # called by xcals.calendar_helpers.parse_date
     def _date_oob(self, date: Date) -> bool:
         """Is `date` out-of-bounds."""
-        if date.tz is not None:  # TODO xcals 4.0 lose if clause
-            date = date.tz_convert(None)
         return date < self.first_session or date > self.last_session
 
     @functools.cached_property
@@ -416,12 +340,12 @@ class CompositeCalendar:
     @property
     def opens(self) -> pd.Series:
         """Open time for each composite session."""
-        return self.schedule["market_open"]
+        return self.schedule["open"]
 
     @property
     def closes(self) -> pd.Series:
         """Close time for each composite session."""
-        return self.schedule["market_close"]
+        return self.schedule["close"]
 
     @functools.cached_property
     def minutes(self) -> pd.DatetimeIndex:
@@ -465,8 +389,6 @@ class CompositeCalendar:
         """Parse client input representing a session."""
         param_name = "session"
         ts = xcals.calendar_helpers.parse_date(session, param_name, calendar=self)
-        if ts.tz is not None:  # TODO xcals 4.0 DEL if clause
-            ts = ts.tz_convert(None)
         if ts not in self.sessions:
             raise xcals.errors.NotSessionError(self, ts, param_name)
         return ts
@@ -729,22 +651,16 @@ class CompositeCalendar:
     def _parse_date(self, date: Date) -> pd.Timestamp:
         """Parse a parameter defining a date."""
         ts = xcals.calendar_helpers.parse_date(date, "date", calendar=self)
-        if ts.tz is not None:  # TODO xcals 4.0 del if clause
-            ts = ts.tz_convert(None)
         return ts
 
     def _parse_start(self, start: Date) -> pd.Timestamp:
         """Parse a parameter defining start of a date range."""
         ts = xcals.calendar_helpers.parse_date(start, "start", calendar=self)
-        if ts.tz is not None:  # TODO xcals 4.0 del if clause
-            ts = ts.tz_convert(None)
         return ts
 
     def _parse_end(self, end: Date) -> pd.Timestamp:
         """Parse a parameter defining end of a date range."""
         ts = xcals.calendar_helpers.parse_date(end, "end", calendar=self)
-        if ts.tz is not None:  # TODO xcals 4.0 del if clause
-            ts = ts.tz_convert(None)
         return ts
 
     def _get_date_idx(self, date: pd.Timestamp) -> int:
@@ -1133,11 +1049,7 @@ class _CompositeNonTradingIndex:
     @staticmethod
     def _adjust_tz(srs: pd.Series) -> pd.Series:
         srs = srs.copy()
-        # TODO xcals 4.0 lose if clause
-        if srs.index.tz is not None:  # type: ignore[attr-defined]  # does have tz attr
-            srs.index = srs.index.tz_convert(None)  # type: ignore[attr-defined]
-        # TODO NB xcals 4.0 THIS STAYS STAYS STAYS, works in tz-naive values for speed
-        # and to order missing values last.
+        # work in tz-naive for speed and to order missing values last
         if srs.dt.tz is not None:
             srs = srs.dt.tz_convert(None)
         return srs
@@ -1203,10 +1115,8 @@ class _CompositeNonTradingIndex:
                 for c in self.cc.calendars
                 if c.is_session(last_day_next_session)
             )
-            # TODO xcals 4.0 STAYS STAYS STAYS. Just del this comment line.
             last_day_next_open = last_day_next_open.tz_convert(None)
         opens_df.iat[-1, -1] = last_day_next_open
-
         return opens_df
 
     @property
@@ -1245,7 +1155,6 @@ class _CompositeNonTradingIndex:
         except ValueError:
             last_close_ = last_close.dropna()
             # last value of last close is last calendar close (there is no next open)
-            # TODO xcals 4.0 STAYS STAYS STAYS. Just del this comment line.
             if last_close_.iloc[-1] == self.cc.closes[-1].tz_convert(None):
                 index = pd.IntervalIndex.from_arrays(
                     last_close_[:-1], next_open.dropna(), "left"

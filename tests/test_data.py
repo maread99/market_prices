@@ -76,16 +76,9 @@ class MockRequestAdmin:
                 # verify start and date are both dates or both times
                 assert start_is_session == end_is_session
             if start_is_session or end_is_session:
-                index = self.calendar.trading_index(start, end, bi).tz_convert(None)
+                index = self.calendar.trading_index(start, end, bi)
             else:
-                # TODO xcals 4.0 should have developed trading_index to be able to take
-                # intraday times as well as sessions, in which case will be able to
-                # simplify this clause.
-                start_session = self.calendar.minute_to_session(start, "previous")
-                end_session = self.calendar.minute_to_session(end, "next")
-                index = self.calendar.trading_index(start_session, end_session, bi)
-                bv = (index.left >= start) & (index.right <= end)
-                index = index[bv]
+                index = self.calendar.trading_index(start, end, bi)
             df = pd.DataFrame(
                 dict(open=2, high=4, low=1, close=3, volume=5), index=index
             )
@@ -348,8 +341,6 @@ class TestRanges:
         end_session = cal.session_offset(cal.last_session, -5)
         start_date = end_session - pd.DateOffset(weeks=4)
         start_session = cal.date_to_session(start_date, "next")
-        start_session = helpers.to_tz_naive(start_session)  # TODO xcals 4.0 delete line
-        end_session = helpers.to_tz_naive(end_session)  # TODO xcals 4.0 delete line
         yield start_session, end_session
 
     @pytest.fixture(scope="class")
@@ -380,24 +371,18 @@ class TestRanges:
         from_minute = cal.session_minutes(from_session)[60]
         to_session = cal.session_offset(from_session, 2)
         to_minute = cal.session_minutes(to_session)[-90]
-        from_session = helpers.to_tz_naive(from_session)  # TODO xcals 4.0 delete line
-        to_session = helpers.to_tz_naive(to_session)  # TODO xcals 4.0 delete line
         rngs.append(((from_minute, to_minute), (from_session, to_session)))
 
         from_session = cal.session_offset(to_session, 3)
         from_minute = cal.session_open(from_session)
         to_session = cal.session_offset(from_session, 3)
         to_minute = cal.session_minutes(to_session)[-90]
-        from_session = helpers.to_tz_naive(from_session)  # TODO xcals 4.0 delete line
-        to_session = helpers.to_tz_naive(to_session)  # TODO xcals 4.0 delete line
         rngs.append(((from_minute, to_minute), (from_session, to_session)))
 
         from_session = cal.session_offset(end_session, -5)
         from_minute = cal.session_open(from_session) - pd.Timedelta(70, "T")
         to_session = cal.session_offset(from_session, 2)
         to_minute = cal.session_close(to_session) + pd.Timedelta(70, "T")
-        from_session = helpers.to_tz_naive(from_session)  # TODO xcals 4.0 delete line
-        to_session = helpers.to_tz_naive(to_session)  # TODO xcals 4.0 delete line
         rngs.append(((from_minute, to_minute), (from_session, to_session)))
 
         yield rngs
@@ -563,8 +548,6 @@ class TestRanges:
         from_session, to_session = dr
         prior_session = cal.previous_session(from_session)
         next_session = cal.next_session(to_session)
-        prior_session = helpers.to_tz_naive(prior_session)  # TODO xcals 4.0 delete line
-        next_session = helpers.to_tz_naive(next_session)  # TODO xcals 4.0 delete line
 
         bi = TDInterval.D1
         df = dfs[bi]
@@ -681,8 +664,6 @@ class TestRanges:
         if bi_daily:
             of_prev_session = cal.previous_session(dr_0_start)
             of_next_session = cal.next_session(dr_2_end)
-            of_prev_session = helpers.to_tz_naive(of_prev_session)  # TODO xcals 4.0
-            of_next_session = helpers.to_tz_naive(of_next_session)  # TODO xcals 4.0
         else:
             of_prev_session = cal.previous_close(dr_0_start) - thirty_mins
             of_next_session = cal.next_open(dr_2_end) + (thirty_mins * 3)
@@ -1076,7 +1057,7 @@ class TestRanges:
             assert not data.available(today + bi)
 
         def assertions(data, table, now, dr, admin, delay):
-            # pylint: too-many-statements
+            # pylint: disable=too-many-statements
             bi = data.bi
             from_, to = dr
             # discount calculation reasonable only given the bis tested (1T, 1H, 1D)

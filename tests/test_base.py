@@ -140,16 +140,12 @@ def test_inferred_intraday_interval(calendars_extended, one_min, monkeypatch):
         assert not f(**kwargs)
 
     # start and end always > 5 trading days apart when combined
-    session = start_date = helpers.to_tz_naive(  # TODO xcals 4.0 lose wrapper
-        cal.date_to_session(pd.Timestamp("2021-10-01"), "next")
-    )
+    session = start_date = cal.date_to_session(pd.Timestamp("2021-10-01"), "next")
     session = cal.session_offset(session, 7)
     time = session.replace(minute=33, hour=11)
     session = cal.session_offset(session, 7)
-    midnight = helpers.to_utc(session)  # TODO xcals 4.0 this STAYS STAYS STAYS
-    # TODO xcals 4.0 lose wrapper
-    end_date = helpers.to_tz_naive(cal.session_offset(session, 7))
-
+    midnight = helpers.to_utc(session)
+    end_date = cal.session_offset(session, 7)
     # start or/and end with at least one as a time
     for tm in [time, midnight]:
         assert_intraday(start=tm)
@@ -169,15 +165,12 @@ def test_inferred_intraday_interval(calendars_extended, one_min, monkeypatch):
     assert_intraday(start=start_date, end=start_date)  # same date
 
     end = cal.session_offset(start_date, 3)
-    end = helpers.to_tz_naive(end)  # TODO xcals 4.0 lose line
     assert_intraday(start=start_date, end=end)  # 4 days diff
 
     end = cal.session_offset(end, 1)
-    end = helpers.to_tz_naive(end)  # TODO xcals 4.0 lose line
     assert_intraday(start=start_date, end=end)  # 5 days diff, on limit
 
     end = cal.session_offset(end, 1)
-    end = helpers.to_tz_naive(end)  # TODO xcals 4.0 lose line
     assert_daily(start=start_date, end=end)  # 6 days diff, over limit
 
     # testing 5 day diff with end as None
@@ -195,15 +188,12 @@ def test_inferred_intraday_interval(calendars_extended, one_min, monkeypatch):
     # as now open, 5 days will count to, and inclusive of, session prior to
     # last_session
     start = cal.session_offset(last_session, -4)
-    start = helpers.to_tz_naive(start)  # TODO xcals 4.0 lose line
     assert_intraday(start=start)  # 4 days diff to prior session
 
     start = cal.session_offset(start, -1)
-    start = helpers.to_tz_naive(start)  # TODO xcals 4.0 lose line
     assert_intraday(start=start)  # 5 days diff, on limit
 
     start = cal.session_offset(start, -1)
-    start = helpers.to_tz_naive(start)  # TODO xcals 4.0 lose line
     assert_daily(start=start)  # 6 days diff, over limit
 
     def mock_now_after_close(*_, **__) -> pd.Timestamp:
@@ -215,15 +205,12 @@ def test_inferred_intraday_interval(calendars_extended, one_min, monkeypatch):
 
     # as now after close, 5 days will count to, and inclusive of last_session
     start = cal.session_offset(last_session, -3)
-    start = helpers.to_tz_naive(start)  # TODO xcals 4.0 lose line
     assert_intraday(start=start)  # 4 days diff
 
     start = cal.session_offset(start, -1)
-    start = helpers.to_tz_naive(start)  # TODO xcals 4.0 lose line
     assert_intraday(start=start)  # 5 days diff, on limit
 
     start = cal.session_offset(start, -1)
-    start = helpers.to_tz_naive(start)  # TODO xcals 4.0 lose line
     assert_daily(start=start)  # 6 days diff, over limit
 
     # testing duration components
@@ -877,7 +864,7 @@ class TestPricesBaseSetup:
         monkeypatch.setattr("pandas.Timestamp.now", mock_now)
 
         intraday_limit = now - PricesMock.BASE_LIMITS[intervals.TDInterval.H1]
-        start = intraday_limit.normalize() + one_day
+        start = intraday_limit.normalize().astimezone(None) + one_day
         cal = xcals.get_calendar("XLON", start=start, side=side)
         good_cal = xnys
 
@@ -1136,14 +1123,12 @@ class TestPricesBaseSetup:
 
         prices = PricesMockDailyNoLimit(symbols, calendars)
         for cal in calendars:
-            session = helpers.to_tz_naive(
-                cal.first_session
-            )  # TODO xcals 4.0 lose wrapper
-            assert prices._earliest_requestable_calendar_session(cal) == session
+            assert (
+                prices._earliest_requestable_calendar_session(cal) == cal.first_session
+            )
             assert prices._earliest_requestable_calendar_minute(cal) == cal.first_minute
 
-        # TODO xcals 4.0 lose wrapper
-        session = helpers.to_tz_naive(max([cal.first_session for cal in calendars]))
+        session = max([cal.first_session for cal in calendars])
         assert prices.earliest_requestable_session == session
         minute = max([cal.first_minute for cal in calendars])
         assert prices.earliest_requestable_minute == minute
@@ -1277,9 +1262,6 @@ class TestPricesBaseSetup:
         calendars = [xnys, xnys, x247]
         prices = PricesMock(symbols, calendars)
         xnys_sessions = xnys.sessions_in_range("2021", "2021-12-31")
-        # TODO xcals 4.0 lose if clause
-        if xnys_sessions.tz is not None:
-            xnys_sessions = xnys_sessions.tz_convert(None)
         all_dates = pd.date_range("2021", "2021-12-31")
         H1_expected = all_dates.difference(xnys_sessions)
         assertions(prices, H1_expected)
@@ -1321,9 +1303,6 @@ class TestPricesBaseSetup:
             calendars_sessions = []
             for cal in calendars:
                 sessions = cal.sessions_in_range(*range_)
-                # TODO xcals 4.0 lose if clause
-                if sessions.tz is not None:
-                    sessions = sessions.tz_convert(None)
                 calendars_sessions.append(sessions)
             return calendars_sessions
 

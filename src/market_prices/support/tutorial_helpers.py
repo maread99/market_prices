@@ -77,11 +77,6 @@ def get_sessions_range_for_bi(
             if end_limit < cc.session_close(end_session):
                 end_session = cc.previous_session(end_session)
 
-    # TODO xcals 4.0 del if clause
-    if start_session.tz is not None:
-        start_session = start_session.tz_convert(None)
-        end_session = end_session.tz_convert(None)
-
     return start_session, end_session
 
 

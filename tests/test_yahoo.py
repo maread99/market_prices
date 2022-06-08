@@ -52,6 +52,9 @@ UTC = pytz.UTC
 # ...sessions that yahoo temporarily fails to return prices for if (seemingly)
 # send a high frequency of requests for prices from the same IP address.
 _flakylist = (
+    pd.Timestamp("2022-06-01"),
+    pd.Timestamp("2022-05-31"),
+    pd.Timestamp("2022-05-26"),
     pd.Timestamp("2022-05-25"),
     pd.Timestamp("2022-05-24"),
     pd.Timestamp("2022-05-23"),
@@ -72,6 +75,7 @@ _flakylist = (
     pd.Timestamp("2021-10-18"),
     pd.Timestamp("2020-06-25"),
     pd.Timestamp("2020-05-07"),
+    pd.Timestamp("2012-05-28"),
 )
 
 
@@ -93,9 +97,8 @@ def minute_in_flakylist(
     """
     minutes = minute if isinstance(minute, abc.Sequence) else [minute]
     for cal in calendars:
-        # TODO xcals 4.0 lose wrapper
         for minute_ in minutes:
-            session = helpers.to_tz_naive(cal.minute_to_session(minute_, "previous"))
+            session = cal.minute_to_session(minute_, "previous")
             if session in _flakylist:
                 return True
     return False
@@ -1072,7 +1075,7 @@ def get_data_bounds(
     prices: m.PricesYahoo,
     interval: intervals.BI,
     limits: tuple[pd.Timestamp, pd.Timestamp] | None = None,
-) -> tuple[tuple[pd.Timestamp, pd.Timestamp], slice, slice]:
+) -> tuple[tuple[pd.Timestamp, pd.Timestamp], slice]:
     """Get start and end bounds for price data.
 
     Parameters
@@ -1109,12 +1112,6 @@ def get_data_bounds(
             Does not include session corresponding with `limits`[1].
             Can be used to index a composite calendar. slice dates are
             tz-naive.
-
-        tuple[2] : slice
-            slice from start to end of sessions falling within bounds.
-            Does not include session corresponding with `limits`[1].
-            Can be used be index an ExchangeCalendar. slice dates have
-            same tz as calendar sessions.
     """
     ll, rl = prices.limits[interval] if limits is None else limits
     cc = prices.cc
@@ -1126,19 +1123,7 @@ def get_data_bounds(
     start = cc.session_open(start_session)
     # set end as open of next session to ensure include all of end_session
     end = cc.session_open(last_available_session)
-
-    # TODO xcals 4.0 del clause, remove slc_cal from return, then
-    # revise client calls and replace all references to slc_cal from
-    # `slc_cal` to `slc`. Also, revise method documentation 'Returns'.
-    if cc.calendars[0].sessions.tz is pytz.UTC:
-        slc_cal = slice(
-            slc.start.tz_localize(pytz.UTC),  # pylint: disable=no-member
-            slc.stop.tz_localize(pytz.UTC),  # pylint: disable=no-member
-        )
-    else:
-        slc_cal = slc
-
-    return (start, end), slc, slc_cal
+    return (start, end), slc
 
 
 def _get_sessions_daterange_for_bi_cal(
@@ -1250,10 +1235,6 @@ def get_sessions_daterange_for_bi(
         start_session, end_session = _get_sessions_daterange_for_bi_cc(
             prices, bi, length_end_session
         )
-
-    start_session = helpers.to_tz_naive(start_session)  # TODO xcals 4.0 lose line
-    end_session = helpers.to_tz_naive(end_session)  # TODO xcals 4.0 lose line
-
     return start_session, end_session
 
 
@@ -1462,7 +1443,7 @@ class TestRequestDataIntraday:
         """Verify return from specific fixture."""
         prices = pricess["us"]
         for interval in prices.BaseInterval[:-1]:
-            (start, end), slc, _ = get_data_bounds(prices, interval)
+            (start, end), slc = get_data_bounds(prices, interval)
             df = prices._request_data(interval, start, end)
 
             bounds, num_rows, sessions_end = expected_table_structure_us(
@@ -1481,7 +1462,7 @@ class TestRequestDataIntraday:
         cal = prices.calendars[symbol]
 
         for interval in prices.BaseInterval[:-1]:
-            (start, end), slc, _ = get_data_bounds(prices, interval)
+            (start, end), slc = get_data_bounds(prices, interval)
             df = prices._request_data(interval, start, end)
             assertions_intraday_common(df, prices, interval)
 
@@ -1492,14 +1473,7 @@ class TestRequestDataIntraday:
 
             exclude_break = prices._subsessions_synced(cal, interval)
             if exclude_break:
-                # TODO xcals 4.0 can lose clauses, use cal.break_starts / cal.break_ends
-                if cal.break_starts.index.tz is not None:
-                    break_starts = cal.break_starts.tz_convert(None)
-                    break_ends = cal.break_ends.tz_convert(None)
-                else:
-                    break_starts = cal.break_starts
-                    break_ends = cal.break_ends
-                break_durations = break_ends[slc] - break_starts[slc]
+                break_durations = cal.break_ends[slc] - cal.break_starts[slc]
                 break_rows = break_durations // interval
                 expected_num_rows -= int(break_rows.sum())
 
@@ -1525,7 +1499,6 @@ class TestRequestDataIntraday:
         interval: intervals.TDInterval,
         cc: calutils.CompositeCalendar,
         slc: slice,
-        slc_cal: slice,
     ) -> tuple[int, pd.Series]:
         """Get expected number of rows of return for 'us_lon' prices fixture.
 
@@ -1544,21 +1517,15 @@ class TestRequestDataIntraday:
         xlon, xnys = cc.calendars[0], cc.calendars[1]
         if xlon.name != "XLON":
             xlon, xnys = xnys, xlon
-        common_index = xlon.opens[slc_cal].index.union(xnys.opens[slc_cal].index)
-        opens_xlon = xlon.opens[slc_cal].reindex(common_index)
-        closes_xlon = xlon.closes[slc_cal].reindex(common_index)
-        opens_xnys = xnys.opens[slc_cal].reindex(common_index)
-        closes_xnys = xnys.closes[slc_cal].reindex(common_index)
+        common_index = xlon.opens[slc].index.union(xnys.opens[slc].index)
+        opens_xlon = xlon.opens[slc].reindex(common_index)
+        closes_xlon = xlon.closes[slc].reindex(common_index)
+        opens_xnys = xnys.opens[slc].reindex(common_index)
+        closes_xnys = xnys.closes[slc].reindex(common_index)
         bv = closes_xlon < opens_xnys
         xlon_rows = np.ceil((closes_xlon[bv] - opens_xlon[bv]) / interval)
         xnys_rows = np.ceil((closes_xnys[bv] - opens_xnys[bv]) / interval)
         new_session_rows = xlon_rows + xnys_rows
-        # TODO xcals 4.0 del if clause
-        if new_session_rows.index.tz is not None:
-            new_session_rows = new_session_rows.tz_convert(None)
-        # TODO xcals 4.0 del if clause
-        if bv.index.tz is not None:
-            bv = bv.tz_convert(None)
 
         sessions_rows = sessions_rows_gross.copy()
         sessions_rows[bv.index[bv]] = new_session_rows
@@ -1573,11 +1540,11 @@ class TestRequestDataIntraday:
 
         # xnys and xlon indexes are out of phase for 1H
         for interval in prices.BaseInterval[:-2]:
-            (start, end), slc, slc_cal = get_data_bounds(prices, interval)
+            (start, end), slc = get_data_bounds(prices, interval)
             df = prices._request_data(interval, start, end)
 
             expected_num_rows, sessions_rows_gross = self.get_expected_num_rows_us_lon(
-                interval, cc, slc, slc_cal
+                interval, cc, slc
             )
             sessions_last_indice = cc.opens[slc] + (interval * sessions_rows_gross)
             start = cc.opens[slc][0]
@@ -1597,7 +1564,7 @@ class TestRequestDataIntraday:
         symbols = prices.symbols
 
         for interval in prices.BaseInterval[:-1]:
-            (start, end), slc, slc_cal = get_data_bounds(prices, interval)
+            (start, end), slc = get_data_bounds(prices, interval)
             df = prices._request_data(interval, start, end)
             assertions_intraday_common(df, prices, interval)
 
@@ -1606,21 +1573,15 @@ class TestRequestDataIntraday:
             sessions_rows = np.ceil(sessions_durations / interval)
 
             cal0, cal1 = prices.calendars["QAN.AX"], prices.calendars["MSFT"]
-            common_index = cal0.opens[slc_cal].index.union(cal1.opens[slc_cal].index)
-            opens_0 = cal0.opens[slc_cal].reindex(common_index)
-            closes_0 = cal0.closes[slc_cal].reindex(common_index)
-            opens_1 = cal1.opens[slc_cal].reindex(common_index)
-            closes_1 = cal1.closes[slc_cal].reindex(common_index)
+            common_index = cal0.opens[slc].index.union(cal1.opens[slc].index)
+            opens_0 = cal0.opens[slc].reindex(common_index)
+            closes_0 = cal0.closes[slc].reindex(common_index)
+            opens_1 = cal1.opens[slc].reindex(common_index)
+            closes_1 = cal1.closes[slc].reindex(common_index)
             bv = closes_0 < opens_1
             cal0_rows = np.ceil((closes_0[bv] - opens_0[bv]) / interval)
             cal1_rows = np.ceil((closes_1[bv] - opens_1[bv]) / interval)
             new_session_rows = cal0_rows + cal1_rows
-            # TODO xcals 4.0 del if clause
-            if new_session_rows.index.tz is not None:
-                new_session_rows = new_session_rows.tz_convert(None)
-            # TODO xcals 4.0 del if clause
-            if bv.index.tz is not None:
-                bv = bv.tz_convert(None)
 
             sessions_rows_adj = sessions_rows.copy()
             sessions_rows_adj[bv.index[bv]] = new_session_rows
@@ -1654,7 +1615,7 @@ class TestRequestDataIntraday:
         cc = prices.cc
 
         for interval in prices.BaseInterval[:-1]:
-            (start, end), slc, _ = get_data_bounds(prices, interval)
+            (start, end), slc = get_data_bounds(prices, interval)
             df = prices._request_data(interval, start, end)
 
             sessions_durations = cc.closes[slc] - cc.opens[slc]
@@ -1688,7 +1649,7 @@ class TestRequestDataIntraday:
             if interval == prices.BaseInterval.T2:
                 limits = prices.limits[prices.BaseInterval.T1]
 
-            (start, end), slc, _ = get_data_bounds(prices, interval, limits)
+            (start, end), slc = get_data_bounds(prices, interval, limits)
             df = prices._request_data(interval, start, end)
 
             sessions_durations = cc.closes[slc] - cc.opens[slc]
@@ -1711,28 +1672,24 @@ class TestRequestDataIntraday:
     def test_data_unavailable_for_symbol(self, pricess):
         """Verify where data for at least one symbol unavailable."""
         prices = pricess["us_lon"]
-        _, _, slc_cal = get_data_bounds(prices, prices.BaseInterval.T5)
+        _, slc = get_data_bounds(prices, prices.BaseInterval.T5)
 
         symbol_us = "MSFT"
         xnys = prices.calendars[symbol_us]
         xlon = prices.calendars["AZN.L"]
 
-        common_index = xnys.opens[slc_cal].index.intersection(xlon.opens[slc_cal].index)
+        common_index = xnys.opens[slc].index.intersection(xlon.opens[slc].index)
         delta = pd.Timedelta(2, "H")
 
         # don't use first index
         for i in reversed(range(len(common_index) - 1)):
             session = common_index[i]
-            # TODO xcals 4.0 lose wrapper
-            if helpers.to_tz_naive(session) in _flakylist:
+            if session in _flakylist:
                 continue
             start = xlon.opens[session]
             end = start + delta
             if end < xnys.opens[session]:
                 break
-
-        start = helpers.to_utc(start)  # TODO xcals 4.0 lose line
-        end = helpers.to_utc(end)  # TODO xcals 4.0 lose line
 
         for interval in prices.BaseInterval[:-1]:
             df = prices._request_data(interval, start, end)
@@ -1745,19 +1702,14 @@ class TestRequestDataIntraday:
         prices = pricess["us_lon"]
         cc = prices.cc
         interval = prices.BaseInterval.T5
-        _, slc, slc_cal = get_data_bounds(prices, interval)
+        _, slc = get_data_bounds(prices, interval)
 
         delta = pd.Timedelta(20, "T")
         start = cc.opens[slc][0] + delta
         end = cc.closes[slc][-1] - delta
 
-        expected_num_rows, _ = self.get_expected_num_rows_us_lon(
-            interval, cc, slc, slc_cal
-        )
+        expected_num_rows, _ = self.get_expected_num_rows_us_lon(interval, cc, slc)
         expected_num_rows -= (delta // interval) * 2
-
-        start = helpers.to_utc(start)  # TODO xcals 4.0 lose line
-        end = helpers.to_utc(end)  # TODO xcals 4.0 lose line
 
         df = prices._request_data(interval, start, end)
         assertions_intraday(df, interval, prices, start, end, expected_num_rows)
@@ -1968,8 +1920,7 @@ class TestRequestDataIntraday:
         symbol = prices.symbols[0]
         cal = prices.calendars[symbol]
         now = pd.Timestamp.now(pytz.UTC).floor("T")
-        # TODO xcals 4.0 lose wrapper
-        session = helpers.to_tz_naive(cal.minute_to_past_session(now, 2))
+        session = cal.minute_to_past_session(now, 2)
         session = get_valid_session(session, cal, "previous")
         # extra 30T to cover unaligned end of 1H interval
         end = cal.session_close(session) + pd.Timedelta(30, "T")
@@ -1980,8 +1931,7 @@ class TestRequestDataIntraday:
         prices = m.PricesYahoo(["AZN.L"])
         cal = prices.calendars["AZN.L"]
         now = pd.Timestamp.now(pytz.UTC).floor("T")
-        # TODO xcals 4.0 lose wrapper
-        session = helpers.to_tz_naive(cal.minute_to_past_session(now, 2))
+        session = cal.minute_to_past_session(now, 2)
         session = get_valid_session(session, cal, "previous")
         # extra 30T to cover unaligned end of 1H interval
         end = cal.session_close(session) + pd.Timedelta(30, "T")
@@ -2019,7 +1969,7 @@ def test_prices_for_symbols():
 
     common_sessions = sessions_us.intersection(sessions_lon)
     for session in reversed(common_sessions):
-        if helpers.to_tz_naive(session) in _flakylist:  # TODO 4.0 xcals lose wrapper
+        if session in _flakylist:
             continue
         lon_close = cal_lon.closes[session]
         us_open = cal_us.opens[session]
@@ -2122,7 +2072,7 @@ def test__get_bi_table(pricess):
     interval = prices.bis.T5
     to = pd.Timestamp.now()
     from_ = to - pd.Timedelta(21, "D")
-    (start, _), slc, _ = get_data_bounds(prices, interval, (from_, to))
+    (start, _), slc = get_data_bounds(prices, interval, (from_, to))
     end = prices.cc.closes[slc][-1]
     table = prices._get_bi_table(interval, (start, end))
 
@@ -3165,7 +3115,7 @@ class TestGetComposite:
         assert (table[-3:].index.length == prices.bis.T2).all()
         # table 1 daily indices have no length
         assert (table[:-3].index.length == pd.Timedelta(0)).all()
-        assert table.pt.first_ts == start_session
+        assert table.pt.first_ts == helpers.to_utc(start_session)
         assert table.pt.last_ts == end
 
         # Verify raises error when would otherwise return daily/intraday composite
@@ -3192,7 +3142,7 @@ class TestGetComposite:
         assert (table[-1:].index.length == prices.bis.T5).all()
         # table 1 daily indices have no length
         assert (table[:-1].index.length == pd.Timedelta(0)).all()
-        assert table.pt.first_ts == start_session
+        assert table.pt.first_ts == helpers.to_utc(start_session)
         assert table.pt.last_ts == end - one_min
 
         # Verify effect of strict when start prior to left limit for daily data
@@ -3579,8 +3529,7 @@ def get_valid_conforming_sessions(
         # make sure prices also available for session prior to conforming sessions
         or prices.cc.previous_session(sessions[0]) in _flakylist
     ):
-        # TODO xcals 4.0 lose wrapper
-        session_start = helpers.to_tz_naive(prices.cc.next_session(session_start))
+        session_start = prices.cc.next_session(session_start)
         session_start = get_valid_session(session_start, prices.cc, "next", session_end)
         if session_start >= session_end:
             raise ValidSessionsUnavailableError(
@@ -3862,14 +3811,12 @@ class TestGet:
         last_session = cal.date_to_session(limit_right, "previous")
         if pd.Timestamp.now(tz=pytz.UTC) < cal.session_open(last_session):
             last_session = cal.previous_session(last_session)
-        last_session = helpers.to_tz_naive(last_session)  # TODO xcals 4.0 lose line
         assert df_daily.pt.first_ts == limit_left
         assert df_daily.pt.last_ts == last_session
 
         df_mult_days = f("3D")
         assert_prices_table_ii(df_mult_days, prices)
-        # TODO xcals 4.0 lose wrapper
-        first_to = helpers.to_tz_naive(cal.session_offset(limit_left, 3))
+        first_to = cal.session_offset(limit_left, 3)
         assert limit_left <= df_mult_days.pt.first_ts <= first_to
         assert df_mult_days.pt.last_ts == last_session + one_day
 
@@ -3946,8 +3893,7 @@ class TestGet:
         assert df.pt.interval in prices.bis_intraday
 
         # verify start and end describing 5 sessions
-        # TODO xcals 4.0 lose wrapper
-        end = helpers.to_tz_naive(cal.session_offset(rng_start, 4))
+        end = cal.session_offset(rng_start, 4)
         df = prices.get(start=rng_start, end=end)
         assertions_intraday_common(df, prices, prices.bis.H1)
         assert df.pt.first_ts == rng_start_open
@@ -3958,9 +3904,7 @@ class TestGet:
         last_session = cal.date_to_session(limit_right, "previous")
         if pd.Timestamp.now(tz=pytz.UTC) < cal.session_open(last_session):
             last_session = cal.previous_session(last_session)
-        last_session = helpers.to_tz_naive(last_session)  # TODO xcals 4.0 lose line
         start = cal.session_offset(last_session, -4)
-        start = helpers.to_tz_naive(start)  # TODO xcals 4.0 lose line
         df = prices.get(start=start)
         assert df.pt.interval in prices.bis_intraday
         assert df.pt.first_ts == cal.session_open(start)
@@ -3972,21 +3916,16 @@ class TestGet:
         assert_daily(df, prices)
         assert df.pt.last_ts == last_session
         expected_start = cal.session_offset(last_session, -5)
-        # TODO xcals 4.0 lose if clause
-        if expected_start.tz is not None:
-            expected_start = expected_start.tz_convert(None)
         assert df.pt.first_ts == expected_start
 
         # verify start and end describing > 5 sessions
-        # TODO xcals 4.0 lose wrapper
-        end = helpers.to_tz_naive(cal.session_offset(rng_start, 5))
+        end = cal.session_offset(rng_start, 5)
         df = prices.get(start=rng_start, end=end)
         assertions_daily(df, prices, rng_start, end)
 
         # verify start only, 6 sessions prior to last/current_session
         # 6 rather than 5 as if a live session then won't be counted
-        # TODO xcals 4.0 lose wrapper
-        start = helpers.to_tz_naive(cal.session_offset(last_session, -6))
+        start = cal.session_offset(last_session, -6)
         df = prices.get(start=start)
         assertions_daily(df, prices, start, last_session)
 
@@ -4415,7 +4354,6 @@ class TestGet:
 
         # verify getting intraday data with bound as date
         end_session = cal.session_offset(start_session, num_sessions_in_week - 1)
-        end_session = helpers.to_tz_naive(end_session)  # TODO xcals 4.0 lose line
         df = prices.get("30T", start_session, weeks=1)
         # Verifications piggy backs on separate testing of durations in terms of
         # trading sessions
@@ -4427,7 +4365,6 @@ class TestGet:
         # verify getting intraday data with bound as time
         # end_session will now be one session later
         end_session2 = cal.session_offset(start_session, num_sessions_in_week)
-        end_session2 = helpers.to_tz_naive(end_session2)  # TODO xcals 4.0 lose line
         open_ = cal.session_open(start_session)
         start = open_ + pd.Timedelta(28, "T")
         df = prices.get("30T", start, weeks=1)
@@ -5087,8 +5024,7 @@ class TestGet:
                 for i in reversed(range(len(df))):
                     start, end = df.index[i].left, df.index[i].right
                     if not cal.is_session(end):
-                        # TODO xcals 4.0 lose wrapper
-                        end = helpers.to_tz_naive(cal.date_to_session(end, "next"))
+                        end = cal.date_to_session(end, "next")
                     assert start == helpers.to_tz_naive(
                         cal.session_offset(end, -interval)
                     )
@@ -5176,12 +5112,10 @@ class TestGet:
         anchors = ("open", "workback")
 
         prev_session = start_session_T5
-        # TODO xcals 4.0 lose wrapper
-        session = helpers.to_tz_naive(cal.next_session(prev_session))
+        session = cal.next_session(prev_session)
         while prev_session in _flakylist or session in _flakylist:
-            # TODO xcals 4.0 lose wrappers from each of following two lines
-            prev_session = helpers.to_tz_naive(cal.next_session(prev_session))
-            session = helpers.to_tz_naive(cal.next_session(prev_session))
+            prev_session = cal.next_session(prev_session)
+            session = cal.next_session(prev_session)
             assert session < end_session_T5, "cannot get sessions for test"
 
         session_open = cal.session_open(session)
@@ -5286,12 +5220,10 @@ class TestGet:
             prices, prices.bis.T1
         )
         prev_session = start_session_T1
-        # TODO xcals 4.0 lose wrapper
-        session = helpers.to_tz_naive(cal.next_session(prev_session))
+        session = cal.next_session(prev_session)
         while prev_session in _flakylist or session in _flakylist:
-            # TODO xcals 4.0 lose wrappers from each of following two lines
-            prev_session = helpers.to_tz_naive(cal.next_session(prev_session))
-            session = helpers.to_tz_naive(cal.next_session(prev_session))
+            prev_session = cal.next_session(prev_session)
+            session = cal.next_session(prev_session)
             assert session < end_session_T1, "cannot get sessions for test"
 
         session_open = cal.session_open(session)
@@ -5482,9 +5414,8 @@ class TestGet:
 
         start_H1_, _ = th.get_sessions_range_for_bi(prices, prices.bis.H1)
 
-        # TODO xcals 4.0 lose the wrappers from following two lines
-        start_T5_oob = helpers.to_tz_naive(xnys.session_offset(start_T5_, -2))
-        start_H1_oob = helpers.to_tz_naive(xnys.session_offset(start_H1_, -2))
+        start_T5_oob = xnys.session_offset(start_T5_, -2)
+        start_H1_oob = xnys.session_offset(start_H1_, -2)
 
         limit_T1 = prices.limits[prices.bis.T1][0]
         limit_T5 = prices.limits[prices.bis.T5][0]
@@ -5597,8 +5528,7 @@ class TestGet:
         prices = prices_us
         xnys = prices.calendar_default
         start_H1 = th.get_sessions_range_for_bi(prices, prices.bis.H1)[0]
-        # TODO xcals 4.0 lose wrapper
-        start_H1_oob = helpers.to_tz_naive(xnys.session_offset(start_H1, -2))
+        start_H1_oob = xnys.session_offset(start_H1, -2)
         start_T5 = th.get_sessions_range_for_bi(prices, prices.bis.T5)[0]
 
         end = xnys.session_close(start_T5) - pd.Timedelta(3, "T")
@@ -5733,11 +5663,9 @@ def get_current_session(calendar: xcals.ExchangeCalendar) -> pd.Timestamp:
         if helpers.now() >= calendar.session_open(today):
             return today
         else:
-            # TODO xcals 4.0 lose wrapper
-            return helpers.to_tz_naive(calendar.previous_session(today))
+            return calendar.previous_session(today)
     else:
-        # TODO xcals 4.0 lose wrapper
-        return helpers.to_tz_naive(calendar.date_to_session(today, "previous"))
+        return calendar.date_to_session(today, "previous")
 
 
 def test_request_all_prices(prices_us_lon, one_min):
@@ -5812,8 +5740,7 @@ def test_session_prices(prices_us_lon, one_day):
     # verify for session of only some symbols
     xnys_sessions = xnys.sessions_in_range("2020", "2022")
     xlon_session = xlon.sessions_in_range("2020", "2022")
-    # TODO xcals 4.0 lose wrapper
-    session = helpers.to_tz_naive(xnys_sessions.difference(xlon_session))[0]
+    session = xnys_sessions.difference(xlon_session)[0]
     rtrn = f(session)
     assert rtrn.isna().any(axis=None)
     assertions(rtrn, session)
@@ -7358,8 +7285,7 @@ def test_price_range(prices_us_lon_hkg, one_day, monkeypatch):
     minute = xlon.session_close(session) - pd.Timedelta(43, "T")
     session_T5 = get_sessions_xnys_xhkg_xlon(prices.bis.T5, 2)[-1]
     minute_T5 = xhkg.session_close(session_T5) - pd.Timedelta(78, "T")
-    # TODO xcals 4.0 lose wrapper
-    session_D1 = helpers.to_tz_naive(xnys.session_offset(session_T5, -20))
+    session_D1 = xnys.session_offset(session_T5, -20)
     session_D1 = get_valid_session(session_D1, prices.cc, "previous")
 
     def get(kwargs, **others) -> pd.DataFrame:
@@ -7378,7 +7304,6 @@ def test_price_range(prices_us_lon_hkg, one_day, monkeypatch):
         start = table.pt.first_ts
         end = table.pt.last_ts
         if isinstance(table.pt, (pt.PTDailyIntradayComposite, pt.PTDaily)):
-            # TODO xcals wrappers STAY STAY STAY
             start = prices.cc.session_open(helpers.to_tz_naive(start))
             if isinstance(table.pt, (pt.PTDaily)):
                 end = prices.cc.session_close(helpers.to_tz_naive(end))
