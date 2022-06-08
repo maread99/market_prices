@@ -11,8 +11,6 @@ from __future__ import annotations
 import functools
 import itertools
 import re
-import sys
-import traceback
 import typing
 from collections import abc
 
@@ -32,14 +30,16 @@ import market_prices.utils.pandas_utils as pdutils
 
 # pylint: disable=missing-function-docstring,redefined-outer-name,too-many-public-methods
 # pylint: disable=missing-param-doc,missing-any-param-doc,too-many-locals
+# pylint: disable=missing-type-doc
 # pylint: disable=protected-access,unused-argument,no-self-use,too-many-arguments
-#   missing-fuction-docstring, missing-any-param-doc - doc not required for all tests
-#   protected-access not required for tests
+#   missing-fuction-docstring, missing-any-param-doc, missing-type-doc:
+#       doc not required for all tests
+#   protected-access: not required for tests
 #   not compatible with use of fixtures to parameterize tests:
 #       too-many-arguments,too-many-public-methods
 #   not compatible with pytest fixtures:
 #       redefined-outer-name,no-self-use
-#   unused-argument - not compatible with pytest fixtures, caught by pylance anyway
+#   unused-argument: not compatible with pytest fixtures, caught by pylance anyway
 
 # Any flake8 disabled violations handled via per-file-ignores on .flake8
 
@@ -190,273 +190,58 @@ def test_minutes_in_period(calendars_with_answers, one_min):
         f(cal, end, start)
 
 
-def test_get_trading_index(monkeypatch, one_min):
-    """Test `get_trading_index`.
+def test_get_trading_index():
+    """Test `get_trading_index` convenience function.
 
-    `get_trading_index` wraps `ExchangeCalendar.trading_index`. As such
-    test limited to verifying functionality and options provided /
-    determined by the wrapper.
-
-    TODO xcals 4.0. When adding functionality to ExchangeCalendar.trading_index
-    to accept start / end as dates and/or times will be able to use this test
-    for xcals and strip most of it away from here.
+    `get_trading_index` wraps calendar.trading_index. Test limited to
+    verifying that all parameters are passed through together with expected
+    values for other options.
     """
-    now = pd.Timestamp("2021-12-31 23:59", tz=pytz.UTC)
-    monkeypatch.setattr("pandas.Timestamp.now", lambda *_, **__: now)
-    cal = xcals.get_calendar("XHKG", start="2021", side="left")
     f = m.get_trading_index
+    cal = xcals.get_calendar("XHKG", start="2021", side="left")
 
-    end_s = pd.Timestamp("2021-12-20")
-    start_s = cal.session_offset(end_s, -10)
+    end = pd.Timestamp("2021-12-20")
+    start = cal.session_offset(end, -10)
     # assert start_s and end_s are regular sessions
     reg_session_length = pd.Timedelta(hours=6, minutes=30)
-    start_s_open, start_s_close = cal.session_open_close(start_s)
+    start_s_open, start_s_close = cal.session_open_close(start)
     assert start_s_close - start_s_open == reg_session_length
-    end_s_open, end_s_close = cal.session_open_close(end_s)
+    end_s_open, end_s_close = cal.session_open_close(end)
     assert end_s_close - end_s_open == reg_session_length
-
-    # TODO xcals 4.0, del if clause
-    if start_s.tz is not None:
-        start_s = start_s.tz_convert(None)
-
-    # verify daily interval
-    interval = TDInterval.D1
-    # assure force and ignore_break have no effect.
-    for ignore_breaks, force in itertools.product((True, False), (True, False)):
-        rtrn = f(cal, interval, start_s, end_s, force, ignore_breaks)
-        expected = cal.sessions_in_range(start_s, end_s)
-        # TODO xcals 4.0 del if clause.
-        if expected.tz is not None:
-            expected = expected.tz_convert(None)
-        assert_index_equal(rtrn, expected)
 
     def expected_index(
         interval: TDInterval,
-        force: bool,
-        ignore_breaks: bool,
+        force: bool = False,
+        ignore_breaks: bool = False,
         curtail_overlaps: bool = False,
     ) -> pd.IntervalIndex:
-        expected_args = (start_s, end_s, interval, True, "left")
+        expected_args = (start, end, interval, True, "left")
         expected_kwargs = dict(
             force=force, ignore_breaks=ignore_breaks, curtail_overlaps=curtail_overlaps
         )
         return cal.trading_index(*expected_args, **expected_kwargs)
 
-    # verify passing start / end as sessions
+    # verify daily interval
+    interval = TDInterval.D1
+    rtrn = f(cal, interval, start, end)
+    expected = expected_index(interval)
+    assert_index_equal(rtrn, expected)
+
+    # verify intraday and passing through `ignore_breaks`` and `force``
     for interval in (TDInterval.T1, TDInterval.T5, TDInterval.H1):
         for ignore_breaks, force in itertools.product((True, False), (True, False)):
             expected = expected_index(interval, force, ignore_breaks)
-            rtrn = f(cal, interval, start_s, end_s, force, ignore_breaks)
+            rtrn = f(cal, interval, start, end, force, ignore_breaks)
             assert_index_equal(rtrn, expected)
 
-    # verify passing start / end as combinations of dates and/or times
-
-    def assertions(
-        interval: TDInterval,
-        starts: list[tuple[pd.Timestamp, int | None]],
-        ends: list[tuple[pd.Timestamp, int | None]],
-        force: bool,
-        ignore_breaks: bool,
-        expected: pd.IntervalIndex,
-        curtail_overlaps: bool = False,
-    ):
-        for (start, slc_start), (end, slc_stop) in itertools.product(starts, ends):
-            rtrn = f(
-                cal,
-                interval,
-                start,
-                end,
-                force=force,
-                ignore_breaks=ignore_breaks,
-                curtail_overlaps=curtail_overlaps,
-            )
-            assert_index_equal(rtrn, expected[slc_start:slc_stop])
-
-    force, ignore_breaks = False, True
-
-    interval = TDInterval.T1
-    delta = interval * 22
-
-    starts = [
-        (start_s, None),
-        (start_s_open, None),
-        (start_s_open + delta, 22),
-        (start_s_open + delta - one_min, 21),
-        (start_s_open + delta + one_min, 23),
-    ]
-    ends = [
-        (end_s, None),
-        (end_s_close, None),
-        (end_s_close - delta, -22),
-        (end_s_close - delta + one_min, -21),
-        (end_s_close - delta - one_min, -23),
-    ]
-
-    expected = expected_index(interval, force, ignore_breaks)
-    assertions(interval, starts, ends, force, ignore_breaks, expected)
-
-    interval = TDInterval.T5
-    delta = interval * 2
-
-    starts = [
-        (start_s, None),
-        (start_s_open, None),
-        (start_s_open + delta, 2),
-        (start_s_open + delta - one_min, 2),
-        (start_s_open + delta + one_min, 3),
-    ]
-    ends = [
-        (end_s, None),
-        (end_s_close, None),
-        (end_s_close - delta, -2),
-        (end_s_close - delta + one_min, -2),
-        (end_s_close - delta - one_min, -3),
-    ]
-
-    expected = expected_index(interval, force, ignore_breaks)
-    assertions(interval, starts, ends, force, ignore_breaks, expected)
-
-    interval = TDInterval.H1
-    end_s_open = cal.session_open(end_s)
-
-    # ignoring breaks...
-    # assert assumption that end unaligned by 30mins
-    assert (end_s_close - end_s_open) % interval == pd.Timedelta(30, "T")
-
-    end_s_aligned_post_close = end_s_close + pd.Timedelta(30, "T")
-    end_s_break_end = cal.session_break_end(end_s)
-    # assert assumption that pm session 3H duration
-    assert end_s_close - end_s_break_end == pd.Timedelta(3, "H")
-
-    starts = [
-        (start_s, None),
-        (start_s_open, None),
-        (start_s_open + interval, 1),
-        (start_s_open + interval - one_min, 1),
-        (start_s_open + interval + one_min, 2),
-    ]
-    ends = [
-        (end_s, None),
-        (end_s_aligned_post_close, None),
-        (end_s_aligned_post_close + one_min, None),
-        (end_s_aligned_post_close - one_min, -1),
-        (end_s_close, -1),
-        (end_s_aligned_post_close - interval + one_min, -1),
-        (end_s_aligned_post_close - interval, -1),
-        (end_s_aligned_post_close - interval - one_min, -2),
-        (end_s_break_end, -4),
-        (end_s_break_end + pd.Timedelta(30, "T"), -3),
-        (end_s_break_end + pd.Timedelta(29, "T"), -4),
-        (end_s_break_end - pd.Timedelta(30, "T"), -4),
-        (end_s_break_end - pd.Timedelta(31, "T"), -5),
-    ]
-
-    expected = expected_index(interval, force, ignore_breaks)
-    assertions(interval, starts, ends, force, ignore_breaks, expected)
-
-    # verify effect of force
-    starts = [
-        (start_s, None),
-        (start_s_open, None),
-        (start_s_open + interval, 1),
-        (start_s_open + interval - one_min, 1),
-        (start_s_open + interval + one_min, 2),
-    ]
-    ends = [
-        (end_s, None),
-        (end_s_aligned_post_close, None),
-        (end_s_close, None),
-        (end_s_close - one_min, -1),
-        (end_s_close - pd.Timedelta(30, "T"), -1),
-        (end_s_close - pd.Timedelta(31, "T"), -2),
-        # break end as before...
-        (end_s_break_end, -4),
-        (end_s_break_end + pd.Timedelta(30, "T"), -3),
-        (end_s_break_end + pd.Timedelta(29, "T"), -4),
-        (end_s_break_end - pd.Timedelta(30, "T"), -4),
-        (end_s_break_end - pd.Timedelta(31, "T"), -5),
-    ]
-
-    force = True
-    expected = expected_index(interval, force, ignore_breaks)
-    assertions(interval, starts, ends, force, ignore_breaks, expected)
-
-    # ACKNOWLEDGING BREAKS
-
-    end_s_break_start = cal.session_break_start(end_s)
-    # assert assumption that break start unaligned by 30mins
-    assert (end_s_break_start - end_s_open) % interval == pd.Timedelta(30, "T")
-
-    starts = [
-        (start_s, None),
-        (start_s_open, None),
-        (start_s_open + interval, 1),
-        (start_s_open + interval - one_min, 1),
-        (start_s_open + interval + one_min, 2),
-    ]
-    ends = [
-        (end_s, None),
-        (end_s_aligned_post_close, None),
-        (end_s_close, None),
-        (end_s_close - one_min, -1),
-        (end_s_close - interval, -1),
-        (end_s_close - interval - one_min, -2),
-        (end_s_break_end, -3),
-        (end_s_break_end + one_min, -3),
-        (end_s_break_end - one_min, -3),
-        (end_s_break_start, -4),
-        (end_s_break_start + pd.Timedelta(30, "T"), -3),
-        (end_s_break_start + pd.Timedelta(29, "T"), -4),
-        (end_s_break_start - pd.Timedelta(30, "T"), -4),
-        (end_s_break_start - pd.Timedelta(31, "T"), -5),
-    ]
-
-    force, ignore_breaks = False, False
-    expected = expected_index(interval, force, ignore_breaks)
-    assertions(interval, starts, ends, force, ignore_breaks, expected)
-
-    # verifying effect of force when acknowledging breaks
-
-    starts = [
-        (start_s, None),
-        (start_s_open, None),
-        (start_s_open + interval, 1),
-        (start_s_open + interval - one_min, 1),
-        (start_s_open + interval + one_min, 2),
-    ]
-    ends = [
-        (end_s, None),
-        (end_s_aligned_post_close, None),
-        # end_s_close and end_s_break_end as before
-        (end_s_close, None),
-        (end_s_close - one_min, -1),
-        (end_s_close - interval, -1),
-        (end_s_close - interval - one_min, -2),
-        (end_s_break_end, -3),
-        (end_s_break_end + one_min, -3),
-        (end_s_break_end - one_min, -3),
-        # end_s_break_start affected by force
-        (end_s_break_start, -3),
-        (end_s_break_start - one_min, -4),
-        (end_s_break_start - pd.Timedelta(30, "T"), -4),
-        (end_s_break_start - pd.Timedelta(31, "T"), -5),
-    ]
-
-    force, ignore_breaks = True, False
-    expected = expected_index(interval, force, ignore_breaks)
-    assertions(interval, starts, ends, force, ignore_breaks, expected)
-
-    # verify effect of curtail_overlaps
-    force, ignore_breaks = False, False
+    # verify `curtail_overlaps` being passed through
     interval = TDInterval.H2
-    starts, ends = [(start_s, None)], [(end_s, None)]
-    curtail_overlaps = True
-    expected = expected_index(interval, force, ignore_breaks, curtail_overlaps)
-    assertions(interval, starts, ends, force, ignore_breaks, expected, curtail_overlaps)
+    expected = expected_index(interval, curtail_overlaps=True)
+    rtrn = f(cal, interval, start, end, curtail_overlaps=True)
+    assert_index_equal(rtrn, expected)
 
     with pytest.raises(xcals.errors.IntervalsOverlapError):
-        kwargs = dict(force=force, ignore_breaks=ignore_breaks, curtail_overlaps=False)
-        f(cal, interval, start_s, end_s, **kwargs)
+        f(cal, interval, start, end, curtail_overlaps=False)
 
 
 @pytest.fixture(params=[True, False])
@@ -502,8 +287,10 @@ def test_subsession_length(calendars_with_answers, strict_all, to_break_all):
 class CompositeAnswers:
     """Answers for CompositeCalendar methods."""
 
+    # TODO xcals when xcals v4 branch merged to master this will need to be changed back
     ANSWERS_BASE_PATH = (
-        "https://raw.github.com/gerrymanoim/exchange_calendars/master/tests/resources/"
+        "https://raw.github.com/gerrymanoim/exchange_calendars/v4/tests/resources/"
+        # "https://raw.github.com/gerrymanoim/exchange_calendars/master/tests/resources/"
     )
 
     LEFT_SIDES = ["left", "both"]
@@ -537,11 +324,10 @@ class CompositeAnswers:
             parse_dates=[0, 1, 2, 3, 4],
             infer_datetime_format=True,
         )
-        # TODO xcals 4.0. Revise what these are coming in at / lose any
-        # unnecessary clauses / loops
+        # Necessary for csv saved prior to xcals v4.0
         if df.index.tz is not None:
             df.index = df.index.tz_convert(None)
-        # pylint: disable=unsubscriptable-object, unsupported-assignment-operation
+        # Necessary for csv saved prior to xcals v4.0
         for col in df:
             if df[col].dt.tz is None:
                 df[col] = df[col].dt.tz_localize(pytz.UTC)
@@ -589,11 +375,10 @@ class CompositeAnswers:
     @functools.cached_property
     def _opens(self) -> pd.Series:
         """Open times for each day of _dates. Value missing if not a session."""
-        columns = {name: ans.market_open for name, ans in self._answerss.items()}
+        columns = {name: ans.open for name, ans in self._answerss.items()}
         all_opens = pd.DataFrame(columns, index=self._dates)
         # because pandas has a bug where min will not skipna if values are
         # tz-aware pd.Timestamp
-        # TODO THIS STAYS STAYS STAYS in xcals 4.0. Just delete this comment line.
         for col in all_opens:
             all_opens[col] = all_opens[col].dt.tz_convert(None)
         opens_min = all_opens.min(axis=1)
@@ -602,11 +387,10 @@ class CompositeAnswers:
     @functools.cached_property
     def _closes(self) -> pd.Series:
         """Closes times for each day of _dates. Value missing if not a session."""
-        columns = {name: ans.market_close for name, ans in self._answerss.items()}
+        columns = {name: ans.close for name, ans in self._answerss.items()}
         all_closes = pd.DataFrame(columns, index=self._dates)
         # because pandas has a bug where min will not skipna if values are
         # tz-aware pd.Timestamp
-        # TODO THIS STAYS STAYS STAYS in xcals 4.0. Just delete this comment line.
         for col in all_closes:
             all_closes[col] = all_closes[col].dt.tz_convert(None)
         closes_max = all_closes.max(axis=1)
@@ -973,41 +757,17 @@ class TestCompositeCalendar:
             f" be earlier than the first session of calendar '{cc.name}'"
             f" ('{cc.first_session}')."
         )
-        # TODO xcals 4.0 lose the try / except (leave as the try clause)
-        # Raising error within DateOutOfBounds when tries to compare a
-        # tz-naive date (cc.first_session) with tz-aware date
-        # (xcals.calendar_helpers.parse_date will make `too_early` tz-aware).
-        try:
-            with pytest.raises(
-                xcals.errors.DateOutOfBounds, match=re.escape(error_msg)
-            ):
-                cc._parse_date(too_early)
-        except TypeError:
-            tb = sys.exc_info()
-            tbexc = traceback.TracebackException(*tb)
-            framesummary = tbexc.stack[-2]
-            assert framesummary.line == "if self.date < self.calendar.first_session:"
+        with pytest.raises(xcals.errors.DateOutOfBounds, match=re.escape(error_msg)):
+            cc._parse_date(too_early)
 
-        # TODO xcals 4.0 lose the try / except (leave as the try clause)
-        # Raising error within DateOutOfBounds when tries to compare a
-        # tz-naive date (cc.last_session) with tz-aware date
-        # (xcals.calendar_helpers.parse_date will make `too_late` tz-aware).
         too_late = cc.last_session + pd.Timedelta(1, "D")
         error_msg = (
             f"Parameter `{param_name}` receieved as '{too_late}' although cannot"
             f" be later than the last session of calendar '{cc.name}'"
             f" ('{cc.last_session}')."
         )
-        try:
-            with pytest.raises(
-                xcals.errors.DateOutOfBounds, match=re.escape(error_msg)
-            ):
-                cc._parse_date(too_late)
-        except TypeError:
-            tb = sys.exc_info()
-            tbexc = traceback.TracebackException(*tb)
-            framesummary = tbexc.stack[-2]
-            assert framesummary.line == "if self.date < self.calendar.first_session:"
+        with pytest.raises(xcals.errors.DateOutOfBounds, match=re.escape(error_msg)):
+            cc._parse_date(too_late)
 
         # minimal check that returns as expected
         assert cc._parse_date("2021-06-01") == pd.Timestamp("2021-06-01")

@@ -99,9 +99,6 @@ class _OutOfBoundsError(PricesUnavailableError):
         self._ts = ts
         self._ts_type = "date" if is_date else "minute"
         self._bound = calendar.first_session if is_date else calendar.first_minute
-        # TODO xcals 4.0 remove:
-        if is_date:
-            self._bound = helpers.to_tz_naive(self._bound)
 
     def __str__(self) -> str:
         if self._ts is not None:

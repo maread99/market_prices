@@ -85,8 +85,7 @@ def _parse_start(
 ) -> pd.Timestamp:
     """Parse `start` to a time if `as_time` or date otherwise."""
     if is_date:
-        # TODO xcals 4.0 lose wrapper
-        session = helpers.to_tz_naive(cal.date_to_session(start, "next"))
+        session = cal.date_to_session(start, "next")
         if as_time:
             return cal.session_first_minute(session)
         return session
@@ -94,11 +93,9 @@ def _parse_start(
         return cal.minute_to_trading_minute(start, "next")
     # is time required as date
     elif start.value in cal.first_minutes_nanos:
-        # TODO xcals 4.0 lose wrapper
-        return helpers.to_tz_naive(cal.minute_to_session(start))
+        return cal.minute_to_session(start)
     else:
-        # TODO xcals 4.0 lose wrapper
-        return helpers.to_tz_naive((cal.minute_to_future_session(start)))
+        return cal.minute_to_future_session(start)
 
 
 def _mr_minute_left(cal: xcals.ExchangeCalendar, delay: pd.Timedelta) -> pd.Timestamp:
@@ -117,10 +114,7 @@ def _mr_minute_right(cal: xcals.ExchangeCalendar, delay: pd.Timedelta) -> pd.Tim
 
 def _mr_session(cal: xcals.ExchangeCalendar, delay: pd.Timedelta) -> pd.Timestamp:
     """Most recent session."""
-    # TODO xcals 4.0 lose wrapper
-    return helpers.to_tz_naive(
-        cal.minute_to_session(_mr_minute_left(cal, delay), "none")
-    )
+    return cal.minute_to_session(_mr_minute_left(cal, delay), "none")
 
 
 def _parse_end(
@@ -134,8 +128,7 @@ def _parse_end(
     # pylint: disable=too-many-return-statements
     if is_date:
         end = min(end, _mr_session(cal, delay))
-        # TODO xcals 4.0 lose wrapper
-        session = helpers.to_tz_naive(cal.date_to_session(end, "previous"))
+        session = cal.date_to_session(end, "previous")
         if as_time:
             return min(cal.session_close(session), _mr_minute_right(cal, delay))
         return session
@@ -150,15 +143,12 @@ def _parse_end(
             return minute if minute == end else minute + helpers.ONE_MIN
         else:  # is time required as date
             if end.value in cal.closes_nanos:  # pylint: disable=else-if-used
-                # TODO xcals 4.0 lose wrapper
-                return helpers.to_tz_naive(cal.minute_to_session(end - helpers.ONE_MIN))
+                return cal.minute_to_session(end - helpers.ONE_MIN)
             elif end > _mr_minute_left(cal, delay) - helpers.ONE_SEC:
                 # return live session if market open, otherwise prior session
-                # TODO xcals 4.0 lose wrapper
-                return helpers.to_tz_naive(cal.minute_to_session(end, "previous"))
+                return cal.minute_to_session(end, "previous")
             else:
-                # TODO xcals 4.0 lose wrapper
-                return helpers.to_tz_naive(cal.minute_to_past_session(end))
+                return cal.minute_to_past_session(end)
 
 
 def _parse_start_end(
@@ -231,14 +221,12 @@ def _parse_start_end(
     end_parsed: pd.Timestamp | None
     if end is not None:
         if end_is_date:
-            # TODO xcals 4.0 lose wrapper
-            bound = helpers.to_tz_naive(cal.first_session)
+            bound = cal.first_session
         else:
             if as_times:  # pylint: disable=else-if-used
                 bound = cal.first_minute
             else:
-                # TODO xcals 4.0 lose wrapper
-                bound = helpers.to_utc(cal.closes[cal.first_session])
+                bound = cal.closes[cal.first_session]
         if end < bound:
             raise errors.EndOutOfBoundsError(cal, end)
         # if end to the right of right calendar bound then will be parsed to 'now'.
@@ -248,11 +236,7 @@ def _parse_start_end(
 
     start_parsed: pd.Timestamp | None
     if start is not None:
-        bound = (  # TODO xcals 4.0 lose wrapper and tidy
-            helpers.to_tz_naive(cal.first_session)
-            if start_is_date
-            else cal.first_minute
-        )
+        bound = cal.first_session if start_is_date else cal.first_minute
         if start < bound:
             if strict:
                 raise errors.StartOutOfBoundsError(cal, start)
@@ -318,21 +302,18 @@ def _parse_start_end(
     s, e = start, end
     if as_times:
         if end_is_date:
-            # TODO xcals 4.0 lose wrapper
-            end = min(end, helpers.to_tz_naive(cal.last_session))
+            end = min(end, cal.last_session)
             session = cal.date_to_session(end, "next")
-            # TODO xcals 4.0 lose wrapper and tidy...
             e = (
                 cal.session_close(session)
-                if end == helpers.to_tz_naive(session)
+                if end == session
                 else cal.session_close(cal.previous_session(session))
             )
         if start_is_date:
             session = cal.date_to_session(start, "previous")
-            # TODO xcals 4.0 lose wrapper and tidy...
             s = (
                 cal.session_first_minute(session)
-                if start == helpers.to_tz_naive(session)
+                if start == session
                 else cal.session_close(session)
             )
         num_mins = cal.minutes_distance(s, e)
@@ -467,11 +448,8 @@ def verify_date_not_oob(
     param_name
         Name of parameter being verfied. Included in any error message.
     """
-    l_bound = helpers.to_tz_naive(l_bound)  # TODO xcals 4.0 lose line
     if date < l_bound:
         raise errors.DatetimeTooEarlyError(date, l_bound, param_name)
-
-    r_bound = helpers.to_tz_naive(r_bound)  # TODO xcals 4.0 lose line
     if date > r_bound:
         raise errors.DatetimeTooLateError(date, r_bound, param_name)
 
@@ -496,9 +474,7 @@ def verify_time_not_oob(
     r_limit
         Right limit. Latest valid timestamp.
     """
-    l_limit = helpers.to_utc(l_limit)  # TODO xcals 4.0 lose line
     if time < l_limit:
         raise errors.DatetimeTooEarlyError(time, l_limit, "time")
-    r_limit = helpers.to_utc(r_limit)  # TODO xcals 4.0 lose line
     if time > r_limit:
         raise errors.DatetimeTooLateError(time, r_limit, "time")

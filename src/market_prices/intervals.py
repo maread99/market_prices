@@ -313,7 +313,6 @@ class _BaseIntervalMeta(enum.EnumMeta):
 
 class _BaseInterval(_TDIntervalBase, metaclass=_BaseIntervalMeta):
 
-    # TODO Python 3.9 try to change to class property
     @classmethod
     def daily_bi(cls) -> BI | None:
         """Return daily base interval. None if all base intervals intraday."""
@@ -323,7 +322,6 @@ class _BaseInterval(_TDIntervalBase, metaclass=_BaseIntervalMeta):
             assert pd.Timedelta(1, "D") not in cls
             return None
 
-    # TODO Python 3.9 try to change to cached class property
     @classmethod
     def intraday_bis(cls) -> list[BI]:
         """Return all intraday base intervals."""

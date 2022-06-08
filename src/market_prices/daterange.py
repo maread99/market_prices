@@ -286,8 +286,7 @@ class GetterDaily(_Getter):
             # of following month
             end -= helpers.ONE_DAY
         else:
-            # TODO xcals 4.0 lose wrapper
-            end = helpers.to_tz_naive(self.cal.date_to_session(ts, "previous"))
+            end = self.cal.date_to_session(ts, "previous")
         return end, end
 
     def _get_start(self, ts: pd.Timestamp) -> pd.Timestamp:
@@ -296,8 +295,7 @@ class GetterDaily(_Getter):
             # are there any sessions between ts and the start of the current month?
             start = self.final_interval.as_offset_ms.rollforward(ts)
         else:
-            # TODO xcals 4.0 lose wrapper
-            start = helpers.to_tz_naive(self.cal.date_to_session(ts, "next"))
+            start = self.cal.date_to_session(ts, "next")
         return start
 
     @property
@@ -311,8 +309,7 @@ class GetterDaily(_Getter):
             previous session.
             [1]: Accuarcy. As [0].
         """
-        # TODO xcals 4.0 lose wrapper
-        end = helpers.to_tz_naive(self.cal.minute_to_session(helpers.now(), "previous"))
+        end = self.cal.minute_to_session(helpers.now(), "previous")
         return end, end
 
     def _prior_start(self, start: pd.Timestamp) -> pd.Timestamp | None:
@@ -327,12 +324,9 @@ class GetterDaily(_Getter):
                 return None
         else:
             try:
-                window = self.cal.sessions_window(start, -self.ds_factor)
+                window = self.cal.sessions_window(start, -self.ds_factor - 1)
             except ValueError:
                 sessions = self.cal.sessions
-                # TODO xcals 4.0 del if clause.
-                if sessions.tz is not None:
-                    sessions = self.cal.sessions.tz_convert(None)
                 limit_idx = sessions.get_loc(self.limit)
                 idx = sessions.get_loc(start) - self.ds_factor
                 if idx < limit_idx:
@@ -358,7 +352,7 @@ class GetterDaily(_Getter):
                     session = self.cal.first_session
         else:
             session = self.cal.session_offset(ts, days)
-        return helpers.to_tz_naive(session)  # TODO xcals 4.0 lose wrapper
+        return session
 
     def _daterange_add_a_row_adjustment(self, start: pd.Timestamp) -> pd.Timestamp:
         if not self.pp["add_a_row"]:
@@ -417,7 +411,6 @@ class GetterDaily(_Getter):
                         end_ = end
                         # "next" as want to count back from end of month
                         end_ = self.cal.date_to_session(end, "next")
-                        end_ = helpers.to_tz_naive(end_)  # TODO xcals.4.0 lose line
                         start = self._offset_days(end_, -days)
                 else:
                     if days == 1:  # pylint: disable=else-if-used
@@ -426,8 +419,6 @@ class GetterDaily(_Getter):
                         start_ = start
                         # "previous" as want to count from start of month
                         start_ = self.cal.date_to_session(start, "previous")
-                        # TODO xcals.4.0 lose line
-                        start_ = helpers.to_tz_naive(start_)
                         end = self._offset_days(start_, days)
 
             else:
@@ -932,9 +923,6 @@ class GetterIntraday(_Getter):
                     raise errors.StartOutOfBoundsError(self.cal)
 
             target_session = self.cal.sessions[target_i]
-            # TODO XCALS 4.0 del if clause.
-            if self.cal.opens.dt.tz is None:
-                ts = ts.tz_convert(None)
             if ts == self.cal.opens[session]:
                 minute = self.cal.opens[target_session]
             elif ts == self.cal.closes[session]:
@@ -951,7 +939,7 @@ class GetterIntraday(_Getter):
                     # if offset to get 'start', return next trading minute,
                     # not a close that cannot represent 'start'.
                     minute = self.cal.minute_to_trading_minute(minute, "next")
-            return helpers.to_utc(minute)  # TODO XCALS 4.0 lose wrapper
+            return minute
 
         # If `ts` not a bound, offset according to minute.
 
@@ -1149,8 +1137,4 @@ class GetterIntraday(_Getter):
             # avoids `end` being treated as first minute of next session.
             end -= helpers.ONE_MIN
         end_session = self.cal.minute_to_session(end)
-        # TODO xcals 4.0 del clause
-        if start_session.tz is not None:
-            start_session = start_session.tz_convert(None)
-            end_session = end_session.tz_convert(None)
         return start_session, end_session

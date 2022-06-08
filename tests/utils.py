@@ -135,14 +135,7 @@ class Answers:
         calendar: xcals.ExchangeCalendar,
     ):
         self._calendar = calendar
-
-        # TODO xcals 4.0 chg
-        df = calendar.schedule.copy(deep=True)
-        df.index = df.index.tz_localize(None)
-        for col in df:
-            df[col] = df[col].dt.tz_localize(UTC)
-
-        self._answers = df
+        self._answers = calendar.schedule.copy(deep=True)
 
     # --- Exposed constructor arguments ---
 
@@ -176,12 +169,12 @@ class Answers:
     @property
     def opens(self) -> pd.Series:
         """Market open time for each session."""
-        return self.answers.market_open
+        return self.answers.open
 
     @property
     def closes(self) -> pd.Series:
         """Market close time for each session."""
-        return self.answers.market_close
+        return self.answers.close
 
     @property
     def break_starts(self) -> pd.Series:

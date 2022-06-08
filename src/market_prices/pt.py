@@ -413,36 +413,15 @@ class _PT(metaclass=abc.ABCMeta):
         interval = self.interval
         assert interval is not None
 
-        # TODO xcals 4.0. Functionality to allow trading_index to accept a time (as
-        # opposed to only dates) due to be incorporated. Will allow this method to be
-        # notably simplified.
-
-        if self.is_intraday:
-            start = self.first_ts
-            end = self.last_ts
-            start_session = calendar.minute_to_session(start, "next")
-            end_session = calendar.minute_to_session(end - helpers.ONE_MIN, "previous")
-        else:
-            start_session = self.first_ts
-            end_session = self.last_ts
-
-        index = calendar.trading_index(
-            start=start_session,
-            end=end_session,
+        return calendar.trading_index(
+            start=self.first_ts,
+            end=self.last_ts,
             period=interval.as_pdfreq,
             intervals=True,
             closed=closed,
             force=force,
             ignore_breaks=ignore_breaks,
         )
-
-        if self.is_daily:
-            # TODO xcals 4.0 lose if clause
-            if index.tz is pytz.UTC:
-                index = index.tz_convert(None)
-            return index
-        bv = (index.left >= start) & (index.right <= end)
-        return index[bv]
 
     def _check_index_compatible(
         self, index: pd.IntervalIndex, calendar: xcals.ExchangeCalendar
@@ -1189,9 +1168,6 @@ class PTDaily(_PT):
                 False: indice represents a non-trading date.
         """
         sessions = calendar.sessions
-        # TODO xcals 4.0 lose if clause
-        if sessions.tz is not None:
-            sessions = sessions.tz_convert(None)
         return pd.Series(self.index.isin(sessions), index=self.index)
 
     def price_at(self, *_, **__):
@@ -1317,7 +1293,6 @@ class PTDaily(_PT):
         # would not include data for that session.
         first_session = calendar.date_to_session(self.first_ts, "next")
         start_session = calendar.session_offset(first_session, excess_sessions)
-        start_session = helpers.to_tz_naive(start_session)  # TODO xcals 4.0 lose line
         df = df[start_session:]
 
         resampled = helpers.resample(df, pdfreq, origin=origin)
@@ -1687,7 +1662,6 @@ class PTIntraday(_PTIntervalIndex):
                 if isinstance(calendar, xcals.ExchangeCalendar):
                     direction_ = "none" if direction is None else direction
                     s = calendar.minute_to_session(indice, direction=direction_)
-                    s = helpers.to_tz_naive(s)  # TODO xcals 4.0 lose line
                 else:
                     s = calendar.minute_to_sessions(indice, direction=direction)[0]
             except ValueError:
@@ -1743,9 +1717,6 @@ class PTIntraday(_PTIntervalIndex):
         opens = calendar.opens[slc].astype("int64")
         closes = calendar.closes[slc].astype("int64")
         sessions = opens.index
-        # TODO xcals 4.0 lose if clause
-        if sessions.tz is not None:
-            sessions = sessions.tz_convert(None)
 
         index_union = self.utc.pt.index.union(index, sort=False).sort_values()
         nano_index = index_union.left.asi8
@@ -2000,7 +1971,9 @@ class PTIntraday(_PTIntervalIndex):
             assert isinstance(ts, pd.Timestamp)
             assert isinstance(tz_, BaseTzInfo)
         ts_ = parsing.parse_timestamp(ts, tz_)
-        parsing.verify_time_not_oob(ts_, self.first_ts, self.last_ts)
+        parsing.verify_time_not_oob(
+            ts_, self.first_ts.astimezone(pytz.UTC), self.last_ts.astimezone(pytz.UTC)
+        )
         df = self.utc.pt.fillna("ffill")
         row = df.pt._get_row(ts_)  # pylint: disable=protected-access
         side = "left" if row.index.contains(ts_) else "right"
@@ -2124,7 +2097,6 @@ class PTIntraday(_PTIntervalIndex):
             else:
                 # session overlap, assign to calendar session
                 session = cal.minute_to_session(indice, "previous", _parse=False)
-                session = helpers.to_tz_naive(session)  # TODO xcals 4.0 lose line
                 return session
 
         f = _groupby_session if cc is None else _groupby_composite_session
@@ -2404,9 +2376,6 @@ class PTMultipleSessions(_PTIntervalIndexNotIntraday):
         start = indice.left
         end = indice.right - helpers.ONE_DAY
         sessions = cal.trading_index(start, end, "1D")
-        # TODO xcals 4.0 lose if clause
-        if sessions.tz is not None:
-            sessions = sessions.tz_convert(None)
         dates = pd.date_range(start, end)
         if sessions.empty:
             return False
@@ -2471,9 +2440,6 @@ class PTMultipleSessions(_PTIntervalIndexNotIntraday):
         for indice in partial_indices:
             start, end = indice.left, indice.right - helpers.ONE_DAY
             sessions = cal.sessions_in_range(start, end)
-            # TODO xcals 4.0 lose if clause
-            if sessions.tz is not None:
-                sessions = sessions.tz_convert(None)
             dates = pd.date_range(start, end, freq="D")
             d[indice] = dates.difference(sessions)
         return d

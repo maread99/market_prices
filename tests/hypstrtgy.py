@@ -65,14 +65,6 @@ def get_calendar(calendar_name: str) -> xcals.ExchangeCalendar:
     return _get_from_cache(calendar_name)
 
 
-# TODO xcals 4.0 CHG. Temporary function to return as tz naive. On moving to
-# xcals 4.0 will no longer be required - DELETE and revise clients.
-def _get_calendar_sessions(calendar: xcals.ExchangeCalendar) -> pd.DatetimeIndex:
-    if calendar.sessions.tz == pytz.UTC:
-        return calendar.sessions.tz_convert(None)
-    return calendar.sessions
-
-
 @st.composite
 def calendar_session(
     draw,
@@ -89,7 +81,7 @@ def calendar_session(
         default.
     """
     calendar = get_calendar(calendar_name)
-    sessions = _get_calendar_sessions(calendar)
+    sessions = calendar.sessions
     l_limit = limit[0] if limit[0] is not None else sessions[0]
     r_limit = limit[1] if limit[1] is not None else sessions[-1]
     slc = sessions.slice_indexer(l_limit, r_limit)
@@ -128,7 +120,7 @@ def calendar_start_end_sessions(
         delta.
     """
     calendar = get_calendar(calendar_name)
-    sessions = _get_calendar_sessions(calendar)
+    sessions = calendar.sessions
     l_limit = limit[0] if limit[0] is not None else sessions[0]
     r_limit = r_limit_ = limit[1] if limit[1] is not None else sessions[-1]
 
@@ -248,14 +240,14 @@ def end_minutes(
     l_limit, r_limit = limit
 
     if r_limit is None:
-        r_limit = helpers.to_utc(calendar.closes[-2])  # TODO xcals 4.0 lose wrapper
+        r_limit = calendar.closes[-2]
 
     if l_limit is None:
         if calendar_name in _24h_calendars:
             offset = pd.DateOffset(months=6)
         else:
             offset = pd.DateOffset(years=2)
-        last_close = helpers.to_utc(calendar.closes[0])  # TODO xcals 4.0 lose wrapper
+        last_close = calendar.closes[0]
         alt_limit = r_limit - offset  # type: ignore[operator]  # is a valid operation
         l_limit = max(last_close, alt_limit)
 
@@ -392,15 +384,14 @@ def pp_days_start_session(
     """
     pp = draw(pp_days(calendar_name))
     calendar = get_calendar(calendar_name)
-    sessions = _get_calendar_sessions(calendar)
+    sessions = calendar.sessions
     limit_r = sessions[-pp["days"]]
     if start_will_roll_to_ms:
         offset = pd.tseries.frequencies.to_offset("M")
         if TYPE_CHECKING:
             assert offset is not None
         limit_r = offset.rollback(limit_r)
-    # TODO xcals 4.0 lose wrapper
-    cal_l_limit = helpers.to_tz_naive(calendar.first_session)
+    cal_l_limit = calendar.first_session
     assume(limit_r > cal_l_limit)
     limit = (None, limit_r)
     start = draw(calendar_session(calendar_name, limit))
@@ -423,12 +414,11 @@ def pp_days_end_session(
     """
     pp = draw(pp_days(calendar_name))
     calendar = get_calendar(calendar_name)
-    sessions = _get_calendar_sessions(calendar)
+    sessions = calendar.sessions
     l_limit = sessions[pp["days"] - 1]
     # account for DOInterval
     l_limit = pd.offsets.MonthBegin().rollforward(l_limit + helpers.ONE_DAY)
-    # TODO xcals 4.0 lose wrapper
-    cal_r_limit = helpers.to_tz_naive(calendar.last_session)
+    cal_r_limit = calendar.last_session
     assume(l_limit < cal_r_limit)
     limit = (l_limit, None)
     end = draw(calendar_session(calendar_name, limit))
@@ -519,8 +509,7 @@ def pp_caldur_start_session(
         months=pp["months"],
         years=pp["years"],
     )
-    # TODO xcals 4.0 lose wrapper
-    last_session = helpers.to_tz_naive(calendar.last_session)
+    last_session = calendar.last_session
     limit = (None, last_session - duration)  # type: ignore[operator]  # is valid op.
     start = draw(calendar_session(calendar_name, limit))
     # See `pp_caldur_end_session` for note on need for this assume guard
@@ -551,8 +540,7 @@ def pp_caldur_end_session(
         months=pp["months"],
         years=pp["years"],
     )
-    # TODO xcals 4.0 lose wrapper
-    first_session = helpers.to_tz_naive(calendar.first_session)
+    first_session = calendar.first_session
     l_limit = first_session + duration  # type: ignore[operator]  # is valid operation.
     # account for DOInterval
     l_limit = pd.offsets.MonthBegin().rollforward(l_limit + helpers.ONE_DAY)

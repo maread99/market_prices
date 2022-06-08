@@ -266,7 +266,7 @@ def test_get_conforming_sessions(xlon, xhkg, xnys):
         lengths_param: pd.Timedelta | list[pd.Timedelta] | list[list[pd.Timedelta]],
         start: pd.Timestamp,
         end: pd.Timestamp,
-    ):
+    ) -> str:
         return re.escape(
             "The requested number of consecutive sessions of the requested length(s)"
             f" are not available from {start} through {end}."
@@ -274,12 +274,6 @@ def test_get_conforming_sessions(xlon, xhkg, xnys):
             "\nThe `sessions_lengths` or `session_length` parameter was receieved"
             f" as {lengths_param}."
         )
-
-    def assertion(rtrn: pd.DatetimeIndex, expected: pd.DatetimeIndex):
-        # TODO xcals 4.0 lose this function / move clients to direct assert statements
-        if expected.tz is not None:
-            expected = expected.tz_convert(None)
-        assert_index_equal(rtrn, expected)
 
     # single calendar
     start, end = T("2021-12-10"), T("2022")
@@ -292,19 +286,19 @@ def test_get_conforming_sessions(xlon, xhkg, xnys):
     length = full_session_xlon
     expected = pd.DatetimeIndex([start])
     num = 1
-    assertion(f(cals, [length], start, end, num), expected)
-    assertion(f_cc(cc, length, start, end, num), expected)
+    assert_index_equal(f(cals, [length], start, end, num), expected)
+    assert_index_equal(f_cc(cc, length, start, end, num), expected)
     lengths = [[length]]
-    assertion(f_var(cals, lengths, start, end), expected)
-    assertion(f_cc_var(cc, [length], start, end), expected)
+    assert_index_equal(f_var(cals, lengths, start, end), expected)
+    assert_index_equal(f_cc_var(cc, [length], start, end), expected)
 
     num = 10  # limit that can be fuflilled
     expected = xlon.sessions_in_range(start, T("2021-12-23"))
-    assertion(f(cals, [length], start, end, num), expected)
-    assertion(f_cc(cc, length, start, end, num), expected)
+    assert_index_equal(f(cals, [length], start, end, num), expected)
+    assert_index_equal(f_cc(cc, length, start, end, num), expected)
     lengths = [[length] * num]
-    assertion(f_var(cals, lengths, start, end), expected)
-    assertion(f_cc_var(cc, [length] * num, start, end), expected)
+    assert_index_equal(f_var(cals, lengths, start, end), expected)
+    assert_index_equal(f_cc_var(cc, [length] * num, start, end), expected)
 
     # beyond limit
     num += 1
@@ -326,10 +320,10 @@ def test_get_conforming_sessions(xlon, xhkg, xnys):
     lengths = [[length]]
     num = 1
     expected = pd.DatetimeIndex([T("2021-12-24")])
-    assertion(f(cals, [length], start, end, num), expected)
-    assertion(f_cc(cc, length, start, end, num), expected)
-    assertion(f_var(cals, lengths, start, end), expected)
-    assertion(f_cc_var(cc, [length], start, end), expected)
+    assert_index_equal(f(cals, [length], start, end, num), expected)
+    assert_index_equal(f_cc(cc, length, start, end, num), expected)
+    assert_index_equal(f_var(cals, lengths, start, end), expected)
+    assert_index_equal(f_cc_var(cc, [length], start, end), expected)
 
     num += 1
     msg = match(cals, [[length] * num], start, end)
@@ -368,12 +362,12 @@ def test_get_conforming_sessions(xlon, xhkg, xnys):
     )
     cc_lengths = [full_session_xlon, half_session_xlon]
     lengths = [cc_lengths]
-    assertion(f_var(cals, lengths, start, end), full_expected[:2])
-    assertion(f_cc_var(cc, cc_lengths, start, end), full_expected[:2])
+    assert_index_equal(f_var(cals, lengths, start, end), full_expected[:2])
+    assert_index_equal(f_cc_var(cc, cc_lengths, start, end), full_expected[:2])
     cc_lengths = cc_lengths + [full_session_xlon]
     lengths = [cc_lengths]
-    assertion(f_var(cals, lengths, start, end), full_expected)
-    assertion(f_cc_var(cc, cc_lengths, start, end), full_expected)
+    assert_index_equal(f_var(cals, lengths, start, end), full_expected)
+    assert_index_equal(f_cc_var(cc, cc_lengths, start, end), full_expected)
 
     # two calendars
     cals = [xlon, xnys]
@@ -385,20 +379,20 @@ def test_get_conforming_sessions(xlon, xhkg, xnys):
     length_cc = full_session_cc
     num = 1
     expected = pd.DatetimeIndex([start])
-    assertion(f(cals, length_by_cal, start, end, num), expected)
-    assertion(f_cc(cc, length_cc, start, end, num), expected)
+    assert_index_equal(f(cals, length_by_cal, start, end, num), expected)
+    assert_index_equal(f_cc(cc, length_cc, start, end, num), expected)
 
     lengths_by_cal = [[full_session_xlon], [full_session_xnys]]
-    assertion(f_var(cals, lengths_by_cal, start, end), expected)
-    assertion(f_cc_var(cc, [length_cc], start, end), expected)
+    assert_index_equal(f_var(cals, lengths_by_cal, start, end), expected)
+    assert_index_equal(f_cc_var(cc, [length_cc], start, end), expected)
 
     num = 10  # limit that can be fuflilled
     expected = xlon.sessions_in_range(start, T("2021-12-23"))
-    assertion(f(cals, length_by_cal, start, end, num), expected)
-    assertion(f_cc(cc, length_cc, start, end, num), expected)
+    assert_index_equal(f(cals, length_by_cal, start, end, num), expected)
+    assert_index_equal(f_cc(cc, length_cc, start, end, num), expected)
     lengths_by_cal = [[full_session_xlon] * num, [full_session_xnys] * num]
-    assertion(f_var(cals, lengths_by_cal, start, end), expected)
-    assertion(f_cc_var(cc, [length_cc] * num, start, end), expected)
+    assert_index_equal(f_var(cals, lengths_by_cal, start, end), expected)
+    assert_index_equal(f_cc_var(cc, [length_cc] * num, start, end), expected)
 
     # beyond limit
     num += 1
@@ -423,11 +417,11 @@ def test_get_conforming_sessions(xlon, xhkg, xnys):
     length_cc = half_session_xlon
     num = 1
     expected = pd.DatetimeIndex([T("2021-12-24")])
-    assertion(f(cals, lengths, start, end, num), expected)
-    assertion(f_cc(cc, length_cc, start, end, num), expected)
+    assert_index_equal(f(cals, lengths, start, end, num), expected)
+    assert_index_equal(f_cc(cc, length_cc, start, end, num), expected)
     lengths_by_cal = [[half_session_xlon], [no_session]]
-    assertion(f_var(cals, lengths_by_cal, start, end), expected)
-    assertion(f_cc_var(cc, [length_cc], start, end), expected)
+    assert_index_equal(f_var(cals, lengths_by_cal, start, end), expected)
+    assert_index_equal(f_cc_var(cc, [length_cc], start, end), expected)
 
     num += 1
     lengths_msg_arg = [[session_length_cal] * num for session_length_cal in lengths]
@@ -473,8 +467,10 @@ def test_get_conforming_sessions(xlon, xhkg, xnys):
         if not i:
             continue  # would find earlier date when just looking for a normal day
         lengths = lengths_all[i]
-        assertion(f_var(cals, lengths, start, end), full_expected[: i + 1])
-        assertion(f_cc_var(cc, lengths_cc[: i + 1], start, end), full_expected[: i + 1])
+        assert_index_equal(f_var(cals, lengths, start, end), full_expected[: i + 1])
+        assert_index_equal(
+            f_cc_var(cc, lengths_cc[: i + 1], start, end), full_expected[: i + 1]
+        )
 
     # three calendars
     cals = [xlon, xnys, xhkg]
@@ -487,24 +483,23 @@ def test_get_conforming_sessions(xlon, xhkg, xnys):
     length_cc = full_session_cc
     num = 1
     expected = pd.DatetimeIndex([start])
-    assertion(f(cals, length_by_cal, start, end, num), expected)
-    assertion(f_cc(cc, length_cc, start, end, num), expected)
+    assert_index_equal(f(cals, length_by_cal, start, end, num), expected)
+    assert_index_equal(f_cc(cc, length_cc, start, end, num), expected)
 
     lengths_by_cal = [[full_session_xlon], [full_session_xnys], [full_session_xhkg]]
-    assertion(f_var(cals, lengths_by_cal, start, end), expected)
-    assertion(f_cc_var(cc, [length_cc], start, end), expected)
+    assert_index_equal(f_var(cals, lengths_by_cal, start, end), expected)
+    assert_index_equal(f_cc_var(cc, [length_cc], start, end), expected)
 
     num = 10  # limit that can be fuflilled
     expected = xlon.sessions_in_range(start, T("2021-12-23"))
-    assertion(f(cals, length_by_cal, start, end, num), expected)
-    assertion(f_cc(cc, length_cc, start, end, num), expected)
+    assert_index_equal(f(cals, length_by_cal, start, end, num), expected)
     lengths_by_cal = [
         [full_session_xlon] * num,
         [full_session_xnys] * num,
         [full_session_xhkg] * num,
     ]
-    assertion(f_var(cals, lengths_by_cal, start, end), expected)
-    assertion(f_cc_var(cc, [length_cc] * num, start, end), expected)
+    assert_index_equal(f_var(cals, lengths_by_cal, start, end), expected)
+    assert_index_equal(f_cc_var(cc, [length_cc] * num, start, end), expected)
 
     # beyond limit
     num += 1
@@ -555,5 +550,7 @@ def test_get_conforming_sessions(xlon, xhkg, xnys):
         if not i:
             continue  # would find earlier date when just looking for a normal day
         lengths = lengths_all[i]
-        assertion(f_var(cals, lengths, start, end), full_expected[: i + 1])
-        assertion(f_cc_var(cc, lengths_cc[: i + 1], start, end), full_expected[: i + 1])
+        assert_index_equal(f_var(cals, lengths, start, end), full_expected[: i + 1])
+        assert_index_equal(
+            f_cc_var(cc, lengths_cc[: i + 1], start, end), full_expected[: i + 1]
+        )

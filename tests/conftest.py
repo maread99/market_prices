@@ -14,7 +14,7 @@ from market_prices.intervals import TDInterval
 from .utils import Answers
 
 # pylint: disable=missing-any-param-doc,redefined-outer-name,
-# pylint: unused-argument  # `mock_now` has effect in background
+# pylint: disable=unused-argument  # `mock_now` has effect in background
 
 settings.register_profile("ci", suppress_health_check=[HealthCheck.too_slow])
 settings.load_profile(os.getenv("HYPOTHESIS_PROFILE", "default"))
