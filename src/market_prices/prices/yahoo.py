@@ -11,7 +11,6 @@ from pandas import DataFrame
 import pandas as pd
 import numpy as np
 import pydantic
-import pytz
 import exchange_calendars as xcals
 import yahooquery as yq
 

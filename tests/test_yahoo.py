@@ -54,6 +54,8 @@ UTC = pytz.UTC
 _flakylist = (
     pd.Timestamp("2022-06-01"),
     pd.Timestamp("2022-05-31"),
+    pd.Timestamp("2022-05-30"),
+    pd.Timestamp("2022-05-27"),
     pd.Timestamp("2022-05-26"),
     pd.Timestamp("2022-05-25"),
     pd.Timestamp("2022-05-24"),
@@ -315,11 +317,12 @@ def get_valid_consecutive_sessions(
     Raises `ValidSessionUnavailableError` if no such sessions available.
     """
     start, limit = th.get_sessions_range_for_bi(prices, bi)
+    start = calendar.date_to_session(start, "next")
     start = get_valid_session(start, calendar, "next", limit)
-    end = prices.cc.next_session(start)
+    end = calendar.next_session(start)
     while end in _flakylist:
         start = get_valid_session(end, calendar, "next", limit)
-        end = prices.cc.next_session(start)
+        end = calendar.next_session(start)
         if end > limit:
             raise ValidSessionUnavailableError(start, limit)
     return start, end
@@ -4204,8 +4207,7 @@ class TestGet:
         cal = prices.calendar_default
 
         # Verify durations in trading terms
-        session, limit_session = th.get_sessions_range_for_bi(prices, prices.bis.T1)
-        session = get_valid_session(session, cal, "next", limit_session)
+        _, session = get_valid_consecutive_sessions(prices, prices.bis.T1, cal)
 
         # verify bounding with a session
         df = prices.get("5T", session, minutes=20)
@@ -4456,8 +4458,7 @@ class TestGet:
         assertions_daily(df, prices, pd.Timestamp("2022-01-19"), end)
 
         # verify for intraday interval, with add_a_row causing cross in sessions
-        session, limit_session = th.get_sessions_range_for_bi(prices, prices.bis.T1)
-        session = get_valid_session(session, cal, "next", limit_session)
+        _, session = get_valid_consecutive_sessions(prices, prices.bis.T1, cal)
         start = cal.session_open(session)
         args = ("10T", start)
         kwargs = {"minutes": 30}
@@ -4964,7 +4965,7 @@ class TestGet:
         prices = m.PricesYahoo(["AZN.L", "BTC-USD"], lead_symbol="AZN.L")
         xlon = prices.calendars["AZN.L"]
         session = get_valid_conforming_sessions(
-            prices, prices.bis.T5, [xnys], [session_length_xnys], 1
+            prices, prices.bis.T5, [xlon], [session_length_xlon], 1
         )[0]
         start, end = xlon.session_open_close(session)
 
