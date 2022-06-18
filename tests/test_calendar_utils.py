@@ -20,7 +20,7 @@ from pandas import Timestamp as T
 from pandas.testing import assert_index_equal
 import pytest
 import pytz
-import exchange_calendars as xcals  # type: ignore[import]
+import exchange_calendars as xcals
 
 from market_prices.intervals import TDInterval
 from market_prices import errors, helpers
@@ -56,6 +56,7 @@ def test_minutes_in_period(calendars_with_answers, one_min):
 
     Assumes all calendars have side "left", as required by `market_prices`.
     """
+    # pylint: disable=too-complex, too-many-branches, too-many-statements
     cal, ans = calendars_with_answers
     f = m.minutes_in_period
 

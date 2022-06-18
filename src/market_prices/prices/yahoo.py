@@ -320,11 +320,21 @@ class PricesYahoo(base.PricesBase):
     ):
         symbols = helpers.symbols_to_list(symbols)
         self._ticker = yq.Ticker(
-            symbols, formatted=False, asynchronous=True, max_workers=8, proxies=None
-        )  # other options not exposed
+            symbols,
+            formatted=False,
+            asynchronous=True,
+            max_workers=8,
+            proxies=None,
+            validate=True,
+        )
+
+        if self._ticker.invalid_symbols is not None:
+            raise ValueError(
+                "The following symbols are not recognised by the yahoo API:"
+                f" {self._ticker.invalid_symbols}."
+            )
 
         self._yahoo_exchange_name: dict[str, str]
-        # Will raise error if any symbol not valid
         self._set_yahoo_exchange_name()
 
         if calendars is None or (
@@ -344,17 +354,7 @@ class PricesYahoo(base.PricesBase):
     def _set_yahoo_exchange_name(self):
         d = {}
         for s in self._ticker.symbols:
-            try:
-                d[s] = self._ticker.quotes[s]["fullExchangeName"]
-            except (KeyError, TypeError) as err:
-                if isinstance(err, TypeError) and not err.args[0].startswith(
-                    "string indices must be integers"
-                ):
-                    raise
-                else:
-                    raise ValueError(
-                        f"Symbol '{s}' is not recognised by the yahoo API."
-                    ) from None
+            d[s] = self._ticker.quotes[s]["fullExchangeName"]
         self._yahoo_exchange_name = d
 
     def _ascertain_calendars(
@@ -1012,7 +1012,7 @@ class PricesYahoo(base.PricesBase):
             calendar = self.calendars[symbol]
             index = self._get_trading_index(calendar, interval, start, end)
             reindex_index = (
-                index if interval.is_daily else index.left  # type: ignore[attr-defined]
+                index if interval.is_daily else index.left  # type: ignore[union-attr]
             )
             sdf = sdf.reindex(reindex_index)
             if interval.is_intraday:
