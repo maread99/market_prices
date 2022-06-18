@@ -6,6 +6,7 @@ import functools
 import pathlib
 from collections import abc
 from typing import Literal, TYPE_CHECKING, Tuple
+import shelve
 
 import exchange_calendars as xcals
 from exchange_calendars.utils import pandas_utils as xcals_pdutils
@@ -13,21 +14,27 @@ import numpy as np
 import pandas as pd
 from pytz import UTC
 
+from market_prices import intervals
 from market_prices.utils import pandas_utils as pdutils
+from market_prices.prices.base import PricesBase
 
 # pylint: disable=missing-function-docstring, missing-param-doc, too-many-lines
 
 ONE_DAY = pd.Timedelta(1, "D")
 
-STORE_PATH = pathlib.Path(__file__).parent.joinpath("resources/store.h5")
+_RESOURCES_PATH = pathlib.Path(__file__).parent.joinpath("resources")
+STORE_PATH = _RESOURCES_PATH.joinpath("store.h5")
+STORE_PBT_PATH = _RESOURCES_PATH.joinpath("store_pbt.h5")
+SHELF_PATH = _RESOURCES_PATH.joinpath("pbt")
 _INDEXES_SUFFIX = "_indexes"
+BI_STR = ["T1", "T2", "T5", "H1", "D1"]
 
-# Frequency information lost on storing
+# Frequency information lost on string
 multiple_sessions_freq = xcals.get_calendar("XNYS", start="2022").day * 3
 
 
 def get_store(mode: str = "a") -> pd.HDFStore:
-    """Return resources store.
+    """Return store holding general data.
 
     Parameters
     ----------
@@ -37,24 +44,49 @@ def get_store(mode: str = "a") -> pd.HDFStore:
     return pd.HDFStore(STORE_PATH, mode=mode)
 
 
-def is_key(key: str) -> bool:
-    """Query if a given key is an existing store key.
+def get_store_pbt(mode: str = "a") -> pd.HDFStore:
+    """Return store holding PricesBaseTst data.
+
+    Parameters
+    ----------
+    mode : default: "a" (append)
+        Mode in which store should be opened.
+    """
+    return pd.HDFStore(STORE_PBT_PATH, mode=mode)
+
+
+def get_shelf() -> shelve.DbfilenameShelf:
+    """Return pbt resoureces shelf.
+
+    Shelf has keys as pbt resource keys and values as pd.Timestamp
+    corresponding to time when resource was created.
+    """
+    return shelve.open(SHELF_PATH.as_posix())
+
+
+def is_key(key: str, store_path: pathlib.Path = STORE_PATH) -> bool:
+    """Query if a given key is an existing key of a resources store.
 
     Parameters
     ----------
     key:
         key to query.
+
+    store_path:
+        Path to store.
     """
-    store = get_store()
-    rtrn = key in store
-    store.close()
+    with pd.HDFStore(store_path, mode="r") as store:
+        rtrn = key in store
     return rtrn
 
 
 def save_resource(
-    resource: pd.DataFrame | pd.Series, key: str, overwrite: bool = False
+    resource: pd.DataFrame | pd.Series,
+    key: str,
+    overwrite: bool = False,
+    store_path: pathlib.Path = STORE_PATH,
 ):
-    """Save a resource to the store.
+    """Save a resource to a store.
 
     Parameters
     ----------
@@ -67,6 +99,9 @@ def save_resource(
     overwrite
         Overwrite any exisiting item stored under `key`. Raises KeyError if
         False and key already exists.
+
+    store_path
+        Path to store object which resource is to be stored to.
     """
     if not overwrite and is_key(key):
         raise KeyError(
@@ -77,36 +112,148 @@ def save_resource(
     if isinstance(resource.index, pd.IntervalIndex):
         index = resource.index
         df_indexes = pd.DataFrame(dict(left=index.left, right=index.right))
-        df_indexes.to_hdf(STORE_PATH, key + _INDEXES_SUFFIX)
+        df_indexes.to_hdf(store_path, key + _INDEXES_SUFFIX)
         resource = resource.reset_index(drop=True)
-    resource.to_hdf(STORE_PATH, key)
+    resource.to_hdf(store_path, key)
 
 
-def _has_interval_index(key) -> bool:
-    return is_key(key + _INDEXES_SUFFIX)
+def get_bi_key(key: str, bi: intervals.BI | str) -> str:
+    """Return key for a base interval table of a pbt resource."""
+    if isinstance(bi, intervals.BI):
+        bi = bi.name
+    return key + "_" + bi
 
 
-def _regenerate_interval_index(key) -> pd.IntervalIndex:
-    df = pd.read_hdf(STORE_PATH, key + _INDEXES_SUFFIX)
+def remove_resource_pbt(key: str, store_only: bool = False):
+    """Remove a resource from the pbt store.
+
+    Parameters
+    ----------
+    store_only
+        True - remove resource from the store only, not the shelf.
+    """
+    if not store_only:
+        with get_shelf() as shelf:
+            if key not in shelf:
+                raise KeyError(f'key "{key}" is not in a key of the pbt resources.')
+
+    with get_store_pbt() as store:
+        all_keys = list(store.keys())
+        for key_ in all_keys:
+            if key_[1:].startswith(key):
+                del store[key_]
+
+    if not store_only:
+        with get_shelf() as shelf:
+            del shelf[key]
+
+
+def save_resource_pbt(
+    prices: PricesBase,
+    key: str,
+    overwrite: bool = False,
+):
+    """Save all available data for `prices` to the PricesBaseTst store.
+
+    Parameters
+    ----------
+    prices
+        prices instance for which to save all available data. (All available
+        data assumed as all stored data after calling prices.request_all_prices.)
+
+    key
+        key under which to save resource.
+
+    overwrite
+        Overwrite any exisiting item stored under `key`. Raises KeyError if
+        False and key already exists.
+    """
+    with get_shelf() as shelf:
+        if not overwrite and key in shelf:
+            raise KeyError(
+                f'key "{key}" already exists. To overwrite an existing item pass'
+                " `overwrite` as True."
+            )
+
+        now = pd.Timestamp.now(tz="UTC")
+        prices.request_all_prices()
+        if pd.Timestamp.now(tz="UTC").floor("T") != now.floor("T"):
+            remove_resource_pbt(key, store_only=True)
+            raise RuntimeError(
+                "Operation aborted as unable to get all data within the same minute."
+            )
+
+        for bi in prices.bis:
+            df = prices._pdata[bi]._table  # pylint: disable=protected-access
+            if df is None:
+                # indices of different symbols unaligned
+                continue
+            if bi.is_daily:
+                # cannot store CustomBusinessDay to HDFStore
+                df.index.freq = None
+            save_resource(df, get_bi_key(key, bi), overwrite, STORE_PBT_PATH)
+        shelf[key] = now
+
+
+def _has_interval_index(key: str, store_path: pathlib.Path) -> bool:
+    return is_key(key + _INDEXES_SUFFIX, store_path)
+
+
+def _regenerate_interval_index(key: str, store_path: pathlib.Path) -> pd.IntervalIndex:
+    df = pd.read_hdf(store_path, key + _INDEXES_SUFFIX)
     return pd.IntervalIndex.from_arrays(df.left, df.right, closed="left")
 
 
-def get_resource(key: str) -> pd.DataFrame:
+def get_resource(key: str, store_path: pathlib.Path = STORE_PATH) -> pd.DataFrame:
     """Get a resource from the store.
 
     Parameters
     ----------
     key
         key under which resource saved.
+
+    store_path
+        Path to store object which resource is stored to.
     """
-    resource = pd.read_hdf(STORE_PATH, key)
-    if _has_interval_index(key):
-        index = _regenerate_interval_index(key)
+    resource = pd.read_hdf(store_path, key)
+    if _has_interval_index(key, store_path):
+        index = _regenerate_interval_index(key, store_path)
         resource.index = index
     if key.startswith("multiple_sessions_pt"):
         resource.index.left.freq = multiple_sessions_freq
         resource.index.right.freq = multiple_sessions_freq
     return resource
+
+
+def get_resource_pbt(key: str) -> tuple[dict[str, pd.DataFrame], pd.Timstamp]:
+    """Get a resource from the PricesBaseTst store.
+
+    Parameters
+    ----------
+    key
+        key under which resource saved.
+
+    Returns
+    -------
+    tuple[dict[str, pd.DataFrame], pd.Timstamp]:
+        [0] dictionary mapping base interval (as names) with prices tables.
+        [1] timestamp when prices tables were created.
+    """
+    with get_shelf() as shelf:
+        if key not in shelf:
+            raise ValueError(f"There is no pbt resource under the key {key}")
+        now = shelf[key]
+
+    d = {}
+    for BI in BI_STR:  # # pylint: disable=invalid-name
+        bi_key = get_bi_key(key, BI)
+        try:
+            d[BI] = get_resource(bi_key, STORE_PBT_PATH)
+        except KeyError:
+            # indices of symbols unaligned at H1
+            assert BI == "H1"
+            continue
+    return d, now
 
 
 class Answers:
@@ -302,7 +449,7 @@ class Answers:
                 dtis.append(pd.date_range(first, last_am, freq="T"))
                 dtis.append(pd.date_range(first_pm, last, freq="T"))
 
-        index = pdutils.indexes_union(dtis)  # type: ignore[arg-type]  # dti is subtype
+        index = pdutils.indexes_union(dtis)
         assert isinstance(index, pd.DatetimeIndex)
         return index
 
@@ -872,7 +1019,7 @@ class Answers:
             self.sessions_with_break_next_session_without_break,
             self.sessions_without_break_next_session_with_break,
         ]
-        index = pdutils.indexes_union(session_indexes)  # type: ignore[arg-type]
+        index = pdutils.indexes_union(session_indexes)
         assert isinstance(index, pd.DatetimeIndex)
         return index
 
@@ -1113,7 +1260,7 @@ class Answers:
         sample of every indentified unique circumstance.
         """
         dtis = list(self.session_blocks.values())
-        index = pdutils.indexes_union(dtis)  # type: ignore[arg-type]  # dti is subtype
+        index = pdutils.indexes_union(dtis)
         assert isinstance(index, pd.DatetimeIndex)
         return index
 

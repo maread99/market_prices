@@ -669,7 +669,8 @@ class PricesBase(metaclass=abc.ABCMeta):
         self._lead_symbol = symbol
 
     @property
-    def _lead_symbol_default(self) -> str:
+    def lead_symbol_default(self) -> str:
+        """Default lead symbol."""
         return self._lead_symbol
 
     def _set_delays(self, delays: int | list[int] | dict[str, int]):
@@ -715,7 +716,7 @@ class PricesBase(metaclass=abc.ABCMeta):
     @functools.cached_property
     def tz_default(self) -> pytz.BaseTzInfo:
         """Default timezone."""
-        return self.timezones[self._lead_symbol_default]
+        return self.timezones[self.lead_symbol_default]
 
     @property
     def composite_calendar(self) -> calutils.CompositeCalendar:
@@ -1279,7 +1280,7 @@ class PricesBase(metaclass=abc.ABCMeta):
         start: pd.Timestamp,
         end: pd.Timestamp,
         force: bool = False,
-    ) -> pd.IntervalIndex:
+    ) -> pd.IntervalIndex | pd.DatetimeIndex:
         """Return index covering only trading hours.
 
         Intraday indices are included for all trading times from open
@@ -3255,7 +3256,7 @@ class PricesBase(metaclass=abc.ABCMeta):
                 raise ValueError(msg)
 
         if lead_symbol is None:
-            lead_symbol_ = self._lead_symbol_default
+            lead_symbol_ = self.lead_symbol_default
         else:
             assert isinstance(lead_symbol, str)
             lead_symbol_ = lead_symbol

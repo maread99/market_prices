@@ -1,9 +1,11 @@
 """Tests for market_prices.prices.base module.
 
+Tests that do not require prices to be requested.
+
 Notes
 -----
-Some `PricesBase` methods are tested on `test_yahoo.py` under the default
-`PricesYahoo` implementation. See dedicated section of `test_yahoo.py`
+Tests for the base module that require price data to be requested are on
+`test_base_prices`.
 """
 
 from __future__ import annotations
@@ -563,7 +565,7 @@ class TestPricesBaseSetup:
         assert prices.calendars_names == ["XNYS"]
         assert prices.has_single_calendar
 
-        assert prices._lead_symbol_default == symbols[0]
+        assert prices.lead_symbol_default == symbols[0]
 
         assert prices.delays == {symbol: zero_td for symbol in symbols}
         assert prices.min_delay == zero_td
@@ -617,7 +619,7 @@ class TestPricesBaseSetup:
         assert all(name in prices.calendars_names for name in ["XLON", "XASX", "XNYS"])
         assert not prices.has_single_calendar
 
-        assert prices._lead_symbol_default == "LON"
+        assert prices.lead_symbol_default == "LON"
 
         assert prices.delays == {symbol: zero_td for symbol in symbols}
         assert prices.min_delay == zero_td
@@ -669,7 +671,7 @@ class TestPricesBaseSetup:
         # verifying effect of having changed `lead_symbol`
         assert prices.symbols == symbols
         assert prices.calendar_default == xnys
-        assert prices._lead_symbol_default == "NY"
+        assert prices.lead_symbol_default == "NY"
         assert prices.tz_default == xnys.tz
 
         # verify can pass delays through as a list
