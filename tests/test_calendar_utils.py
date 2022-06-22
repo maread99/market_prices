@@ -288,10 +288,8 @@ def test_subsession_length(calendars_with_answers, strict_all, to_break_all):
 class CompositeAnswers:
     """Answers for CompositeCalendar methods."""
 
-    # TODO xcals when xcals v4 branch merged to master this will need to be changed back
     ANSWERS_BASE_PATH = (
-        "https://raw.github.com/gerrymanoim/exchange_calendars/v4/tests/resources/"
-        # "https://raw.github.com/gerrymanoim/exchange_calendars/master/tests/resources/"
+        "https://raw.github.com/gerrymanoim/exchange_calendars/master/tests/resources/"
     )
 
     LEFT_SIDES = ["left", "both"]

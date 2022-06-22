@@ -5,7 +5,7 @@ from .utils.calendar_utils import get_exchange_info
 
 __all__ = [PricesYahoo, get_exchange_info]
 
-__version__ = "0.8.2"
+__version__ = "0.9.0"
 
 __title__ = "market_prices"
 __description__ = "Meaningful OHLCV datasets"

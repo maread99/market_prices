@@ -10,7 +10,7 @@ charset-normalizer==2.0.12
     # via requests
 colorama==0.4.4
     # via tqdm
-exchange-calendars==3.6.2
+exchange-calendars==4.0.1
     # via market-prices (setup.cfg)
 idna==3.3
     # via requests
