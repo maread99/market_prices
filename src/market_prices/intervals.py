@@ -312,7 +312,6 @@ class _BaseIntervalMeta(enum.EnumMeta):
 
 
 class _BaseInterval(_TDIntervalBase, metaclass=_BaseIntervalMeta):
-
     @classmethod
     def daily_bi(cls) -> BI | None:
         """Return daily base interval. None if all base intervals intraday."""
