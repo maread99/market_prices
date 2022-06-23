@@ -62,7 +62,7 @@ lazy-object-proxy==1.7.1
     # via astroid
 lxml==4.9.0
     # via yahooquery
-mccabe==0.6.1
+mccabe==0.7.0
     # via
     #   flake8
     #   pylint
