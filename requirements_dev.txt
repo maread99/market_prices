@@ -75,7 +75,7 @@ nodeenv==1.6.0
     # via pre-commit
 numexpr==2.8.1
     # via tables
-numpy==1.22.3
+numpy==1.23.0
     # via
     #   exchange-calendars
     #   market-prices (setup.cfg)
