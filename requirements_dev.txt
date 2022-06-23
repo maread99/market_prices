@@ -30,7 +30,7 @@ colorama==0.4.4
     #   pylint
     #   pytest
     #   tqdm
-dill==0.3.4
+dill==0.3.5.1
     # via pylint
 distlib==0.3.4
     # via virtualenv
