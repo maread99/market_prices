@@ -34,7 +34,7 @@ dill==0.3.4
     # via pylint
 distlib==0.3.4
     # via virtualenv
-exchange-calendars==4.0.1
+exchange-calendars==4.0.2
     # via market-prices (setup.cfg)
 filelock==3.7.0
     # via virtualenv
