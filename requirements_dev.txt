@@ -4,7 +4,7 @@
 #
 #    pip-compile --extra=dev --output-file=requirements_dev.txt setup.cfg
 #
-astroid==2.11.5
+astroid==2.11.6
     # via pylint
 atomicwrites==1.4.0
     # via pytest
@@ -14,7 +14,7 @@ attrs==21.4.0
     #   pytest
 black==22.3.0
     # via market-prices (setup.cfg)
-certifi==2021.10.8
+certifi==2022.6.15
     # via requests
 cfgv==3.3.1
     # via pre-commit
@@ -24,19 +24,21 @@ click==8.1.3
     # via
     #   black
     #   pip-tools
-colorama==0.4.4
+colorama==0.4.5
     # via
     #   click
     #   pylint
     #   pytest
     #   tqdm
-dill==0.3.4
+dill==0.3.5.1
     # via pylint
 distlib==0.3.4
     # via virtualenv
-exchange-calendars==4.0.1
+exceptiongroup==1.0.0rc8
+    # via hypothesis
+exchange-calendars==4.0.2
     # via market-prices (setup.cfg)
-filelock==3.7.0
+filelock==3.7.1
     # via virtualenv
 flake8==4.0.1
     # via
@@ -44,7 +46,7 @@ flake8==4.0.1
     #   market-prices (setup.cfg)
 flake8-docstrings==1.6.0
     # via market-prices (setup.cfg)
-hypothesis==6.46.6
+hypothesis==6.47.4
     # via market-prices (setup.cfg)
 identify==2.5.1
     # via pre-commit
@@ -58,13 +60,13 @@ korean-lunar-calendar==0.2.1
     # via exchange-calendars
 lazy-object-proxy==1.7.1
     # via astroid
-lxml==4.8.0
+lxml==4.9.0
     # via yahooquery
 mccabe==0.6.1
     # via
     #   flake8
     #   pylint
-mypy==0.950
+mypy==0.961
     # via market-prices (setup.cfg)
 mypy-extensions==0.4.3
     # via
@@ -75,7 +77,7 @@ nodeenv==1.6.0
     # via pre-commit
 numexpr==2.8.1
     # via tables
-numpy==1.22.3
+numpy==1.23.0
     # via
     #   exchange-calendars
     #   market-prices (setup.cfg)
@@ -92,13 +94,13 @@ pandas==1.4.2
     #   exchange-calendars
     #   market-prices (setup.cfg)
     #   yahooquery
-pandas-stubs==1.2.0.58
+pandas-stubs==1.2.0.62
     # via market-prices (setup.cfg)
 pathspec==0.9.0
     # via black
 pep517==0.12.0
     # via pip-tools
-pip-tools==6.6.1
+pip-tools==6.6.2
     # via market-prices (setup.cfg)
 platformdirs==2.5.2
     # via
@@ -113,15 +115,15 @@ py==1.11.0
     # via pytest
 pycodestyle==2.8.0
     # via flake8
-pydantic==1.9.0
+pydantic==1.9.1
     # via market-prices (setup.cfg)
 pydocstyle==6.1.1
     # via flake8-docstrings
 pyflakes==2.4.0
     # via flake8
-pylint==2.13.9
+pylint==2.14.3
     # via market-prices (setup.cfg)
-pyluach==1.4.1
+pyluach==2.0.0
     # via exchange-calendars
 pyparsing==3.0.9
     # via packaging
@@ -142,7 +144,7 @@ pytz==2022.1
     #   pandas
 pyyaml==6.0
     # via pre-commit
-requests==2.27.1
+requests==2.28.0
     # via requests-futures
 requests-futures==1.0.0
     # via yahooquery
@@ -165,11 +167,13 @@ tomli==2.0.1
     #   pep517
     #   pylint
     #   pytest
+tomlkit==0.11.0
+    # via pylint
 toolz==0.11.2
     # via exchange-calendars
 tqdm==4.64.0
     # via yahooquery
-types-pytz==2021.3.8
+types-pytz==2022.1.0
     # via market-prices (setup.cfg)
 typing-extensions==4.2.0
     # via

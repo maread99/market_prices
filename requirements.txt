@@ -4,21 +4,21 @@
 #
 #    pip-compile setup.cfg
 #
-certifi==2021.10.8
+certifi==2022.6.15
     # via requests
 charset-normalizer==2.0.12
     # via requests
-colorama==0.4.4
+colorama==0.4.5
     # via tqdm
-exchange-calendars==4.0.1
+exchange-calendars==4.0.2
     # via market-prices (setup.cfg)
 idna==3.3
     # via requests
 korean-lunar-calendar==0.2.1
     # via exchange-calendars
-lxml==4.8.0
+lxml==4.9.0
     # via yahooquery
-numpy==1.22.3
+numpy==1.23.0
     # via
     #   exchange-calendars
     #   market-prices (setup.cfg)
@@ -28,9 +28,9 @@ pandas==1.4.2
     #   exchange-calendars
     #   market-prices (setup.cfg)
     #   yahooquery
-pydantic==1.9.0
+pydantic==1.9.1
     # via market-prices (setup.cfg)
-pyluach==1.4.1
+pyluach==2.0.0
     # via exchange-calendars
 python-dateutil==2.8.2
     # via
@@ -41,7 +41,7 @@ pytz==2022.1
     #   exchange-calendars
     #   market-prices (setup.cfg)
     #   pandas
-requests==2.27.1
+requests==2.28.0
     # via requests-futures
 requests-futures==1.0.0
     # via yahooquery
