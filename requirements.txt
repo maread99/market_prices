@@ -23,7 +23,7 @@ numpy==1.23.0
     #   exchange-calendars
     #   market-prices (setup.cfg)
     #   pandas
-pandas==1.4.2
+pandas==1.4.3
     # via
     #   exchange-calendars
     #   market-prices (setup.cfg)
