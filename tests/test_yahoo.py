@@ -1738,6 +1738,11 @@ class TestRequestDataIntraday:
                         "\ntest_volume_glitch: letting hist_vol == df_vol assertion"
                         f" pass with discrepancies in {diff:.2%} of rows."
                     )
+                    # if not working off the same base data then df could have been
+                    # evaluated from volume data with different indices to hist, in
+                    # which case following bv.all() assertion could (and rarely does)
+                    # fail.
+                    return
                 not_in_hist = df[1:].pt.indexed_left.index.difference(hist_vol.index)
                 bv = df.loc[not_in_hist].volume == 0  # pylint: disable=compare-to-zero
                 assert bv.all()
