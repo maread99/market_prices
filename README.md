@@ -75,8 +75,6 @@ Whilst the test suite is pretty comprehensive, there will inevitably be bugs. Pl
 
 Please use [discussions](https://github.com/maread99/market_prices/discussions) to make any suggestions and offer general feedback.
 
-A new beta release will be made to coincide with the release of `exchange_calendars` [version 4.0](https://github.com/gerrymanoim/exchange_calendars/issues/61). The public interface will remain unchanged although the minimum version of the `exchange_calendars` dependency will be advanced to 4.0 to allow for some of the internals to be cleaned up.
-
 ## Disclaimers
 
 `market_prices` should not be assumed sufficiently reliable to undertake market analysis intended to inform investment decisions. Users should inspect the source code and the test suite of the library and its dependencies in order to make their own assessment of the packages' suitability for their purposes. **`market_prices` is used entirely at the user's own risk.**

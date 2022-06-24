@@ -1593,7 +1593,7 @@ class TestRequestDataIntraday:
                 del df_[col]
             assert_frame_equal(df, df_not_mins, rtol=0.075)
             print(
-                "\test_start_end_non_session_minutes: letting freq_equal assertion"
+                "test_start_end_non_session_minutes: letting freq_equal assertion"
                 " pass with discrepancies in volume column(s)."
             )
 
