@@ -131,7 +131,7 @@ pytest==7.1.2
     # via
     #   market-prices (pyproject.toml)
     #   pytest-mock
-pytest-mock==3.7.0
+pytest-mock==3.8.1
     # via market-prices (pyproject.toml)
 python-dateutil==2.8.2
     # via
