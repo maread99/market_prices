@@ -97,6 +97,7 @@ Contributions to `market_prices` are certainly welcome. If you are looking to co
 * documentation specifications.
 
 [testing.md](./developers/testing.md) :
+* Tests for `PricesBase`.
 * Data from yahoo API is unreliable for test suite.
 
 [releases.md](./developers/releases.md) :
