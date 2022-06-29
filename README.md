@@ -1,6 +1,6 @@
 <!-- DEFINE ALL LINKS AS ABSOLUTE address so that resolve on PyPI page -->
 <div align="center">
-  <img src="docs/media/splash.png"><br>
+  <img src="https://raw.githubusercontent.com/maread99/market_prices/master/docs/media/splash.png"><br>
 </div>
 
 -----------------
@@ -13,7 +13,6 @@ A python library to create **meaningful** OHLCV datasets for financial instrumen
 
 Works out-the-box with prices from the Yahoo Finance API (see [Disclaimers](https://github.com/maread99/market_prices#disclaimers)).
 
-<!-- <img src="https://raw.githubusercontent.com/maread99/market_prices/master/docs/media/readme_pt.png" alt="screenshot"> -->
 ## Installation
 
 ```bash
