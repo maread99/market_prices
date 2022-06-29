@@ -1,5 +1,11 @@
 <!-- DEFINE ALL LINKS AS ABSOLUTE address so that resolve on PyPI page -->
-# market-prices
+<div align="center">
+  <img src="docs/media/splash.png"><br>
+</div>
+
+-----------------
+
+# market_prices
 
 [![PyPI](https://img.shields.io/pypi/v/market-prices)](https://pypi.org/project/market-prices/) ![Python Support](https://img.shields.io/pypi/pyversions/market-prices) [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
