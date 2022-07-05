@@ -1,12 +1,14 @@
 # Releases
 
 ## Versioning
-`market_prices` follows [Semantic Versioning](https://semver.org/). Releases should tagged as "v\<MAJOR>.\<MINOR>.\<PATCH>", for example:
-* "v0.8.3"
-* *v1.12.3"
-* *v2.4.12"
+`market_prices` follows [Semantic Versioning](https://semver.org/). Releases should tagged as "\<MAJOR>.\<MINOR>.\<PATCH>", for example:
+* "0.8.3"
+* "1.12.3"
+* "2.4.12"
 
 setuptools-scm is used to version releases during the build process.
+
+NB Prior to release 0.9.4 the tag was prefixed with a 'v'. The 'v' was dropped in 0.9.4 for facilitate the release workflow testing the installation of the new release.
 
 ## Draft release notes
 Draft release notes for the next release should have been prepared by the [`draft-release-notes.yml` workflow](https://github.com/maread99/market_prices/blob/master/.github/workflows/draft-release-notes.yml). This uses the [Release Drafter action](https://github.com/marketplace/actions/release-drafter).
@@ -22,7 +24,7 @@ At the GitHub [releases page](https://github.com/maread99/market_prices/releases
 * The draft release notes should already be at the top of the page. Click the pen icon to edit the draft.
 * Tag the release. The draft will have suggested a tag for the release. If this tag doesn't reflect the intended version then either select the last commit's tag (if it was added) or create a new tag that reflects the version string (any new tag will be attached to last commit).
 * Make sure target is selected as 'refs/head/master'.
-* Name the release as the tag (e.g. "v0.9.2").
+* Name the release as the tag plus a 'v' prefix (e.g. "v0.9.4").
 * Revise the draft release notes as requried.
 * If the release includes new features, select the checkbox for 'Create a discussion for this release' (otherwise leave unchecked).
 * Click the 'Publish Release' button.
