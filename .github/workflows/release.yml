@@ -13,31 +13,32 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
-    
+
     - name: Set up Python
       uses: actions/setup-python@v4
       with:
         python-version: '3.x'
-    
+
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
         pip install build
-    
+
     - name: Build package
       run: python -m build
-    
+
     - name: Publish to Test PyPI
       uses: pypa/gh-action-pypi-publish@release/v1
       with:
         user: __token__
         password: ${{ secrets.PYPI_TEST_API_TOKEN }}
         repository_url: https://test.pypi.org/legacy/
-    
+
     # Verify can install from Test PyPI and import package
     - name: Verify from Test PyPI
       run: |
-        pip install --extra-index-url https://test.pypi.org/simple market_prices
+        echo "Will wait 10s" && sleep 10s
+        pip install --extra-index-url https://test.pypi.org/simple market_prices==${{ github.ref_name }}
         python -c 'import market_prices;print(market_prices.__version__)'
         pip uninstall -y market_prices
 
@@ -50,5 +51,6 @@ jobs:
     # Verify can install from PyPI and import package
     - name: Verify from PyPI
       run: |
-        pip install market_prices
+        echo "Will wait 10s" && sleep 10s
+        pip install market_prices==${{ github.ref_name }}
         python -c 'import market_prices;print(market_prices.__version__)'
