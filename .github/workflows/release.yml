@@ -38,9 +38,9 @@ jobs:
     - name: Verify from Test PyPI
       run: |
         echo "Will wait 10s" && sleep 10s
-        pip install --extra-index-url https://test.pypi.org/simple market_prices==${{ github.ref_name }}
-        python -c 'import market_prices;print(market_prices.__version__)'
-        pip uninstall -y market_prices
+        # pip install --extra-index-url https://test.pypi.org/simple market_prices==${{ github.ref_name }}
+        # python -c 'import market_prices;print(market_prices.__version__)'
+        # pip uninstall -y market_prices
 
     - name: Publish to PyPI
       uses: pypa/gh-action-pypi-publish@release/v1
@@ -52,5 +52,5 @@ jobs:
     - name: Verify from PyPI
       run: |
         echo "Will wait 10s" && sleep 10s
-        pip install --index-url https://pypi.org/simple market_prices==${{ github.ref_name }}
-        python -c 'import market_prices;print(market_prices.__version__)'
+        # pip install --index-url https://pypi.org/simple market_prices==${{ github.ref_name }}
+        # python -c 'import market_prices;print(market_prices.__version__)'
