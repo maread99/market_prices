@@ -172,7 +172,7 @@ tomli==2.0.1
     #   pep517
     #   pylint
     #   pytest
-tomlkit==0.11.0
+tomlkit==0.11.1
     # via pylint
 toolz==0.11.2
     # via exchange-calendars
