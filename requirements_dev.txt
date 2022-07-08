@@ -6,7 +6,7 @@
 #
 astroid==2.11.6
     # via pylint
-atomicwrites==1.4.0
+atomicwrites==1.4.1
     # via pytest
 attrs==21.4.0
     # via
