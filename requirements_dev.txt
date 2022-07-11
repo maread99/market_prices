@@ -113,7 +113,7 @@ platformdirs==2.5.2
     #   virtualenv
 pluggy==1.0.0
     # via pytest
-pre-commit==2.19.0
+pre-commit==2.20.0
     # via market-prices (pyproject.toml)
 py==1.11.0
     # via pytest
