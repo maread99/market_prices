@@ -117,7 +117,7 @@ pre-commit==2.20.0
     # via market-prices (pyproject.toml)
 py==1.11.0
     # via pytest
-pycodestyle==2.8.0
+pycodestyle==2.9.0
     # via flake8
 pydantic==1.9.1
     # via market-prices (pyproject.toml)
