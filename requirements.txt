@@ -6,11 +6,11 @@
 #
 certifi==2022.6.15
     # via requests
-charset-normalizer==2.1.0
+charset-normalizer==2.1.1
     # via requests
 colorama==0.4.5
     # via tqdm
-exchange-calendars==4.1.1
+exchange-calendars==4.2
     # via market-prices (pyproject.toml)
 idna==3.3
     # via requests
@@ -18,7 +18,7 @@ korean-lunar-calendar==0.2.1
     # via exchange-calendars
 lxml==4.9.1
     # via yahooquery
-numpy==1.23.1
+numpy==1.23.2
     # via
     #   exchange-calendars
     #   market-prices (pyproject.toml)
@@ -28,7 +28,7 @@ pandas==1.4.3
     #   exchange-calendars
     #   market-prices (pyproject.toml)
     #   yahooquery
-pydantic==1.9.1
+pydantic==1.9.2
     # via market-prices (pyproject.toml)
 pyluach==2.0.0
     # via exchange-calendars
@@ -36,7 +36,7 @@ python-dateutil==2.8.2
     # via
     #   exchange-calendars
     #   pandas
-pytz==2022.1
+pytz==2022.2.1
     # via
     #   exchange-calendars
     #   market-prices (pyproject.toml)
