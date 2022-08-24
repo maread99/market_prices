@@ -127,7 +127,7 @@ pyflakes==2.5.0
     # via flake8
 pylint==2.14.5
     # via market-prices (pyproject.toml)
-pyluach==2.0.0
+pyluach==2.0.1
     # via exchange-calendars
 pyparsing==3.0.9
     # via packaging
