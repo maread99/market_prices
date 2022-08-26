@@ -125,7 +125,7 @@ pydocstyle==6.1.1
     # via flake8-docstrings
 pyflakes==2.5.0
     # via flake8
-pylint==2.14.5
+pylint==2.15.0
     # via market-prices (pyproject.toml)
 pyluach==2.0.0
     # via exchange-calendars
