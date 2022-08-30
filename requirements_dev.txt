@@ -98,7 +98,7 @@ pandas==1.4.3
     #   exchange-calendars
     #   market-prices (pyproject.toml)
     #   yahooquery
-pandas-stubs==1.4.3.220815
+pandas-stubs==1.4.3.220829
     # via market-prices (pyproject.toml)
 pathspec==0.9.0
     # via black
