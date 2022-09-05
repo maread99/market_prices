@@ -23,14 +23,14 @@ numpy==1.23.2
     #   exchange-calendars
     #   market-prices (pyproject.toml)
     #   pandas
-pandas==1.4.3
+pandas==1.4.4
     # via
     #   exchange-calendars
     #   market-prices (pyproject.toml)
     #   yahooquery
-pydantic==1.9.2
+pydantic==1.10.1
     # via market-prices (pyproject.toml)
-pyluach==2.0.0
+pyluach==2.0.1
     # via exchange-calendars
 python-dateutil==2.8.2
     # via
@@ -49,11 +49,11 @@ six==1.16.0
     # via python-dateutil
 toolz==0.12.0
     # via exchange-calendars
-tqdm==4.64.0
+tqdm==4.64.1
     # via yahooquery
 typing-extensions==4.3.0
     # via pydantic
-urllib3==1.26.11
+urllib3==1.26.12
     # via requests
 yahooquery==2.2.15
     # via market-prices (pyproject.toml)
