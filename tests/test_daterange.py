@@ -778,7 +778,6 @@ class TestGetterDaily:
         data=sthyp.data(),
         ds_interval=stmp.intervals_non_intraday(),
     )
-    @hyp.settings(deadline=500)
     def test_daterange_duration_cal_end(
         self, calendars_with_answers_extended, data, ds_interval
     ):
