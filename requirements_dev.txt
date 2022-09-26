@@ -14,7 +14,7 @@ black==22.8.0
     # via market-prices (pyproject.toml)
 build==0.8.0
     # via pip-tools
-certifi==2022.9.14
+certifi==2022.9.24
     # via requests
 cfgv==3.3.1
     # via pre-commit
