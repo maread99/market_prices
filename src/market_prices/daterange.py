@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import abc
 from collections.abc import Callable
+from datetime import timedelta
 from typing import TYPE_CHECKING, Literal
 
 import exchange_calendars as xcals
@@ -399,7 +400,7 @@ class GetterDaily(_Getter):
                 # end will be reset to now after evaluating start.
                 one_day = helpers.ONE_DAY
                 end = self.final_interval.as_offset_ms.rollforward(end + one_day)
-                end -= one_day  # type: ignore[operator,assignment]
+                end -= one_day
 
             if self.pp["days"] > 0:
                 days = self.pp["days"]
@@ -431,10 +432,9 @@ class GetterDaily(_Getter):
                 )
                 if start is None:
                     assert end is not None
-                    # mypy ignored because Timestamp -/+ DateOffset is valid
-                    start = end - duration  # type: ignore[operator]
+                    start = end - duration
                 else:
-                    end = start + duration  # type: ignore[operator]
+                    end = start + duration
 
             start = self.get_start(start)
             end, end_accuracy = self.get_end(end)
@@ -459,12 +459,12 @@ class GetterDaily(_Getter):
             pp_start, pp_end = self.pp_start_end
             if pp_start is not None and pp_end is None and self._has_duration:
                 # align end
-                end = (end_ - excess) - helpers.ONE_DAY  # type: ignore[operator]
+                end = (end_ - excess) - helpers.ONE_DAY
                 end, end_accuracy = self.get_end(end)
             elif start is not None:  # align start
-                start = start_ = start + excess  # type: ignore[operator]
+                start = start_ = start + excess
             else:
-                start_ += excess  # type: ignore[operator]
+                start_ += excess
 
         self._check_period_covers_one_monthly_interval(start_, end)
 
@@ -479,7 +479,7 @@ class GetterDaily(_Getter):
 
         Period evaluated as `start` through `end`.
         """
-        assert isinstance(self.final_interval, (pd.Timedelta, intervals.TDInterval))
+        assert isinstance(self.final_interval, (timedelta, intervals.TDInterval))
         num_sessions = self.cal.sessions_distance(start, end)
         if pd.Timedelta(num_sessions, "D") < self.final_interval:
             cbdays = num_sessions * self.cal.day
@@ -539,10 +539,9 @@ class GetterDaily(_Getter):
                 )
                 if start is None:
                     assert end is not None
-                    # mypy ignored because Timestamp -/+ DateOffset is valid
-                    start = end - duration  # type: ignore[operator]
+                    start = end - duration
                 else:
-                    end = start + duration  # type: ignore[operator]
+                    end = start + duration
 
             start = self.get_start(start)
             end, end_accuracy = self.get_end(end)
@@ -1039,10 +1038,9 @@ class GetterIntraday(_Getter):
                     years=self.pp["years"],
                 )
                 if start is None:
-                    # mypy ignored because Timestamp -/+ DateOffset is valid
                     start = end - duration  # type: ignore[operator]
                 else:
-                    end = start + duration  # type: ignore[operator]
+                    end = start + duration
 
             start = self.get_start(start)
             end, end_accuracy = self.get_end(end)

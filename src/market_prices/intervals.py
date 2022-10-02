@@ -11,6 +11,7 @@ enumerations:
 
 from __future__ import annotations
 
+from datetime import timedelta
 import enum
 import typing
 
@@ -22,15 +23,19 @@ from market_prices import helpers
 # pylint doesn't see members of enum or pd.Timedelta attrs of _TDIntervalBase
 # pylint: disable=no-member
 
+TIMEDELTA_ARGS = {
+    "T1": (0, 0, 0, 0, 1),
+    "T2": (0, 0, 0, 0, 2),
+    "T5": (0, 0, 0, 0, 5),
+    "T10": (0, 0, 0, 0, 10),
+    "T15": (0, 0, 0, 0, 15),
+    "T30": (0, 0, 0, 0, 30),
+    "H1": (0, 0, 0, 0, 0, 1),
+    "D1": (1,),
+}
 
-class _TDIntervalBase(pd.Timedelta, enum.Enum):
-    def __new__(cls, *args) -> _TDIntervalBase:
-        #  Create Timedelta and send through value to ensure create
-        # a new instance rather than pass through an existing Timedelta.
-        # I don't know why this matters, but it does.
-        intermediary = pd.Timedelta(*args)
-        return super().__new__(cls, intermediary.value)
 
+class _TDIntervalBase(timedelta, enum.Enum):
     @classmethod
     def as_list(cls) -> list:
         """Return all enum members in a list."""
@@ -41,22 +46,28 @@ class _TDIntervalBase(pd.Timedelta, enum.Enum):
             return cls._as_list  # type: ignore[attr-defined]
 
     @property
+    def as_pdtd(self) -> pd.Timedelta:
+        """Return as `pd.Timedelta`."""
+        return pd.Timedelta(self)
+
+    @property
     def freq_unit(self) -> typing.Literal["T", "H", "D"]:
         """Return unit of pandas frequency represented by the member.
 
         Returns either "T", "H" or "D".
         """
-        return self.resolution_string
+        return self.as_pdtd.resolution_string
 
     @property
     def freq_value(self) -> int:
         """Return value of pandas frequency represented by the member."""
+        components = self.as_pdtd.components
         if self.freq_unit == "D":
-            return self.components.days
+            return components.days
         elif self.freq_unit == "H":
-            return self.components.hours
+            return components.hours
         else:
-            return self.components.minutes + (self.components.hours * 60)
+            return components.minutes + (components.hours * 60)
 
     @property
     def is_intraday(self) -> bool:
@@ -107,7 +118,7 @@ class _TDIntervalBase(pd.Timedelta, enum.Enum):
 
     def as_offset(
         self, calendar: xcals.ExchangeCalendar | None = None, one_less: bool = True
-    ) -> pd.offsets.BaseOffset:  # type: ignore[name-defined]
+    ) -> pd.offsets.BaseOffset:
         """Return interval represented as an offset.
 
         Parameters
@@ -167,12 +178,12 @@ class TDInterval(_TDIntervalBase):
     for i in range(1, (60 * 22) + 1):
         if not i % 60:
             i_ = i // 60
-            exec(f"H{i_} = pd.Timedelta({i_}, 'H')")
+            exec(f"H{i_} = (0, 0, 0, 0, 0, {i_})")
         else:
-            exec(f"T{i} = pd.Timedelta({i}, 'T')")
+            exec(f"T{i} = (0, 0, 0, 0, {i})")
 
     for j in range(1, 251):
-        exec(f"D{j} = pd.Timedelta({j}, 'D')")
+        exec(f"D{j} = ({j},)")
 
     @classmethod
     def daily_intervals(cls) -> list[TDInterval]:
@@ -361,14 +372,15 @@ ONE_DAY: TDInterval = TDInterval.D1
 # Constants able to mimic base intervals.
 _BI_CONSTANTS = BI(
     "BI_CONSTANTS",
-    dict(T1=pd.Timedelta(1, "T"), D1=pd.Timedelta(1, "D")),
+    dict(T1=TIMEDELTA_ARGS["T1"], D1=TIMEDELTA_ARGS["D1"]),
+    # dict(T1=pd.Timedelta(1, "T"), D1=pd.Timedelta(1, "D")),
 )
 
 BI_ONE_MIN = _BI_CONSTANTS.T1
 BI_ONE_DAY = _BI_CONSTANTS.D1
 
 
-def to_ptinterval(interval: str | pd.Timedelta) -> PTInterval:
+def to_ptinterval(interval: str | timedelta | pd.Timedelta) -> PTInterval:
     """Verify and parse client `interval` input to a PTInterval.
 
     Parameters
@@ -378,10 +390,10 @@ def to_ptinterval(interval: str | pd.Timedelta) -> PTInterval:
         `market_prices.prices.base.PricesBase.get`.
     """
     # pylint: disable=too-complex, too-many-branches
-    if not isinstance(interval, (str, pd.Timedelta)):
+    if not isinstance(interval, (str, timedelta, pd.Timedelta)):
         raise TypeError(
-            "`interval` should be of type 'str' or 'pd.Timedelta',"
-            f" although received type '{type(interval)}'."
+            "`interval` should be of type 'str', 'timedelta' or"
+            f"'pd.Timedelta', although received type '{type(interval)}'."
         )
 
     if isinstance(interval, str):
@@ -395,13 +407,16 @@ def to_ptinterval(interval: str | pd.Timedelta) -> PTInterval:
             )
 
     else:
-        if interval <= pd.Timedelta(0):
+        if interval <= timedelta(0):
             raise ValueError("`interval` cannot be negative or zero.")
 
+        if isinstance(interval, timedelta):
+            interval = pd.Timedelta(interval)
+
         error_msg = (
-            "An `interval` defined with a pd.Timedelta can only be"
-            " defined in terms of EITHER minute and/or hours OR days,"
-            f" although received as '{interval}'. Note: to define an"
+            "An `interval` defined with a timedelta or pd.Timedelta can"
+            " only be defined in terms of EITHER minute and/or hours OR"
+            f" days, although received as '{interval}'. Note: to define an"
             " interval in terms of months pass as a string, for"
             ' example "1m" for one month.'
         )

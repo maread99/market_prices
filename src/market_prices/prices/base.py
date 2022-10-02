@@ -108,8 +108,26 @@ class PricesBase(metaclass=abc.ABCMeta):
             provider (see 'Serving Price Data' section for notes on which
             intervals should be assigned as base intervals).
 
-            Note: On base class implemented as a type only. This type is
-            not enforced at runtime.
+            The value of enum members should be defined as a tuple of
+            values that would be passed to `timedelta` as positional
+            arguments to define the corresponding interval. For
+            convenience, common tuples are defined at
+            `intervals.TIMEDELTA_ARGS`.
+
+            Example BaseInterval definition:
+                BaseInterval = intervals._BaseInterval(
+                    "BaseInterval",
+                    dict(
+                        T1=intervals.TIMEDELTA_ARGS["T1"],  # 1 minute interval
+                        T2=intervals.TIMEDELTA_ARGS["T2"],  # 2 minute interval
+                        T5=intervals.TIMEDELTA_ARGS["T5"],  # 5 minute interval
+                        H1=intervals.TIMEDELTA_ARGS["H1"],  # 1 hour interval
+                        D1=intervals.TIMEDELTA_ARGS["D1"],  # 1 day interval
+                    ),
+                )
+
+            Note: On base class BaseInterval is implemented as a type only.
+            This type is not enforced at runtime.
 
         BASE_LIMITS :
         dict[BI, pd.Timestamp | pd.Timedelta | None]
@@ -2654,13 +2672,19 @@ class PricesBase(metaclass=abc.ABCMeta):
 
         - Parameters related to index -
 
-        interval : str | pd.Timedelta, default: inferred
+        interval : str | timedelta | pd.Timedelta, default: inferred
             Time interval to be represented by each price row.
 
             Pass as either:
                 pd.Timedelta: components as either:
                     - minutes and/or hours
                     - days
+
+                timedelta: defined from kwargs passed as either:
+                    - minutes and/or hours
+                    - days
+                    (or equivalent of, i.e seconds=120 is valid although
+                    seconds=121 is not.)
 
                 str: comprising:
                     value:
@@ -2675,14 +2699,17 @@ class PricesBase(metaclass=abc.ABCMeta):
                 thirty minutes:
                     "30min", "30T"
                     pd.Timedelta(30, "T"), pd.Timedelta(minutes=30)
+                    timedelta(minutes=30)
 
                 three hours:
                     "3h", "3H"
                     pd.Timedelta(3, "H"), pd.Timedelta(hours=3)
+                    timedelta(hours=3)
 
                 one day:
                     "1d", "1D"
                     pd.Timedelta(1, "D"), pd.Timedelta(days=1)
+                    timedelta(days=1), timedelta(1)
 
                 two months:
                     "2m", "2M"
@@ -2694,6 +2721,8 @@ class PricesBase(metaclass=abc.ABCMeta):
                     "1M", "1m" - one month
                     pd.Timedelta(hours=3, minutes=30) - three and a half
                         hours
+                    pd.timedelta(hours=1, minutes=20) - one hour and twenty
+                        minutes
 
             Intervals representing months must be defined as a string.
 

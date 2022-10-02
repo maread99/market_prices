@@ -16,6 +16,7 @@ from __future__ import annotations
 
 from collections import abc
 import datetime
+from datetime import timedelta
 import itertools
 from typing import Tuple, Dict, Literal
 import re
@@ -122,11 +123,11 @@ class PricesBaseTst(m.PricesBase):
     BaseInterval = intervals._BaseInterval(
         "BaseInterval",
         dict(
-            T1=pd.Timedelta(1, "T"),
-            T2=pd.Timedelta(2, "T"),
-            T5=pd.Timedelta(5, "T"),
-            H1=pd.Timedelta(1, "H"),
-            D1=pd.Timedelta(1, "D"),
+            T1=intervals.TIMEDELTA_ARGS["T1"],
+            T2=intervals.TIMEDELTA_ARGS["T2"],
+            T5=intervals.TIMEDELTA_ARGS["T5"],
+            H1=intervals.TIMEDELTA_ARGS["H1"],
+            D1=intervals.TIMEDELTA_ARGS["D1"],
         ),
     )
 
@@ -151,7 +152,7 @@ class PricesBaseTst(m.PricesBase):
             # verify that prices_tables are for symbols
             assert set(prices_tables["T1"].pt.symbols) == set(symbols)
 
-        earliest = min([TST_SYMBOLS[symbol].earliest_date for symbol in symbols])
+        earliest = min(TST_SYMBOLS[symbol].earliest_date for symbol in symbols)
         self._update_base_limits({self.BaseInterval.D1: earliest})
         calendars = [TST_SYMBOLS[symbol].calendar for symbol in symbols]
         delays = [TST_SYMBOLS[symbol].delay for symbol in symbols]
@@ -974,7 +975,7 @@ def assert_bounds(df: pd.DataFrame, bounds: tuple[pd.Timestamp, pd.Timestamp]):
 
 def assertions_intraday(
     df: pd.DataFrame,
-    interval: pd.TDInterval,
+    interval: TDInterval,
     prices: PricesBaseTst,
     start: pd.Timestamp,
     end: pd.Timestamp,
@@ -2399,7 +2400,7 @@ class TestGet:
         """
         prices = prices_us
         cal = prices.calendar_default
-        interval = pd.Timedelta(5, "T")
+        interval = timedelta(minutes=5)
 
         anchor = "workback"
         msg = "Cannot force close when anchor is 'workback'."
@@ -4237,7 +4238,7 @@ class TestGet:
             " The following base intervals could represent the end indice with the"
             " greatest possible accuracy although have insufficient data available"
             f" to cover the full period:\n\t{[bi]}.\nThe earliest minute from which"
-            f" data is available at 0 days 00:05:00 is {earliest_minute}, although"
+            f" data is available at 0:05:00 is {earliest_minute}, although"
             " at this base interval the requested period evaluates to"
             f" {drg.daterange[0]}."
             f"\nPeriod evaluated from parameters: {prices.gpp.pp_raw}."
@@ -4438,7 +4439,7 @@ class TestPriceAt:
         # verify raises error if `minute` oob
         limit_left_session = prices.limits[prices.bis.D1][0]
         limit_left = max(
-            [c.session_open(limit_left_session) for c in prices.calendars_unique]
+            c.session_open(limit_left_session) for c in prices.calendars_unique
         )
         df_left_limit = prices.price_at(limit_left)  # at limit
         assert df_left_limit.index[0] == limit_left

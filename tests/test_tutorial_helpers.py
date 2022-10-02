@@ -21,7 +21,7 @@ import market_prices.support.tutorial_helpers as m
 # pylint: disable=missing-param-doc, missing-any-param-doc, redefined-outer-name
 # pylint: disable=too-many-public-methods, too-many-arguments, too-many-locals
 # pylint: disable=too-many-statements
-# pylint: disable=protected-access, no-self-use, unused-argument, invalid-name
+# pylint: disable=protected-access, unused-argument, invalid-name
 #   missing-fuction-docstring - doc not required for all tests
 #   protected-access not required for tests
 #   not compatible with use of fixtures to parameterize tests:
@@ -60,17 +60,17 @@ def PricesMock() -> abc.Iterator[type[PricesBase]]:
     class PricesMock_(PricesBase):
         """Mock of PricesBase with T1 and T5 base intervals defined."""
 
-        BaseInterval = intervals._BaseInterval(  # type: ignore[assignment]
+        BaseInterval = intervals._BaseInterval(
             "BaseInterval",
             dict(
-                T1=pd.Timedelta(1, "T"),
-                T5=pd.Timedelta(5, "T"),
+                T1=intervals.TIMEDELTA_ARGS["T1"],
+                T5=intervals.TIMEDELTA_ARGS["T5"],
             ),
         )
 
         BASE_LIMITS = {
-            BaseInterval.T1: T("2021-12-01 00:01", tz=UTC),  # type: ignore[has-type]
-            BaseInterval.T5: T("2021-11-01 00:01", tz=UTC),  # type: ignore[has-type]
+            BaseInterval.T1: T("2021-12-01 00:01", tz=UTC),
+            BaseInterval.T5: T("2021-11-01 00:01", tz=UTC),
         }
 
         def _request_data(self, *_, **__):

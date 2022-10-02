@@ -289,11 +289,11 @@ class PricesYahoo(base.PricesBase):
     BaseInterval = intervals._BaseInterval(  # pylint: disable=protected-access
         "BaseInterval",
         dict(
-            T1=pd.Timedelta(1, "T"),
-            T2=pd.Timedelta(2, "T"),
-            T5=pd.Timedelta(5, "T"),
-            H1=pd.Timedelta(1, "H"),
-            D1=pd.Timedelta(1, "D"),
+            T1=intervals.TIMEDELTA_ARGS["T1"],
+            T2=intervals.TIMEDELTA_ARGS["T2"],
+            T5=intervals.TIMEDELTA_ARGS["T5"],
+            H1=intervals.TIMEDELTA_ARGS["H1"],
+            D1=intervals.TIMEDELTA_ARGS["D1"],
         ),
     )
 
