@@ -1157,7 +1157,7 @@ class _CompositeNonTradingIndex:
             # last value of last close is last calendar close (there is no next open)
             if last_close_.iloc[-1] == self.cc.closes[-1].tz_convert(None):
                 index = pd.IntervalIndex.from_arrays(
-                    last_close_[:-1], next_open.dropna(), "left"
+                    last_close_.iloc[:-1], next_open.dropna(), "left"
                 )
             else:
                 raise

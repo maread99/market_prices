@@ -408,7 +408,7 @@ def interval_of_intervals(
     >>> interval_of_intervals(index)
     Interval('2021-05-01 12:00:00', '2021-05-01 16:30:00', closed='right')
     """
-    if not intervals.is_monotonic:
+    if not intervals.is_monotonic_increasing:
         raise ValueError(f"`intervals` must be monotonic. Received as '{intervals}'.")
     return pd.Interval(intervals[0].left, intervals[-1].right, closed=closed)
 

@@ -1824,7 +1824,7 @@ class TestForcePartialIndices:
         assert index_forced.right[bv].isin(closes).all()
         # assert that all changed table indices had right > corresponding session close
         changed_indices_sessions = table.pt.sessions(cal)[bv]
-        for indice, session in changed_indices_sessions.iteritems():
+        for indice, session in changed_indices_sessions.items():
             assert (indice.left < cal.session_close(session)) & (
                 indice.right > cal.session_close(session)
             )
@@ -1861,7 +1861,7 @@ class TestForcePartialIndices:
 
         # assert all changed table indices had left < corresponding lon session open
         changed_indices_sessions = table.pt.sessions(prices.cc, direction="next")[bv]
-        for indice, session in changed_indices_sessions.iteritems():
+        for indice, session in changed_indices_sessions.items():
             assert (indice.left < xlon.session_open(session)) & (
                 indice.right > xlon.session_open(session)
             )
@@ -1878,7 +1878,7 @@ class TestForcePartialIndices:
         assert index_forced.right[bv].isin(closes).all()
         # assert that all changed table indices had right > corresponding session close
         changed_indices_sessions = table.pt.sessions(prices.cc)[bv]
-        for indice, session in changed_indices_sessions.iteritems():
+        for indice, session in changed_indices_sessions.items():
             if xnys.is_session(session):
                 us_close = (indice.left < xnys.session_close(session)) & (
                     indice.right > xnys.session_close(session)
@@ -1940,14 +1940,14 @@ class TestForcePartialIndices:
         # assert all table indices with changed left side had left < corresponding
         # pm subsession open.
         changed_indices_sessions = table.pt.sessions(cal)[bv_left]
-        for indice, session in changed_indices_sessions.iteritems():
+        for indice, session in changed_indices_sessions.items():
             break_end = cal.session_break_end(session)
             assert (indice.left < break_end) & (indice.right > break_end)
 
         # assert all table indices with changed right side had right > corresponding
         # (sub)session close.
         changed_indices_sessions = table.pt.sessions(cal)[bv_right]
-        for indice, session in changed_indices_sessions.iteritems():
+        for indice, session in changed_indices_sessions.items():
             if cal.session_has_break(session):
                 break_start = cal.session_break_start(session)
                 am_close = (indice.left < break_start) & (indice.right > break_start)
@@ -2003,13 +2003,13 @@ class TestForcePartialIndices:
         # assert all table indices with changed left side had left < corresponding
         # xhkg pm open.
         changed_indices_sessions = table.pt.sessions(prices.cc)[bv_left]
-        for indice, session in changed_indices_sessions.iteritems():
+        for indice, session in changed_indices_sessions.items():
             break_end = xhkg.session_break_end(session)
             assert (indice.left < break_end) & (indice.right > break_end)
 
         # assert all changed table indices had right > corresponding (sub)session close.
         changed_indices_sessions = table.pt.sessions(prices.cc)[bv_right]
-        for indice, session in changed_indices_sessions.iteritems():
+        for indice, session in changed_indices_sessions.items():
             if bvmf.is_session(session):
                 bvmf_close = bvmf.session_close(session)
                 brz_close = (indice.left < bvmf_close) & (indice.right > bvmf_close)
