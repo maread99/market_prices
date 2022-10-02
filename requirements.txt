@@ -4,7 +4,7 @@
 #
 #    pip-compile pyproject.toml
 #
-certifi==2022.9.14
+certifi==2022.9.24
     # via requests
 charset-normalizer==2.1.1
     # via requests
@@ -23,7 +23,7 @@ numpy==1.23.3
     #   exchange-calendars
     #   market-prices (pyproject.toml)
     #   pandas
-pandas==1.4.4
+pandas==1.5.0
     # via
     #   exchange-calendars
     #   market-prices (pyproject.toml)
@@ -36,7 +36,7 @@ python-dateutil==2.8.2
     # via
     #   exchange-calendars
     #   pandas
-pytz==2022.2.1
+pytz==2022.4
     # via
     #   exchange-calendars
     #   market-prices (pyproject.toml)
