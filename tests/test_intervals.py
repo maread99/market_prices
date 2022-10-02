@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+from collections import abc
+from datetime import timedelta
 import itertools
 import re
-from collections import abc
 
 import pandas as pd
 import pytest
@@ -17,7 +18,7 @@ from market_prices.prices import yahoo
 # pylint: disable=missing-param-doc, missing-any-param-doc, redefined-outer-name
 # pylint: disable=too-many-public-methods, too-many-arguments, too-many-locals
 # pylint: disable=too-many-statements
-# pylint: disable=protected-access, no-self-use, unused-argument, invalid-name
+# pylint: disable=protected-access, unused-argument, invalid-name
 #   missing-fuction-docstring: doc not required for all tests
 #   protected-access: not required for tests
 #   not compatible with use of fixtures to parameterize tests:
@@ -32,6 +33,16 @@ from market_prices.prices import yahoo
 
 def test_constants():
     """Test constants defined as expected."""
+    # verify TIMEDELTA_ARGS keys as expected
+    all_keys = set("T1 T2 T5 T10 T15 T30 H1 D1".split())
+    assert all_keys == set(m.TIMEDELTA_ARGS.keys())
+
+    # verify TIMEDELTA_ARGS values correspond with keys
+    mapping = dict(T="minutes", H="hours", D="days")
+    for k, v in m.TIMEDELTA_ARGS.items():
+        kwargs = {mapping[k[0]]: int(k[1:])}
+        assert timedelta(**kwargs) == timedelta(*v)
+
     assert m.ONE_DAY is m.TDInterval.D1
     assert m.ONE_MIN is m.TDInterval.T1
 
@@ -168,11 +179,11 @@ class TestBaseInterval:
         class BaseInterval_(m.BI):
             """Base interval enum."""
 
-            T1 = pd.Timedelta(1, "T")
-            T2 = pd.Timedelta(2, "T")
-            T5 = pd.Timedelta(5, "T")
-            H1 = pd.Timedelta(1, "H")
-            D1 = pd.Timedelta(1, "D")
+            T1 = m.TIMEDELTA_ARGS["T1"]
+            T2 = m.TIMEDELTA_ARGS["T2"]
+            T5 = m.TIMEDELTA_ARGS["T5"]
+            H1 = m.TIMEDELTA_ARGS["H1"]
+            D1 = m.TIMEDELTA_ARGS["D1"]
 
         yield BaseInterval_
 
@@ -181,10 +192,10 @@ class TestBaseInterval:
         class BaseIntervalIntradayOnly_(m.BI):
             """Base interval enum of only intraday intervals."""
 
-            T1 = pd.Timedelta(1, "T")
-            T2 = pd.Timedelta(2, "T")
-            T5 = pd.Timedelta(5, "T")
-            H1 = pd.Timedelta(1, "H")
+            T1 = m.TIMEDELTA_ARGS["T1"]
+            T2 = m.TIMEDELTA_ARGS["T2"]
+            T5 = m.TIMEDELTA_ARGS["T5"]
+            H1 = m.TIMEDELTA_ARGS["H1"]
 
         yield BaseIntervalIntradayOnly_
 
@@ -303,8 +314,12 @@ class TestToPTInterval:
             for unit in ["T", "H", "D"]:
                 with pytest.raises(ValueError, match=match):
                     f(pd.Timedelta(i, unit))
+            for kwarg in ["minutes", "hours", "days"]:
+                with pytest.raises(ValueError, match=match):
+                    f(timedelta(**{kwarg: i}))
 
-        def match_too_high(td: pd.Timedelta, limit: int) -> str:
+        def match_too_high(td: timedelta | pd.Timedelta, limit: int) -> str:
+            td = pd.Timedelta(td)
             component = components[td.resolution_string]
             return re.escape(
                 f"An `interval` defined in terms of {component} cannot have a"
@@ -313,31 +328,32 @@ class TestToPTInterval:
             )
 
         def match_comps_error(td: pd.Timedelta) -> str:
+            td = pd.Timedelta(td)
             return re.escape(
-                "An `interval` defined with a pd.Timedelta can only be defined"
-                " in terms of EITHER minute and/or hours OR days, although"
+                "An `interval` defined with a timedelta or pd.Timedelta can only"
+                " be defined in terms of EITHER minute and/or hours OR days, although"
                 f" received as '{td}'."
             )
 
         def test_unit(unit: str, limit: int, Cls: m.PTInterval):
             for i in range(1, limit + 1):
-                td = pd.Timedelta(i, unit)
-                if unit == "T" and not i % 60:
-                    assert f(td) == getattr(Cls, "H" + str(i // 60))
-                else:
-                    assert f(td) == getattr(Cls, unit + str(i))
+                for td in (pdtd := pd.Timedelta(i, unit), pdtd.to_pytimedelta()):
+                    if unit == "T" and not i % 60:
+                        assert f(td) == getattr(Cls, "H" + str(i // 60))
+                    else:
+                        assert f(td) == getattr(Cls, unit + str(i))
 
             for i in range(limit + 1, limit + 6):
-                td = pd.Timedelta(i, unit)
-                if unit == "H" and i >= 24:
-                    if i == 24:
-                        assert f(td) == m.TDInterval.D1
-                    if i > 24:
-                        with pytest.raises(ValueError, match=match_comps_error(td)):
+                for td in (pdtd := pd.Timedelta(i, unit), pdtd.to_pytimedelta()):
+                    if unit == "H" and i >= 24:
+                        if i == 24:
+                            assert f(td) == m.TDInterval.D1
+                        if i > 24:
+                            with pytest.raises(ValueError, match=match_comps_error(td)):
+                                _ = f(td)
+                    else:
+                        with pytest.raises(ValueError, match=match_too_high(td, limit)):
                             _ = f(td)
-                else:
-                    with pytest.raises(ValueError, match=match_too_high(td, limit)):
-                        _ = f(td)
 
         test_unit("T", 1320, m.TDInterval)
         test_unit("H", 22, m.TDInterval)
@@ -345,50 +361,53 @@ class TestToPTInterval:
 
         # test multiple components
 
+        TDClasses = (timedelta, pd.Timedelta)
+
         # minutes and hours
-        assert f(pd.Timedelta(minutes=1, hours=1)) == m.TDInterval.T61
-        assert f(pd.Timedelta(minutes=60, hours=1)) == m.TDInterval.H2
-        assert f(pd.Timedelta(minutes=59, hours=21)) == m.TDInterval.T1319
-        assert f(pd.Timedelta(minutes=60, hours=21)) == m.TDInterval.H22
-        assert f(pd.Timedelta(minutes=120, hours=22)) == m.TDInterval.D1
+        for minutes, hours, member in (
+            (1, 1, m.TDInterval.T61),
+            (60, 1, m.TDInterval.H2),
+            (59, 21, m.TDInterval.T1319),
+            (60, 21, m.TDInterval.H22),
+            (120, 22, m.TDInterval.D1),
+        ):
+            for TDCls in TDClasses:
+                assert f(TDCls(minutes=minutes, hours=hours)) == member
 
-        tds = [
-            pd.Timedelta(minutes=1, hours=22),
-            pd.Timedelta(minutes=59, hours=22),
-            pd.Timedelta(minutes=1, hours=23),
-            pd.Timedelta(minutes=59, hours=23),
-        ]
-        for td in tds:
-            with pytest.raises(ValueError, match=match_too_high(td, 1320)):
+        for minutes, hours in ((1, 22), (59, 22), (1, 23), (59, 23)):
+            for TDCls in TDClasses:
+                td = TDCls(minutes=minutes, hours=hours)
+                with pytest.raises(ValueError, match=match_too_high(td, 1320)):
+                    _ = f(td)
+
+        for TDCls in TDClasses:
+            td = TDCls(minutes=60, hours=22)
+            with pytest.raises(ValueError, match=match_too_high(td, 22)):
                 _ = f(td)
 
-        td = pd.Timedelta(minutes=60, hours=22)
-        with pytest.raises(ValueError, match=match_too_high(td, 22)):
-            _ = f(td)
+            td = TDCls(minutes=60, hours=23)
+            assert f(td) == m.TDInterval.D1
 
-        td = pd.Timedelta(minutes=60, hours=23)
-        assert f(td) == m.TDInterval.D1
-
-        td = pd.Timedelta(minutes=1, hours=24)
-        with pytest.raises(ValueError, match=match_comps_error(td)):
-            _ = f(td)
-
-        # other invalid components / component combinations
-        for td in [
-            pd.Timedelta(days=1, minutes=1),
-            pd.Timedelta(days=1, hours=1),
-            pd.Timedelta(days=1, hours=1, minutes=1),
-        ]:
+            td = TDCls(minutes=1, hours=24)
             with pytest.raises(ValueError, match=match_comps_error(td)):
                 _ = f(td)
 
-        invalid_kwargs = ["seconds", "milliseconds", "microseconds", "nanoseconds"]
-        for invalid_kwarg in invalid_kwargs:
-            d = {invalid_kwarg: 1}
-            td = pd.Timedelta(**d)
-            with pytest.raises(ValueError, match=match_comps_error(td)):
-                _ = f(td)
-            for valid_kwarg in ["minutes", "hours", "days"]:
-                td = pd.Timedelta(**{**d, **{valid_kwarg: 1}})
+            # other invalid components / component combinations
+            for days, hours, minutes in ((1, 0, 1), (1, 1, 0), (1, 1, 1)):
+                td = TDCls(days=days, hours=hours, minutes=minutes)
                 with pytest.raises(ValueError, match=match_comps_error(td)):
                     _ = f(td)
+
+        invalid_kwargs = ["seconds", "milliseconds", "microseconds", "nanoseconds"]
+        for TDCls in TDClasses:
+            for invalid_kwarg in invalid_kwargs:
+                if invalid_kwarg == "nanoseconds" and TDCls is timedelta:
+                    continue
+                d = {invalid_kwarg: 1}
+                td = TDCls(**d)
+                with pytest.raises(ValueError, match=match_comps_error(td)):
+                    _ = f(td)
+                for valid_kwarg in ["minutes", "hours", "days"]:
+                    td = TDCls(**{**d, **{valid_kwarg: 1}})
+                    with pytest.raises(ValueError, match=match_comps_error(td)):
+                        _ = f(td)

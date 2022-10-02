@@ -10,11 +10,11 @@ Tests for the base module that require price data to be requested are on
 
 from __future__ import annotations
 
-import itertools
-import dataclasses
-import typing
 from collections import abc
+import dataclasses
+import itertools
 import re
+import typing
 
 import exchange_calendars as xcals
 import numpy as np
@@ -35,7 +35,7 @@ from .utils import get_resource
 # pylint: disable=missing-param-doc, missing-any-param-doc, redefined-outer-name
 # pylint: disable=too-many-public-methods, too-many-arguments, too-many-locals
 # pylint: disable=too-many-statements
-# pylint: disable=protected-access, no-self-use, unused-argument, invalid-name
+# pylint: disable=protected-access, unused-argument, invalid-name
 #   missing-fuction-docstring: doc not required for all tests
 #   protected-access: not required for tests
 #   not compatible with use of fixtures to parameterize tests:
@@ -361,10 +361,10 @@ def PricesMock(daily_limit) -> abc.Iterator[type[m.PricesBase]]:
         BaseInterval = intervals._BaseInterval(
             "BaseInterval",
             dict(
-                T1=pd.Timedelta(1, "T"),
-                T5=pd.Timedelta(5, "T"),
-                H1=pd.Timedelta(1, "H"),
-                D1=pd.Timedelta(1, "D"),
+                T1=intervals.TIMEDELTA_ARGS["T1"],
+                T5=intervals.TIMEDELTA_ARGS["T5"],
+                H1=intervals.TIMEDELTA_ARGS["H1"],
+                D1=intervals.TIMEDELTA_ARGS["D1"],
             ),
         )
 
@@ -532,9 +532,9 @@ class TestPricesBaseSetup:
             BaseInterval = intervals._BaseInterval(
                 "BaseInterval",
                 dict(
-                    T1=pd.Timedelta(1, "T"),
-                    T5=pd.Timedelta(5, "T"),
-                    H1=pd.Timedelta(1, "H"),
+                    T1=intervals.TIMEDELTA_ARGS["T1"],
+                    T5=intervals.TIMEDELTA_ARGS["T5"],
+                    H1=intervals.TIMEDELTA_ARGS["H1"],
                 ),
             )
 
@@ -712,8 +712,8 @@ class TestPricesBaseSetup:
             BaseInterval = intervals._BaseInterval(
                 "BaseInterval",
                 dict(
-                    T5=pd.Timedelta(5, "T"),
-                    H1=pd.Timedelta(1, "H"),
+                    T5=intervals.TIMEDELTA_ARGS["T5"],
+                    H1=intervals.TIMEDELTA_ARGS["H1"],
                 ),
             )
 
@@ -734,9 +734,9 @@ class TestPricesBaseSetup:
             BaseInterval = intervals._BaseInterval(
                 "BaseInterval",
                 dict(
-                    T5=pd.Timedelta(5, "T"),
-                    H1=pd.Timedelta(1, "H"),
-                    D1=pd.Timedelta(1, "D"),
+                    T5=intervals.TIMEDELTA_ARGS["T5"],
+                    H1=intervals.TIMEDELTA_ARGS["H1"],
+                    D1=intervals.TIMEDELTA_ARGS["D1"],
                 ),
             )
 
@@ -791,7 +791,7 @@ class TestPricesBaseSetup:
 
             BaseInterval = intervals._BaseInterval(
                 "BaseInterval",
-                dict(D1=pd.Timedelta(1, "D")),
+                dict(D1=intervals.TIMEDELTA_ARGS["D1"]),
             )
 
             BASE_LIMITS = {BaseInterval.D1: limit}
@@ -808,7 +808,7 @@ class TestPricesBaseSetup:
 
             BaseInterval = intervals._BaseInterval(
                 "BaseInterval",
-                dict(D1=pd.Timedelta(1, "D")),
+                dict(D1=intervals.TIMEDELTA_ARGS["D1"]),
             )
 
             BASE_LIMITS = {BaseInterval.D1: limit}
@@ -1130,9 +1130,9 @@ class TestPricesBaseSetup:
             )
             assert prices._earliest_requestable_calendar_minute(cal) == cal.first_minute
 
-        session = max([cal.first_session for cal in calendars])
+        session = max(cal.first_session for cal in calendars)
         assert prices.earliest_requestable_session == session
-        minute = max([cal.first_minute for cal in calendars])
+        minute = max(cal.first_minute for cal in calendars)
         assert prices.earliest_requestable_minute == minute
 
         prices = PricesMockNoDaily(symbols, calendars)
@@ -1369,7 +1369,7 @@ class TestPricesBaseSetup:
         expected = pd.Series(True, index=sessions)
         # although there are a couple of early closes that are not aligned with 1H
         dates = ["2021-12-24", "2021-12-31"]
-        expected[dates] = False  # type: ignore[call-overload]
+        expected[dates] = False
         assert_series_equal(prices._indexes_status[bi], expected)
 
         # XASX combined with xlon.
@@ -1792,14 +1792,14 @@ class TestBis:
             BaseInterval = intervals._BaseInterval(
                 "BaseInterval",
                 dict(
-                    T1=pd.Timedelta(1, "T"),
-                    T2=pd.Timedelta(2, "T"),
-                    T5=pd.Timedelta(5, "T"),
-                    T10=pd.Timedelta(10, "T"),
-                    T15=pd.Timedelta(15, "T"),
-                    T30=pd.Timedelta(30, "T"),
-                    H1=pd.Timedelta(1, "H"),
-                    D1=pd.Timedelta(1, "D"),
+                    T1=intervals.TIMEDELTA_ARGS["T1"],
+                    T2=intervals.TIMEDELTA_ARGS["T2"],
+                    T5=intervals.TIMEDELTA_ARGS["T5"],
+                    T10=intervals.TIMEDELTA_ARGS["T10"],
+                    T15=intervals.TIMEDELTA_ARGS["T15"],
+                    T30=intervals.TIMEDELTA_ARGS["T30"],
+                    H1=intervals.TIMEDELTA_ARGS["H1"],
+                    D1=intervals.TIMEDELTA_ARGS["D1"],
                 ),
             )
 
@@ -1873,7 +1873,7 @@ class TestBis:
         self,
         GetterMock: type[daterange.GetterIntraday],
         cc: calutils.CompositeCalendar,
-        start: pd.Timstamp,
+        start: pd.Timestamp,
         end: pd.Timestamp,
         **kwargs,
     ) -> daterange.GetterIntraday:
