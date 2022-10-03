@@ -19,7 +19,7 @@ jobs:
       with:
         python-version: '3.x'
 
-    - name: Install dependencies
+    - name: Install build dependencies
       run: |
         python -m pip install --upgrade pip
         pip install build
@@ -35,13 +35,25 @@ jobs:
         repository_url: https://test.pypi.org/legacy/
 
     # Verify can install from Test PyPI and import package
-    - name: Verify from Test PyPI
+    - name: Install from testpypi
       run: |
         echo "Will wait 10s" && sleep 10s
-        # pip install --extra-index-url https://test.pypi.org/simple market_prices==${{ github.ref_name }}
-        # python -c 'import market_prices;print(market_prices.__version__)'
-        # pip uninstall -y market_prices
+        pip install --index-url https://test.pypi.org/simple market_prices==${{ github.ref_name }} --no-deps
 
+    - name: Import test release
+      run: |
+        # install local package to download dependencies from pypi without requesting market_prices
+        pip install .
+        # change name of local install to ensure import the version installed from test site
+        mv market_prices market_prices_copy
+        python -c 'import market_prices;print(market_prices.__version__)'
+
+    - name: Clean pip
+      run: |
+        pip uninstall -y market_calendars
+        pip cache purge
+
+    # Publish
     - name: Publish to PyPI
       uses: pypa/gh-action-pypi-publish@release/v1
       with:
@@ -49,8 +61,8 @@ jobs:
         password: ${{ secrets.PYPI_API_TOKEN }}
 
     # Verify can install from PyPI and import package
-    - name: Verify from PyPI
+    - name: Install and test running
       run: |
         echo "Will wait 10s" && sleep 10s
-        # pip install --index-url https://pypi.org/simple market_prices==${{ github.ref_name }}
-        # python -c 'import market_prices;print(market_prices.__version__)'
+        pip install --index-url https://pypi.org/simple market_prices==${{ github.ref_name }}
+        python -c 'import market_prices;print(market_prices.__version__)'
