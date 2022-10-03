@@ -35,17 +35,11 @@ jobs:
         repository_url: https://test.pypi.org/legacy/
 
     # Verify can install from Test PyPI and import package
-    - name: Install from testpypi
+    - name: Install from testpypi and import
       run: |
         echo "Will wait 10s" && sleep 10s
         pip install --index-url https://test.pypi.org/simple market_prices==${{ github.ref_name }} --no-deps
-
-    - name: Import test release
-      run: |
-        # install local package to download dependencies from pypi without requesting market_prices
-        pip install .
-        # change name of local install to ensure import the version installed from test site
-        mv market_prices market_prices_copy
+        pip install -r requirements.txt
         python -c 'import market_prices;print(market_prices.__version__)'
 
     - name: Clean pip
