@@ -67,7 +67,7 @@ mccabe==0.7.0
     # via
     #   flake8
     #   pylint
-mypy==0.981
+mypy==0.982
     # via market-prices (pyproject.toml)
 mypy-extensions==0.4.3
     # via
