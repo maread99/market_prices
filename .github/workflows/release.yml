@@ -45,7 +45,7 @@ jobs:
 
     - name: Clean pip
       run: |
-        pip uninstall -y market_calendars
+        pip uninstall -y market_prices
         pip cache purge
 
     # Publish
