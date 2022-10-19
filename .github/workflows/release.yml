@@ -48,7 +48,6 @@ jobs:
         pip uninstall -y market_prices
         pip cache purge
 
-    # Publish
     - name: Publish to PyPI
       uses: pypa/gh-action-pypi-publish@release/v1
       with:
