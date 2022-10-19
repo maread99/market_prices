@@ -960,6 +960,9 @@ class TestConstructor:
             "ES=F": "CMES",
             "ZB=F": "CMES",
             "HG=F": "CMES",
+            "SPY": "XNYS",  # ETF, yahoo exchange name is 'NYSEArca'
+            "QQQ": "XNYS",  # ETF, yahoo exchange name is 'NasdaqGM'
+            "ARKQ": "XNYS",  # ETF, yahoo exchange name is 'BATS'
         }
 
         for k, cal in prices.calendars.items():
