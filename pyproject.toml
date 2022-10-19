@@ -10,8 +10,23 @@ authors = [
   {name = "Marcus Read"}
 ]
 readme = "README.md"
-license = {file = "LICENSE.txt"}
-keywords = ["finance", "prices", "yahoo"]
+license = {text = "MIT License"}
+keywords = [
+    "finance",
+    "prices",
+    "historical-data",
+    "yahoo",
+    "investing",
+    "stocks",
+    "currencies",
+    "forex",
+    "crypto",
+    "etf",
+    "funds",
+    "bonds",
+    "commodities",
+    "indices",
+]
 requires-python = "~=3.8"
 
 classifiers = [

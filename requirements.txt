@@ -18,12 +18,12 @@ korean-lunar-calendar==0.3.1
     # via exchange-calendars
 lxml==4.9.1
     # via yahooquery
-numpy==1.23.3
+numpy==1.23.4
     # via
     #   exchange-calendars
     #   market-prices (pyproject.toml)
     #   pandas
-pandas==1.5.0
+pandas==1.5.1
     # via
     #   exchange-calendars
     #   market-prices (pyproject.toml)
@@ -36,7 +36,7 @@ python-dateutil==2.8.2
     # via
     #   exchange-calendars
     #   pandas
-pytz==2022.4
+pytz==2022.5
     # via
     #   exchange-calendars
     #   market-prices (pyproject.toml)
@@ -51,7 +51,7 @@ toolz==0.12.0
     # via exchange-calendars
 tqdm==4.64.1
     # via yahooquery
-typing-extensions==4.3.0
+typing-extensions==4.4.0
     # via pydantic
 urllib3==1.26.12
     # via requests
