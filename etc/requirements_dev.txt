@@ -49,7 +49,7 @@ flake8-docstrings==1.6.0
     # via market-prices (pyproject.toml)
 hypothesis==6.56.3
     # via market-prices (pyproject.toml)
-identify==2.5.6
+identify==2.5.8
     # via pre-commit
 idna==3.4
     # via requests
