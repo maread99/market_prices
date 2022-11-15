@@ -1,24 +1,28 @@
 name-template: 'v$NEXT_PATCH_VERSION 🕺'
 tag-template: '$NEXT_PATCH_VERSION'
-template: |
-  # What's Changed
-
-  $CHANGES
-
 categories:
   - title: 'New Features'
     label: 'enhancement'
   - title: 'Deprecation'
     label: 'deprecation'
   - title: 'Bug Fixes'
-    label: 'bug'
+    labels:
+      - 'bug'
+      - 'Fix'
   - title: 'Documentation'
     label: 'documentation'
   - title: 'Maintenance'
-    label: 'maintenance'
+    labels:
+      - 'maintenance'
+      - 'dependencies'
+      - 'github_actions'
   - title: 'Testing'
     label: 'tests'
   - title: 'Under the Bonnet'
     label: 'code improvement'
   - title: 'Continuous Integration'
     label: 'CI'
+template: |
+  # What's Changed
+
+  $CHANGES
