@@ -926,18 +926,23 @@ class GetterIntraday(_Getter):
                 minute = self.cal.opens[target_session]
             elif ts == self.cal.closes[session]:
                 minute = self.cal.closes[target_session]
-                if days < 0:
-                    # if offset to get 'start', return next trading minute,
-                    # not a close that cannot represent 'start'.
-                    minute = self.cal.minute_to_trading_minute(minute, "next")
             elif ts == self.cal.break_ends[session]:
                 minute = self.cal.break_ends[target_session]
+                if minute is pd.NaT:
+                    # target session has no break, set to day close
+                    minute = self.cal.closes[target_session]
             elif ts == self.cal.break_starts[session]:
                 minute = self.cal.break_starts[target_session]
-                if days < 0:
-                    # if offset to get 'start', return next trading minute,
-                    # not a close that cannot represent 'start'.
-                    minute = self.cal.minute_to_trading_minute(minute, "next")
+                if minute is pd.NaT:
+                    # target session has no break, set to day close
+                    minute = self.cal.closes[target_session]
+            if days < 0 and (
+                minute == self.cal.closes[target_session]
+                or minute == self.cal.break_starts[target_session]
+            ):
+                # if offset to get 'start', return next trading minute,
+                # not a close that cannot represent 'start'.
+                minute = self.cal.minute_to_trading_minute(minute, "next")
             return minute
 
         # If `ts` not a bound, offset according to minute.
