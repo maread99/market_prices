@@ -40,7 +40,7 @@ jobs:
         while (($i<12)) && [ "${{ github.ref_name }}" != $(pip index versions -i https://test.pypi.org/simple --pre market_prices | cut -d'(' -f2 | cut -d')' -f1 | sed 1q) ];\
           do echo waiting for package to appear in test index, sleeping 5s; sleep 5s; let i++; done
         pip install --index-url https://test.pypi.org/simple market_prices==${{ github.ref_name }} --no-deps
-        pip install -r requirements.txt
+        pip install -r etc/requirements/requirements.txt
         python -c 'import market_prices;print(market_prices.__version__)'
 
     - name: Clean pip
