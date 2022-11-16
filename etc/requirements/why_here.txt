@@ -1,0 +1,3 @@
+requirements.txt is in this dedicated directory simply so that dependabot
+can be configured to look only at thses dependencies and ignore other lock
+files (e.g. requirements_dev.txt).
