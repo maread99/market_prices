@@ -1001,17 +1001,54 @@ class TestConstructor:
 
         Verifies effect of `adj_close` for daily interval. Verifies
         parameter has no effect when interval is intraday.
+
+        NOTE: Test verifies the difference (or not) between instances of
+        PricesYahoo with `adj_close` parameter passed as False (default)
+        and True. For each tested interval, test requests a single
+        dataframe from yahooquery and then mocks the return from
+        `PricesYahoo._yq_history` to return this single source. The effect
+        of `adj_close` is then tested against the return from
+        `PricesYahoo._request_yahoo`. Why not just test the difference
+        in the return from `_request_yahoo` without the mocking? Because
+        the Yahoo API can return slightly different data for the same
+        repeated call (see 'Tests for `PricesYahoo`'
+        section of docs/developers/testing).
         """
         symbol = "MSFT"
         prices = m.PricesYahoo(symbol)
         prices_adj = m.PricesYahoo(symbol, adj_close=True)
 
-        interval = prices.bis.D1
+        # inputs for daily interval
         start = pd.Timestamp("2021-01-01")
         end = pd.Timestamp("2021-12-31")
+        interval, interval_yq = prices.bis.D1, "1d"
+
+        # inputs for intraday interval
+        end_id = pd.Timestamp.now(tz=pytz.UTC).floor("D") - pd.Timedelta(14, "D")
+        start_id = end_id - pd.Timedelta(14, "D")
+        interval_id, interval_yq_id = prices.bis.H1, "1h"
+
+        # get return from yahooquery for each interval
+        # get via prices method to go through locally implemented fixes.
+        df_yq = prices._yq_history(
+            interval=interval_yq, start=start, end=end, adj_timezone=False
+        )
+        df_yq_id = prices._yq_history(
+            interval=interval_yq_id, start=start_id, end=end_id, adj_timezone=False
+        )
+
+        def mock_yq_history(prices: m.PricesYahoo, df: pd.DataFrame):
+            prices._ya_history = lambda *_, **__: df.copy()
+
+        # test daily interval results in different "close" column
+        mock_yq_history(prices, df_yq)
+        mock_yq_history(prices_adj, df_yq)
 
         df = prices._request_yahoo(interval, start, end)
         df_adj = prices_adj._request_yahoo(interval, start, end)
+
+        assert_series_equal(df["close"], df_yq["close"])
+        assert_series_equal(df_adj["close"], df_yq["adjclose"], check_names=False)
 
         for col in df:
             if col == "close":
@@ -1019,12 +1056,16 @@ class TestConstructor:
             else:
                 assert_series_equal(df[col], df_adj[col])
 
-        # assert has no effect on intraday intervals
-        end = pd.Timestamp.now(tz=pytz.UTC).floor("D") - pd.Timedelta(14, "D")
-        start = end - pd.Timedelta(14, "D")
-        interval = prices.bis.H1
-        df = prices._request_yahoo(interval, start, end)
-        df_adj = prices_adj._request_yahoo(interval, start, end)
+        # test returns unchanged when interval intraday
+        mock_yq_history(prices, df_yq_id)
+        mock_yq_history(prices_adj, df_yq_id)
+
+        df = prices._request_yahoo(interval_id, start_id, end_id)
+        df_adj = prices_adj._request_yahoo(interval_id, start_id, end_id)
+
+        assert_series_equal(df["close"], df_yq_id["close"])
+        assert_series_equal(df_adj["close"], df_yq_id["close"])
+
         for col in df:
             assert_series_equal(df[col], df_adj[col])
 
@@ -1260,7 +1301,7 @@ def assertions_intraday_us(
         `prices`["us"]
 
     table
-        table to be asserted as corresponding with `prices`["us].
+        table to be asserted as corresponding with `prices`["us"].
 
     interval
         Expected `table` base interval.
