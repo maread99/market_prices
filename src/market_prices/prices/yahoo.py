@@ -143,6 +143,19 @@ class PricesYahoo(base.PricesBase):
             requested data will not be available up to the timestamp to
             which it would be expected to be available.
 
+    adj_close : default: False
+        Defines the prices represented by the 'close' column when interval
+        is non-intraday. (Has no effect when requesting prices for an
+        intraday interval.)
+
+            False: (default) prices as printed at day end (prices will
+            reflect the 'close' column of data returned by the
+            `yahooquery.ticker.history` method).
+
+            True: prices as printed at day end adjusted for dividends and
+            stock splits (prices will reflect the 'adjclose' column of data
+            returned by the `yahooquery.ticker.history` method).
+
     Notes
     -----
     --DISCLAIMER--
@@ -317,6 +330,7 @@ class PricesYahoo(base.PricesBase):
         calendars: Optional[mptypes.Calendars] = None,
         lead_symbol: Optional[str] = None,
         delays: Optional[Union[int, List[int], Dict[str, int]]] = None,
+        adj_close: bool = False,
     ):
         symbols = helpers.symbols_to_list(symbols)
         self._ticker = yq.Ticker(
@@ -347,6 +361,7 @@ class PricesYahoo(base.PricesBase):
 
         self._cache_vol_bug_adj_start: None | tuple[pd.Timestamp, pd.Timestamp] = None
         self._set_daily_bi_limit()
+        self._adj_close = adj_close
         super().__init__(symbols, calendars, lead_symbol, delays)
 
     # Methods called via constructor
@@ -641,9 +656,8 @@ class PricesYahoo(base.PricesBase):
     @staticmethod
     def _bi_to_source_key(interval: intervals.BI) -> str:
         """Map interval to value for source's interval parameter."""
-        mapping = {"MS": "mo", "T": "m"}
-        if interval.freq_unit in mapping:
-            return str(interval.freq_value) + mapping[interval.freq_unit]
+        if interval.freq_unit == "T":
+            return str(interval.freq_value) + "m"
         else:
             return interval.as_pdfreq.lower()  # as yahooquery value
 
@@ -766,6 +780,9 @@ class PricesYahoo(base.PricesBase):
             prices = prices.drop(drop_indices)
             if prices.empty:
                 raise_error()
+
+        if self._adj_close and interval == self.BaseInterval.D1:
+            prices["close"] = prices["adjclose"]
 
         return prices
 

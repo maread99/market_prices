@@ -11,7 +11,7 @@ import re
 import exchange_calendars as xcals
 import numpy as np
 import pandas as pd
-from pandas.testing import assert_frame_equal
+from pandas.testing import assert_frame_equal, assert_series_equal
 import pytest
 import pytz
 import yahooquery as yq
@@ -995,6 +995,38 @@ class TestConstructor:
         for k, delay in prices.delays.items():
             assert isinstance(delay, pd.Timedelta)
             assert delay == pd.Timedelta(expected_delays[k], "T")
+
+    def test_adj_close(self):
+        """Verify `adj_close` parameter returns alternative close col.
+
+        Verifies effect of `adj_close` for daily interval. Verifies
+        parameter has no effect when interval is intraday.
+        """
+        symbol = "MSFT"
+        prices = m.PricesYahoo(symbol)
+        prices_adj = m.PricesYahoo(symbol, adj_close=True)
+
+        interval = prices.bis.D1
+        start = pd.Timestamp("2021-01-01")
+        end = pd.Timestamp("2021-12-31")
+
+        df = prices._request_yahoo(interval, start, end)
+        df_adj = prices_adj._request_yahoo(interval, start, end)
+
+        for col in df:
+            if col == "close":
+                assert (df[col] != df_adj[col]).any()
+            else:
+                assert_series_equal(df[col], df_adj[col])
+
+        # assert has no effect on intraday intervals
+        end = pd.Timestamp.now(tz=pytz.UTC).floor("D") - pd.Timedelta(14, "D")
+        start = end - pd.Timedelta(14, "D")
+        interval = prices.bis.H1
+        df = prices._request_yahoo(interval, start, end)
+        df_adj = prices_adj._request_yahoo(interval, start, end)
+        for col in df:
+            assert_series_equal(df[col], df_adj[col])
 
 
 @pytest.fixture
