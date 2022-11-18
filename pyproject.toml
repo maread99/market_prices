@@ -3,7 +3,7 @@ requires = ["setuptools>=43.0.0", "wheel", "setuptools_scm[toml]>=6.2"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "market_prices"
+name = "market-prices"
 description = "Meaningful OHLCV datasets"
 authors = [
   {email = "marcusaread@gmail.com"},
@@ -62,21 +62,24 @@ dependencies = [
 dynamic = ["version"]
 
 [project.optional-dependencies]
-dev = [
+tests = [
     "black",
     "flake8",
     "flake8-docstrings",
     "hypothesis",
+    "pytest",
+    "pytest-mock",
+    "tables",
+    "types-pytz",
+]
+dev = [
+    "market-prices[tests]",
     "mypy",
     "mypy-extensions",
     "pandas-stubs",
     "pip-tools",
     "pre-commit",
     "pylint",
-    "pytest",
-    "pytest-mock",
-    "tables",
-    "types-pytz",
 ]
 
 [project.urls]
