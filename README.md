@@ -11,7 +11,9 @@
 
 A python library to create **meaningful** OHLCV datasets for financial instruments.
 
-Works out-the-box with prices from the Yahoo Finance API (see [Disclaimers](https://github.com/maread99/market_prices#disclaimers)).
+`market_prices` provides for enhanced querying and post-processing of financial price data.
+
+Works out-the-box with prices from the Yahoo Finance API via [yahooquery][yahooquery] (see [Disclaimers](https://github.com/maread99/market_prices#disclaimers)).
 
 ## Installation
 
@@ -214,6 +216,7 @@ The [quickstart.ipynb](https://github.com/maread99/market_prices/blob/master/doc
 * Fills **missing prices**, by security, within the bounds of trading hours (zero leakage).
     * Optionally fills missing values outside of trading hours (for multiple securities with different opening hours).
 * **Efficient data-usage** (only requests data required and only requests any data point once).
+* **Data source flexibility** (use any data source by concreting the ABC).
 
 ## Tutorials / Documentation
 `market_prices` comes with a host of notebook [tutorials](https://github.com/maread99/market_prices/blob/master/docs/tutorials_docs.md#tutorials) that show example usage and explain every aspect of what's on offer. Check out [quickstart.ipynb](https://github.com/maread99/market_prices/blob/master/docs/tutorials/quickstart.ipynb) for a taster.
@@ -223,7 +226,6 @@ All tutorials and other documentation are indexed [here](https://github.com/mare
 Each method's own documentation is also pretty comprehensive.
 
 ## exchange_calendars
-
 `market_prices` is nothing without [`exchange_calendars`](https://github.com/gerrymanoim/exchange_calendars).
 
 `exchange_calendars` provides `market_prices`:
@@ -234,8 +236,14 @@ This knowledge and functionality allows `market_prices` to:
 * Index prices according to exchanges' opening hours.
 * Evaluate periods defined in terms of trading minutes or sessions.
 
-### Calendar maintenance
+## Data sources
+The functionality offered by `market_prices` is not reliant on any particular data source, but it does need one!
 
+The default prices class, `PricesYahoo`, employs the [yahooquery][yahooquery] library to fetch raw price data. A different data source can be used by simply concreting a subclass of the Abstract Base Class [`PricesBase`](https://github.com/maread99/market_prices/blob/master/src/market_prices/prices/base.py) (see the [developer docs](docs/developers/serving_data.md)).
+
+> :information_source: [yahooquery][yahooquery] offers broad pythonic access to the Yahoo API - check it out if you're after other financial data!
+
+### Calendar maintenance
 If you come across missing prices or sessions then the first port of call is to check that the associated calendar is accurate - it may need updating.
 
 * If prices are not included for a session, the calendar may be assuming that day is a holiday.
@@ -259,7 +267,7 @@ Please use [discussions](https://github.com/maread99/market_prices/discussions) 
 
 ### **Yahoo APIs**
 
-The default `PricesYahoo` class requests data from publically available Yahoo APIs via the [yahooquery](https://github.com/dpguthrie/yahooquery/) package.
+The default `PricesYahoo` class requests data from publically available Yahoo APIs via the [yahooquery][yahooquery] package.
 
 **`market_prices` is NOT in any way affiliated, partnered, sponsored or endorsed by Yahoo. Users of the `PricesYahoo` class should make enquiries to satisfy themselves that they are eligible to receive data from  _Yahoo APIs_ and are in compliance with the license requirements and Terms of Service under which the _Yahoo APIs_ may be accessed, to include restrictions concerning NO COMMERCIAL USE.**
 
@@ -274,3 +282,6 @@ Further, it should NOT be assumed that price data returned by the `PricesYahoo` 
 ## License
 
 [MIT License](https://github.com/maread99/market_prices/blob/master/LICENSE.txt)
+
+
+[yahooquery]: https://github.com/dpguthrie/yahooquery/
