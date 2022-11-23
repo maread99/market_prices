@@ -959,17 +959,31 @@ class PricesYahoo(base.PricesBase):
             df = df.iloc[:-1]
         return df
 
+    def _has_intraday_live_indice(
+        self, symbol: str, index: pd.DatetimeIndex, interval: intervals.BI
+    ) -> bool:
+        """Query if last indice of intraday DataFrame represents a live indice"""
+        last_indice = index[-1]
+        if last_indice.second:
+            return True
+        cal = self.calendars[symbol]
+        if not cal.is_trading_minute(last_indice):  # covers live indice as close
+            return True
+        if len(index) > 1:
+            # resolve here one way or the other
+            return cal.minute_offset(index[-2], interval.as_minutes) != last_indice
+        # longer alternative resolution
+        session = cal.minute_to_session(last_indice)
+        open_ = cal.session_open(session)
+        remainder = (last_indice - open_) % interval
+        return remainder > pd.Timedelta(0)
+
     def _resolve_current_ts_intraday(
         self, symbol: str, df: DataFrame, interval: intervals.BI
     ) -> pd.DataFrame:
-        """Drop last indice if a 'current timestamp' (not 'on interval')."""
-        last_ts = df.index[-1]
-        cal = self.calendars[symbol]
-        last_session = cal.minute_to_session(last_ts)
-        open_ = cal.session_open(last_session)
-        remainder = (last_ts - open_) % interval
-        if remainder > pd.Timedelta(0):
-            df.drop(index=last_ts, inplace=True)
+        """Drop last indice if represents a 'live indice'."""
+        if self._has_intraday_live_indice(symbol, df.index, interval):
+            return df.iloc[:-1]
         return df
 
     def _resolve_current_ts(
@@ -1068,6 +1082,17 @@ class PricesYahoo(base.PricesBase):
         self, start: pd.Timestamp, end: pd.Timestamp
     ) -> tuple[pd.DataFrame, pd.Timestamp, pd.Timestamp]:
         """Request data for '1m' interval."""
+
+        def drop_live_indices(df: pd.DataFrame) -> pd.DataFrame:
+            labels_drop = []
+            groupby = df.groupby(level="symbol")
+            for symbol in df.index.levels[0]:
+                index = groupby.get_group(symbol).index
+                index_dt = index.remove_unused_levels().levels[1]
+                if self._has_intraday_live_indice(symbol, index_dt, interval):
+                    labels_drop.append(index[-1])
+            return df.drop(labels_drop)
+
         start_, end_ = start, end
         interval = self.BaseInterval.T1
         MAX_DAYS_PER_REQUEST = pd.Timedelta(6, "D")  # 1 day margin
@@ -1079,6 +1104,9 @@ class PricesYahoo(base.PricesBase):
         df = self._request_yahoo(interval=interval, start=start, end=end_)
         next_df = pd.DataFrame()
         while True:
+            if not next_df.empty:
+                # lose any live indices from returns that will end up 'in middle'
+                df = drop_live_indices(df)
             df = pd.concat([df, next_df])
             df = df.drop_duplicates()  # only occurs for some symbols, on the join
             start = end_
