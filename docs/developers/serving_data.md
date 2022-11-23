@@ -4,15 +4,13 @@
 For an explanation of how price data is served, including the definition of base intervals, see the data_availability.ipynb tutorial and the 'Serving Price Data' section of `prices.base.PricesBase.__doc__`.
 
 ## Data providers
+The vast bulk of `market_prices` is data-source agnostic. Price sources can be added by subclassing `PricesBase` and concreting the abstract methods and attributes as described by `PricesBase.__doc__`.
 
-The vast bulk of `market_prices` is data-source agnostic, provided for by the PricesBase Abstract Base Class. Price sources can be added by subclassing `PricesBase` and concreting the abstract methods and attributes as described by `PricesBase.__doc__`.
-
-Currently (Feb 2022) the yahoo API (via [yahooquery](https://yahooquery.dpguthrie.com/) is the only price source supported, implemented as the `PricesYahoo` class. This serves as the default 'out-of-the-box' source.
+Currently (Nov 2022) the yahoo API (via [yahooquery](https://yahooquery.dpguthrie.com/) is the only price source supported, implemented as the `PricesYahoo` class. This serves as the default 'out-the-box' data source.
 
 On incorporating a further data provider it will be necessary to review `PricesYahoo` for potential common functionality that can be refactored back to either `PricesBase` or a common intermediary subclass. Also, it will be necessary to review `PricesBase` class for functionality that was assumed common although which, given the perspective of other providers, may prove unique to Yahoo or more appropriate to include to an intermediary class.
 
 ### What does a provider have to provide? 
-
 `market_prices` requires that the data source provides OHLCV data (open, high, low, close, volume).
 
 A source will provide OHLCV prices at one or more interval. For example [yahooquery](https://yahooquery.dpguthrie.com/) provides for requesting historic prices at one of the following intervals:
