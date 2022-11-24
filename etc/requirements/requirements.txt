@@ -53,7 +53,7 @@ tqdm==4.64.1
     # via yahooquery
 typing-extensions==4.4.0
     # via pydantic
-urllib3==1.26.12
+urllib3==1.26.13
     # via requests
 yahooquery==2.2.15
     # via market-prices (pyproject.toml)
