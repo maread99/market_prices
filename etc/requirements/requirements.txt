@@ -18,7 +18,7 @@ korean-lunar-calendar==0.3.1
     # via exchange-calendars
 lxml==4.9.1
     # via yahooquery
-numpy==1.23.4
+numpy==1.24.1
     # via
     #   exchange-calendars
     #   market-prices (pyproject.toml)
