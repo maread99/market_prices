@@ -4,11 +4,11 @@
 #
 #    pip-compile --extra=dev --output-file=etc/requirements_dev.txt pyproject.toml
 #
-astroid==2.12.12
+astroid==2.12.13
     # via pylint
 build==0.9.0
     # via pip-tools
-certifi==2022.9.24
+certifi==2022.12.7
     # via requests
 cfgv==3.3.1
     # via pre-commit
@@ -30,19 +30,19 @@ exchange-calendars==4.2.4
     # via
     #   market-prices
     #   market-prices (pyproject.toml)
-filelock==3.8.0
+filelock==3.8.2
     # via virtualenv
-identify==2.5.8
+identify==2.5.11
     # via pre-commit
 idna==3.4
     # via requests
-isort==5.10.1
+isort==5.11.4
     # via pylint
 korean-lunar-calendar==0.3.1
     # via exchange-calendars
 lazy-object-proxy==1.8.0
     # via astroid
-lxml==4.9.1
+lxml==4.9.2
     # via yahooquery
 market-prices[tests]==0.9.10
     # via market-prices (pyproject.toml)
@@ -56,47 +56,45 @@ mypy-extensions==0.4.3
     #   mypy
 nodeenv==1.7.0
     # via pre-commit
-numpy==1.23.4
+numpy==1.24.1
     # via
     #   exchange-calendars
     #   market-prices
     #   market-prices (pyproject.toml)
     #   pandas
-packaging==21.3
+packaging==22.0
     # via build
-pandas==1.5.1
+pandas==1.5.2
     # via
     #   exchange-calendars
     #   market-prices
     #   market-prices (pyproject.toml)
     #   yahooquery
-pandas-stubs==1.5.1.221024
+pandas-stubs==1.5.2.221213
     # via market-prices (pyproject.toml)
 pep517==0.13.0
     # via build
-pip-tools==6.10.0
+pip-tools==6.12.1
     # via market-prices (pyproject.toml)
-platformdirs==2.5.4
+platformdirs==2.6.0
     # via
     #   pylint
     #   virtualenv
-pre-commit==2.20.0
+pre-commit==2.21.0
     # via market-prices (pyproject.toml)
 pydantic==1.10.2
     # via
     #   market-prices
     #   market-prices (pyproject.toml)
-pylint==2.15.5
+pylint==2.15.9
     # via market-prices (pyproject.toml)
 pyluach==2.0.2
     # via exchange-calendars
-pyparsing==3.0.9
-    # via packaging
 python-dateutil==2.8.2
     # via
     #   exchange-calendars
     #   pandas
-pytz==2022.6
+pytz==2022.7
     # via
     #   exchange-calendars
     #   market-prices
@@ -110,8 +108,6 @@ requests-futures==1.0.0
     # via yahooquery
 six==1.16.0
     # via python-dateutil
-toml==0.10.2
-    # via pre-commit
 tomli==2.0.1
     # via
     #   build
@@ -124,7 +120,7 @@ toolz==0.12.0
     # via exchange-calendars
 tqdm==4.64.1
     # via yahooquery
-types-pytz==2022.6.0.1
+types-pytz==2022.7.0.0
     # via pandas-stubs
 typing-extensions==4.4.0
     # via
@@ -132,9 +128,9 @@ typing-extensions==4.4.0
     #   mypy
     #   pydantic
     #   pylint
-urllib3==1.26.12
+urllib3==1.26.13
     # via requests
-virtualenv==20.16.7
+virtualenv==20.17.1
     # via pre-commit
 wheel==0.38.4
     # via pip-tools
