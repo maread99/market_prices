@@ -16,7 +16,6 @@ from __future__ import annotations
 
 from collections import abc
 import datetime
-from datetime import timedelta
 import itertools
 from typing import Tuple, Dict, Literal
 import re
@@ -2400,7 +2399,7 @@ class TestGet:
         """
         prices = prices_us
         cal = prices.calendar_default
-        interval = timedelta(minutes=5)
+        interval = intervals.TDInterval.T5
 
         anchor = "workback"
         msg = "Cannot force close when anchor is 'workback'."
@@ -4238,7 +4237,7 @@ class TestGet:
             " The following base intervals could represent the end indice with the"
             " greatest possible accuracy although have insufficient data available"
             f" to cover the full period:\n\t{[bi]}.\nThe earliest minute from which"
-            f" data is available at 0:05:00 is {earliest_minute}, although"
+            f" data is available at {bi} is {earliest_minute}, although"
             " at this base interval the requested period evaluates to"
             f" {drg.daterange[0]}."
             f"\nPeriod evaluated from parameters: {prices.gpp.pp_raw}."
