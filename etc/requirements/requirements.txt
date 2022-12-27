@@ -4,7 +4,7 @@
 #
 #    pip-compile --output-file=etc/requirements/requirements.txt pyproject.toml
 #
-certifi==2022.9.24
+certifi==2022.12.7
     # via requests
 charset-normalizer==2.1.1
     # via requests
@@ -16,14 +16,14 @@ idna==3.4
     # via requests
 korean-lunar-calendar==0.3.1
     # via exchange-calendars
-lxml==4.9.1
+lxml==4.9.2
     # via yahooquery
-numpy==1.23.4
+numpy==1.24.1
     # via
     #   exchange-calendars
     #   market-prices (pyproject.toml)
     #   pandas
-pandas==1.5.1
+pandas==1.5.2
     # via
     #   exchange-calendars
     #   market-prices (pyproject.toml)
@@ -36,7 +36,7 @@ python-dateutil==2.8.2
     # via
     #   exchange-calendars
     #   pandas
-pytz==2022.6
+pytz==2022.7
     # via
     #   exchange-calendars
     #   market-prices (pyproject.toml)
@@ -53,7 +53,7 @@ tqdm==4.64.1
     # via yahooquery
 typing-extensions==4.4.0
     # via pydantic
-urllib3==1.26.12
+urllib3==1.26.13
     # via requests
 yahooquery==2.2.15
     # via market-prices (pyproject.toml)

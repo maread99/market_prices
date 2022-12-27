@@ -4,13 +4,15 @@
 #
 #    pip-compile --extra=tests --output-file=etc/requirements_tests.txt pyproject.toml
 #
-attrs==22.1.0
+attrs==22.2.0
     # via
     #   hypothesis
     #   pytest
-black==22.10.0
+black==22.12.0
     # via market-prices (pyproject.toml)
-certifi==2022.9.24
+blosc2==2.0.0
+    # via tables
+certifi==2022.12.7
     # via requests
 charset-normalizer==2.1.1
     # via requests
@@ -21,19 +23,21 @@ colorama==0.4.6
     #   click
     #   pytest
     #   tqdm
-exceptiongroup==1.0.4
+cython==0.29.32
+    # via tables
+exceptiongroup==1.1.0
     # via
     #   hypothesis
     #   pytest
 exchange-calendars==4.2.4
     # via market-prices (pyproject.toml)
-flake8==5.0.4
+flake8==6.0.0
     # via
     #   flake8-docstrings
     #   market-prices (pyproject.toml)
 flake8-docstrings==1.6.0
     # via market-prices (pyproject.toml)
-hypothesis==6.57.1
+hypothesis==6.61.0
     # via market-prices (pyproject.toml)
 idna==3.4
     # via requests
@@ -41,48 +45,50 @@ iniconfig==1.1.1
     # via pytest
 korean-lunar-calendar==0.3.1
     # via exchange-calendars
-lxml==4.9.1
+lxml==4.9.2
     # via yahooquery
 mccabe==0.7.0
     # via flake8
+msgpack==1.0.4
+    # via blosc2
 mypy-extensions==0.4.3
     # via black
 numexpr==2.8.4
     # via tables
-numpy==1.23.4
+numpy==1.24.1
     # via
     #   exchange-calendars
     #   market-prices (pyproject.toml)
     #   numexpr
     #   pandas
     #   tables
-packaging==21.3
+packaging==22.0
     # via
     #   pytest
     #   tables
-pandas==1.5.1
+pandas==1.5.2
     # via
     #   exchange-calendars
     #   market-prices (pyproject.toml)
     #   yahooquery
-pathspec==0.10.2
+pathspec==0.10.3
     # via black
-platformdirs==2.5.4
+platformdirs==2.6.0
     # via black
 pluggy==1.0.0
     # via pytest
-pycodestyle==2.9.1
+py-cpuinfo==9.0.0
+    # via tables
+pycodestyle==2.10.0
     # via flake8
 pydantic==1.10.2
     # via market-prices (pyproject.toml)
 pydocstyle==6.1.1
     # via flake8-docstrings
-pyflakes==2.5.0
+pyflakes==3.0.1
     # via flake8
 pyluach==2.0.2
     # via exchange-calendars
-pyparsing==3.0.9
-    # via packaging
 pytest==7.2.0
     # via
     #   market-prices (pyproject.toml)
@@ -93,7 +99,7 @@ python-dateutil==2.8.2
     # via
     #   exchange-calendars
     #   pandas
-pytz==2022.6
+pytz==2022.7
     # via
     #   exchange-calendars
     #   market-prices (pyproject.toml)
@@ -108,7 +114,7 @@ snowballstemmer==2.2.0
     # via pydocstyle
 sortedcontainers==2.4.0
     # via hypothesis
-tables==3.7.0
+tables==3.8.0
     # via market-prices (pyproject.toml)
 tomli==2.0.1
     # via
@@ -118,13 +124,13 @@ toolz==0.12.0
     # via exchange-calendars
 tqdm==4.64.1
     # via yahooquery
-types-pytz==2022.6.0.1
+types-pytz==2022.7.0.0
     # via market-prices (pyproject.toml)
 typing-extensions==4.4.0
     # via
     #   black
     #   pydantic
-urllib3==1.26.12
+urllib3==1.26.13
     # via requests
 yahooquery==2.2.15
     # via market-prices (pyproject.toml)
