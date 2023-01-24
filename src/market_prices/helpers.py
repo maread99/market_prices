@@ -4,11 +4,10 @@ from __future__ import annotations
 
 import re
 import sys
-from typing import Literal, Optional
+from typing import Literal
 
 import pandas as pd
 import numpy as np
-import pydantic
 import pytz
 
 from market_prices import intervals, mptypes
