@@ -3,13 +3,13 @@
 from __future__ import annotations
 
 import copy
+import datetime
 import functools
 import warnings
 from typing import Dict, List, Optional, Union
 
 from pandas import DataFrame
 import pandas as pd
-import numpy as np
 import pydantic
 import exchange_calendars as xcals
 import yahooquery as yq
@@ -182,48 +182,34 @@ class PricesYahoo(base.PricesBase):
     10.25 minute.
 
     For daily prices:
-        In theory prices are indexed with the corresponding session.
-        In reality they are indexed with the date component of a
-        timestamp that represents the session open either as UTC or
-        UTC plus the GMT offset (depending on whether adj_timezone
-        passed as False or True respectively). Consequently if
-        `adj_timezone` is False and the UTC open is before midnight
-        (for example ASX opens as 23.00 UTC) then the index is a day
-        too early. This bug is fixed by localizing some
-        yahooquery methods and making changes to the localized methods
-        `_yq_history_dataframe` and `_yq_events_to_dataframe`.
-
-        Separately, for a time following a session close the yahoo API
-        represents the final session with two timestamps - one stamped
-        as the session open (the normal way in which the API stamps a
-        session) and another as the 'live indice' stamped with,
-        presumedly, the time of the last trade. The two indices are
-        present in the yahooquery data. The duplication is passed
-        through and handled within `_resolve_current_ts_daily`.
+        yahooquery receieves daily prices indexed against each session's
+        UTC open time. These are mapped to a session on the basis that
+        if the local datetime of the open (as converted by the timezone
+        information available) is <= 14.00 then the session is assumed as
+        the date component of that local datetime, whilst if > 14.00 then
+        assumed as the date of the day following that local open datetime,
+        i.e. a 23:00 open would map that row to a session on the following
+        day.
 
     Indices will be UTC or local depending on interval and
     whether 'adj_timezone' is passed to `yq.Ticker.history`
     method as False or True (default):
 
         For daily intervals:
-            indices represent session (i.e. no time component). For
+            indices represent sessions as `datetime.date` objects. For
             example the indice 2021-03-22 could represent the CME
             session that opened 2021-03-21 17.00 and closed
             2021-03-22 16.00.
 
+            If the session is open then the last indice represents a live
+            indice and is timestamped with the last trade. This indice is
+            a tz-aware datetime.datetime object. The timezone is determined
+            by `adj_timezone`, False for UTC, True for local.
+
         For intraday intervals:
             If 'adj_timezone' is passed as False, all times are
-            returned as UTC times.
-
-            If 'adj_timezone' is passed as True then yahooquery applies
-            an offset against the UTC times to return times as local.
-            NB, this offset is constant and does not account for DST.
-            Consequently during periods where an exchange observes DST
-            the indices will be an earlier than true local time that
-            is observing DST. Although of no consequence for this class
-            (ticker.history is only called with adj_timezone as False)
-            a fix is included to `_yq_history_dataframe` is
-            anticipation of offering PR to fix yahooquery source.
+            returned as UTC times, otherwise as local times according to
+            the timezone that yahooquery has assigned for the symbol.
 
     Importantly, when datetimes are passed as the 'start' and/or 'end'
     parameters of yq.Ticker.history, these datetimes are assumed as UTC
@@ -479,178 +465,6 @@ class PricesYahoo(base.PricesBase):
             earliest = min(dates)
             self._update_base_limits({self.BaseInterval.D1: earliest})
 
-    # Localised yahooquery methods.
-
-    @staticmethod
-    def _yq_events_to_dataframe(data, symbol) -> pd.DataFrame:
-        # yahooquery method localized and amended
-        dataframes = []
-        for event in ["dividends", "splits"]:
-            try:  # pylint: disable=too-many-try-statements
-                df = pd.DataFrame(data[symbol]["events"][event].values())
-                df.set_index("date", inplace=True)
-                df.index = pd.to_datetime(df.index, unit="s")
-                df.index = df.index.tz_localize("UTC")
-                if event == "dividends":
-                    df.rename(columns={"amount": "dividends"}, inplace=True)
-                else:
-                    df["splits"] = df["numerator"] / df["denominator"]
-                    df = df[["splits"]]
-                dataframes.append(df)
-            except KeyError:
-                pass
-        if len(dataframes) > 1:
-            return pd.merge(
-                dataframes[0],
-                dataframes[1],
-                how="outer",
-                left_index=True,
-                right_index=True,
-            )
-        else:
-            return dataframes[0]
-
-    def _yq_history_dataframe(
-        self, data, symbol, params, adj_timezone=True
-    ) -> pd.DataFrame:
-        # yahooquery localized and amended method to fix assumption that date
-        # component of index always reflects session.
-        s = symbol
-
-        df = pd.DataFrame(data[s]["indicators"]["quote"][0])
-        if data[s]["indicators"].get("adjclose"):
-            df["adjclose"] = data[s]["indicators"]["adjclose"][0]["adjclose"]
-        df.index = pd.to_datetime(data[s]["timestamp"], unit="s")
-        df.index = df.index.tz_localize("UTC")
-
-        df.dropna(inplace=True)
-        if data[s].get("events"):
-            df = pd.merge(
-                df,
-                self._yq_events_to_dataframe(data, s),
-                how="outer",
-                left_index=True,
-                right_index=True,
-            )
-
-        daily = params["interval"][-1] not in ["m", "h"]
-        if adj_timezone or daily:
-            # df.index = df.index.date  # OLD yahooquery bug - date component of
-            # index does not always reflect session.
-            tz = data[s]["meta"]["exchangeTimezoneName"]
-            if not daily:
-                df.index = df.index.tz_convert(tz)
-            else:
-                last_trade_secs = data[s]["meta"]["regularMarketTime"] * 10**9
-                last_t = pd.Timestamp(last_trade_secs, tz="UTC")
-                live_indice = df.index[-1] >= last_t - pd.Timedelta(2, "S")
-                slce = slice(-1) if live_indice else slice(None)
-                idx = df.index[slce].tz_convert(tz)  # to local open time
-                idx = idx.round("d")  # round from local open time
-                idx = idx.tz_localize(None)
-                if live_indice:
-                    last_indice = df.index[-1]
-                    if adj_timezone:
-                        last_indice = last_indice.tz_convert(tz)
-                    last_indice = last_indice.tz_localize(None)
-                    idx = idx.insert(len(idx), last_indice)
-                df.index = idx
-        return df
-
-    def _yq_historical_data_to_dataframe(
-        self, data, params, adj_timezone
-    ) -> dict | pd.DataFrame:
-        # localized yahooquery method. Unchanged except rerouting calls to
-        # other localized methods.
-        d = {}
-        for symbol in self._ticker._symbols:  # pylint: disable=protected-access
-            if "timestamp" in data[symbol]:
-                d[symbol] = self._yq_history_dataframe(
-                    data, symbol, params, adj_timezone
-                )
-            else:
-                d[symbol] = data[symbol]
-        if all(isinstance(v, pd.DataFrame) for v in d.values()):
-            df = pd.concat(d, names=["symbol", "date"], sort=False)
-            if "dividends" in df.columns:
-                df["dividends"].fillna(0, inplace=True)
-            if "splits" in df.columns:
-                df["splits"].fillna(0, inplace=True)
-            return df
-        return d
-
-    def _yq_history(  # pylint: disable=too-many-arguments
-        self,
-        period="ytd",
-        interval="1d",
-        start=None,
-        end=None,
-        adj_timezone=True,
-        adj_ohlc=False,
-    ) -> pd.DataFrame | dict:
-        """Get historical pricing data.
-
-        Pulls historical pricing data for a given symbol(s)
-
-        Parameters
-        ----------
-        period: str, default ytd, optional
-            Length of time
-        interval: str, default 1d, optional
-            Time between data points
-        start: str or datetime.datetime, default None, optional
-            Specify a starting point to pull data from.  Can be expressed as a
-            string with the format YYYY-MM-DD or as a datetime object
-        end: str of datetime.datetime, default None, optional
-            Specify a ending point to pull data from.  Can be expressed as a
-            string with the format YYYY-MM-DD or as a datetime object.
-        adj_timezone: bool, default True, optional
-            Specify whether or not to apply the GMT offset to the timestamp
-            received from the API.  If True, the datetimeindex will be adjusted
-            to the specified ticker's timezone.
-                If interval is '1d' or higher then adj_timezone applies only
-                    to the last timestamp and only if that last timestamp
-                    represents a live session (i.e. a day that has yet to
-                    close).
-        adj_ohlc: bool, default False, optional
-            Calculates an adjusted open, high, low and close prices according
-            to split and dividend information
-
-        Returns
-        -------
-        pandas.DataFrame
-            historical pricing data. If interval is '1d' or higher then
-                indices are dates representing closed sessions. An
-                exception is if the period runs to 'now' in which case the
-                final indice will reflect the current session as at 'now'.
-        """
-        # localized yahooquery method. Unchanged except rerouting calls to
-        # other localized methods.
-        # pylint: disable=protected-access, redefined-outer-name
-        _convert_to_timestamp = yq.ticker._convert_to_timestamp
-
-        config = self._ticker._CONFIG["chart"]
-        intervals = config["query"]["interval"]["options"]
-        if start or period is None or period.lower() == "max":
-            start = _convert_to_timestamp(start)
-            end = _convert_to_timestamp(end, start=False)
-            params = {"period1": start, "period2": end}
-        else:
-            params = {"range": period.lower()}
-        if interval not in intervals:
-            values = ", ".join(intervals)
-            msg = f"Interval values must be one of {values}"
-            raise ValueError(msg)
-        params["interval"] = interval.lower()
-        if params["interval"] == "1m" and period == "1mo":
-            df = self._ticker._history_1m(adj_timezone, adj_ohlc)
-        else:
-            data = self._ticker._get_data("chart", params)
-            df = self._yq_historical_data_to_dataframe(data, params, adj_timezone)
-        if adj_ohlc and "adjclose" in df:
-            df = self._ticker._adjust_ohlc(df)
-        return df
-
     # Methods to request data from yahooquery.
 
     @staticmethod
@@ -660,38 +474,6 @@ class PricesYahoo(base.PricesBase):
             return str(interval.freq_value) + "m"
         else:
             return interval.as_pdfreq.lower()  # as yahooquery value
-
-    @staticmethod
-    def _prices_for_some_symbols(d: dict) -> pd.DataFrame | None:
-        """Create Dataframe from dictionary returned from `_ticker.history`.
-
-        Create DataFrame from `d` returned by _ticker.history only if
-        prices are available for at least one symbol. Symbols for which
-        prices are not available will be represented with missing values.
-
-        Returns None if prices unavailable for all symbols.
-        """
-        dfs, non_dfs = {}, []
-        for k, v in d.items():
-            if isinstance(v, DataFrame):
-                dfs[k] = v
-            else:
-                non_dfs.append(k)
-
-        if not dfs:
-            return None
-
-        no_values = list(dfs.values())[0].copy()
-        for col in no_values:
-            val = 0 if col == "volume" else np.NaN
-            no_values[col].values[:] = val
-
-        for s in non_dfs:
-            dfs[s] = no_values.copy()
-
-        prices = pd.concat(dfs)
-        prices.index.set_names(["symbol", "date"], inplace=True)
-        return prices
 
     def _adj_start_for_vol_glitch(
         self, start: pd.Timestamp, interval: intervals.BI
@@ -757,7 +539,7 @@ class PricesYahoo(base.PricesBase):
         period = "max" if start_ is None else "ytd"
         interval_ = self._bi_to_source_key(interval)
         prices: pd.DataFrame | dict | None
-        prices = self._yq_history(
+        prices = self._ticker.history(
             period, interval=interval_, start=start_, end=end, adj_timezone=False
         )
 
@@ -769,12 +551,9 @@ class PricesYahoo(base.PricesBase):
             }
             raise errors.PricesUnavailableFromSourceError(params, prices)
 
-        if isinstance(prices, dict):
-            prices = self._prices_for_some_symbols(prices)
-            if prices is None:
-                raise_error()
+        if prices.empty:
+            raise_error()
 
-        assert isinstance(prices, pd.DataFrame)
         if volume_glitch:
             drop_indices = prices[prices.index.droplevel(0) < start].index
             prices = prices.drop(drop_indices)
@@ -941,22 +720,14 @@ class PricesYahoo(base.PricesBase):
     def _resolve_current_ts_daily(self, symbol: str, df: DataFrame) -> pd.DataFrame:
         """Set current ts to its session value."""
         last_ts = df.index[-1]
-        if last_ts != last_ts.normalize():
+        if isinstance(last_ts, datetime.datetime):
+            # last indice is a 'live indice' (API returns close data as datetime.date)
             cal = self.calendars[symbol]
             session = cal.minute_to_session(last_ts, "previous")
             if len(df) == 1:
                 df.index = pd.DatetimeIndex([session])
             else:
                 df.index = df.index[:-1].insert(len(df.index) - 1, session)
-        if len(df.index) > 1 and df.index[-1] == df.index[-2]:
-            # This clause requried as for a time following a session close the
-            # yahoo API represents the final session with two timestamps - one
-            # stamped as the session open (the normal way in which the API stamps
-            # a session and another as the 'live indice' stamped with, presumedly,
-            # the time of the last trade. By the time it gets to here both these
-            # indices are stamped as the actual session. This line removes the
-            # 'live indice'.
-            df = df.iloc[:-1]
         return df
 
     def _has_intraday_live_indice(
@@ -1026,9 +797,6 @@ class PricesYahoo(base.PricesBase):
                 raise
 
             sdf = sdf.droplevel("symbol")
-            if interval.is_daily:
-                sdf.index = pd.DatetimeIndex(sdf.index)
-                sdf = self._adjust_high_low(sdf)
             sdf = self._resolve_current_ts(symbol, sdf, interval)
             if sdf.empty:
                 # This can happen if the only indice of sdf was the live indice.
@@ -1038,6 +806,9 @@ class PricesYahoo(base.PricesBase):
                 # reached here will live indice only.
                 empty_sdfs.append(pd.DataFrame(columns=get_columns_index()))
                 continue
+            if interval.is_daily:
+                sdf.index = pd.DatetimeIndex(sdf.index)
+                sdf = self._adjust_high_low(sdf)
             sdf = self._remove_yahoo_duplicates(sdf, symbol)
             start = start if start is not None else sdf.index[0]
             calendar = self.calendars[symbol]

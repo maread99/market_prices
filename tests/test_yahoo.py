@@ -1030,10 +1030,10 @@ class TestConstructor:
 
         # get return from yahooquery for each interval
         # get via prices method to go through locally implemented fixes.
-        df_yq = prices._yq_history(
+        df_yq = prices._ticker.history(
             interval=interval_yq, start=start, end=end, adj_timezone=False
         )
-        df_yq_id = prices._yq_history(
+        df_yq_id = prices._ticker.history(
             interval=interval_yq_id, start=start_id, end=end_id, adj_timezone=False
         )
 
@@ -1759,7 +1759,7 @@ class TestRequestDataIntraday:
             symbol = prices.symbols[0]
             for interval in prices.bis_intraday:
                 interval_ = prices._bi_to_source_key(interval)
-                hist = prices._yq_history(
+                hist = prices._ticker.history(
                     interval=interval_, start=start, end=end, adj_timezone=False
                 )
                 assert isinstance(hist, pd.DataFrame)
@@ -1788,7 +1788,7 @@ class TestRequestDataIntraday:
                     start_alt = prev_close - interval
                 else:
                     start_alt = start - interval
-                hist_alt = prices._yq_history(
+                hist_alt = prices._ticker.history(
                     interval=interval_, start=start_alt, end=end, adj_timezone=False
                 )
                 assert isinstance(hist_alt, pd.DataFrame)

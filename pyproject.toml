@@ -57,7 +57,7 @@ dependencies = [
     "pandas >= 1.1",
     "pydantic",
     "pytz",
-    "yahooquery",
+    "yahooquery >=2.3",
 ]
 
 dynamic = ["version"]
