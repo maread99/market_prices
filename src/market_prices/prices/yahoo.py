@@ -460,10 +460,24 @@ class PricesYahoo(base.PricesBase):
         return first_trade_dates
 
     def _set_daily_bi_limit(self):
+        """Set daily bi limit to date of first trade.
+
+        If date of first trade is later than what would otherwise be the
+        limit of an intraday bi, then also advanaces the limit of that
+        intraday bi to the date of the first trade.
+        """
         dates = [date for date in self._first_trade_dates.values() if date is not None]
-        if dates:
-            earliest = min(dates)
-            self._update_base_limits({self.BaseInterval.D1: earliest})
+        if not dates:
+            return
+        earliest = min(dates)
+        today = helpers.now(intervals.ONE_DAY)
+        d = {}
+        for bi, limit in self.BASE_LIMITS.items():
+            if bi == intervals.ONE_DAY:
+                d[bi] = earliest
+            elif today - limit < earliest:
+                d[bi] = pd.Timestamp(earliest, tz="UTC")
+        self._update_base_limits(d)
 
     # Methods to request data from yahooquery.
 
