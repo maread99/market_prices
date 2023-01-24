@@ -156,6 +156,19 @@ class PricesYahoo(base.PricesBase):
             stock splits (prices will reflect the 'adjclose' column of data
             returned by the `yahooquery.ticker.history` method).
 
+    proxies
+        Make requests for price data via a proxy.
+
+        Pass as a dictionary mapping URL schemes to the proxy URL, for
+        example:
+            proxies = {
+                'http': 'http://10.10.1.10:3128',
+                'https': 'http://10.10.1.10:1080',
+            }
+
+        Value is passed through to the 'proxies' kwarg of
+        `yahooquery.Ticker`.
+
     Notes
     -----
     --DISCLAIMER--
@@ -317,6 +330,7 @@ class PricesYahoo(base.PricesBase):
         lead_symbol: Optional[str] = None,
         delays: Optional[Union[int, List[int], Dict[str, int]]] = None,
         adj_close: bool = False,
+        proxies: Optional[Dict[str, str]] = None,
     ):
         symbols = helpers.symbols_to_list(symbols)
         self._ticker = yq.Ticker(
@@ -324,7 +338,7 @@ class PricesYahoo(base.PricesBase):
             formatted=False,
             asynchronous=True,
             max_workers=8,
-            proxies=None,
+            proxies=proxies,
             validate=True,
         )
 
