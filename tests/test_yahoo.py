@@ -50,6 +50,8 @@ UTC = pytz.UTC
 # ...sessions that yahoo temporarily fails to return prices for if (seemingly)
 # send a high frequency of requests for prices from the same IP address.
 _flakylist = (
+    pd.Timestamp("2023-01-18"),
+    pd.Timestamp("2023-01-17"),
     pd.Timestamp("2022-10-11"),
     pd.Timestamp("2022-06-01"),
     pd.Timestamp("2022-05-31"),
