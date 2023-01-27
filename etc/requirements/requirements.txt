@@ -10,7 +10,7 @@ charset-normalizer==3.0.1
     # via requests
 colorama==0.4.6
     # via tqdm
-exchange-calendars==4.2.4
+exchange-calendars==4.2.5
     # via market-prices (pyproject.toml)
 idna==3.4
     # via requests
