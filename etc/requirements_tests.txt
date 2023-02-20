@@ -8,7 +8,7 @@ attrs==22.2.0
     # via
     #   hypothesis
     #   pytest
-black==22.12.0
+black==23.1.0
     # via market-prices (pyproject.toml)
 blosc2==2.0.0
     # via tables
@@ -29,15 +29,15 @@ exceptiongroup==1.1.0
     # via
     #   hypothesis
     #   pytest
-exchange-calendars==4.2.4
+exchange-calendars==4.2.5
     # via market-prices (pyproject.toml)
 flake8==6.0.0
     # via
     #   flake8-docstrings
     #   market-prices (pyproject.toml)
-flake8-docstrings==1.6.0
+flake8-docstrings==1.7.0
     # via market-prices (pyproject.toml)
-hypothesis==6.64.0
+hypothesis==6.68.2
     # via market-prices (pyproject.toml)
 idna==3.4
     # via requests
@@ -51,11 +51,11 @@ mccabe==0.7.0
     # via flake8
 msgpack==1.0.4
     # via blosc2
-mypy-extensions==0.4.3
+mypy-extensions==1.0.0
     # via black
 numexpr==2.8.4
     # via tables
-numpy==1.24.1
+numpy==1.24.2
     # via
     #   exchange-calendars
     #   market-prices (pyproject.toml)
@@ -64,6 +64,7 @@ numpy==1.24.1
     #   tables
 packaging==23.0
     # via
+    #   black
     #   pytest
     #   tables
 pandas==1.5.3
@@ -71,9 +72,9 @@ pandas==1.5.3
     #   exchange-calendars
     #   market-prices (pyproject.toml)
     #   yahooquery
-pathspec==0.10.3
+pathspec==0.11.0
     # via black
-platformdirs==2.6.2
+platformdirs==3.0.0
     # via black
 pluggy==1.0.0
     # via pytest
@@ -81,13 +82,13 @@ py-cpuinfo==9.0.0
     # via tables
 pycodestyle==2.10.0
     # via flake8
-pydantic==1.10.4
+pydantic==1.10.5
     # via market-prices (pyproject.toml)
 pydocstyle==6.3.0
     # via flake8-docstrings
 pyflakes==3.0.1
     # via flake8
-pyluach==2.0.2
+pyluach==2.1.0
     # via exchange-calendars
 pytest==7.2.1
     # via
@@ -126,7 +127,7 @@ tqdm==4.64.1
     # via yahooquery
 types-pytz==2022.7.1.0
     # via market-prices (pyproject.toml)
-typing-extensions==4.4.0
+typing-extensions==4.5.0
     # via
     #   black
     #   pydantic

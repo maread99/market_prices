@@ -10,7 +10,7 @@ charset-normalizer==3.0.1
     # via requests
 colorama==0.4.6
     # via tqdm
-exchange-calendars==4.2.4
+exchange-calendars==4.2.5
     # via market-prices (pyproject.toml)
 idna==3.4
     # via requests
@@ -18,7 +18,7 @@ korean-lunar-calendar==0.3.1
     # via exchange-calendars
 lxml==4.9.2
     # via yahooquery
-numpy==1.24.1
+numpy==1.24.2
     # via
     #   exchange-calendars
     #   market-prices (pyproject.toml)
@@ -28,9 +28,9 @@ pandas==1.5.3
     #   exchange-calendars
     #   market-prices (pyproject.toml)
     #   yahooquery
-pydantic==1.10.4
+pydantic==1.10.5
     # via market-prices (pyproject.toml)
-pyluach==2.0.2
+pyluach==2.1.0
     # via exchange-calendars
 python-dateutil==2.8.2
     # via
@@ -51,7 +51,7 @@ toolz==0.12.0
     # via exchange-calendars
 tqdm==4.64.1
     # via yahooquery
-typing-extensions==4.4.0
+typing-extensions==4.5.0
     # via pydantic
 urllib3==1.26.14
     # via requests
