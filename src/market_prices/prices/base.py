@@ -1950,7 +1950,7 @@ class PricesBase(metaclass=abc.ABCMeta):
                 )
 
                 _, end = daterange[0]
-                last_indice_is_live = end >= helpers.now(bi) + bi
+                last_indice_is_live = end >= helpers.now(bi) + bi - self.gpp.delay
 
                 shorten_to_close = (
                     accuracy_is_close
