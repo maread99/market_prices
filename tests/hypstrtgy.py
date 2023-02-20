@@ -690,8 +690,8 @@ def base_intervals() -> st.SearchStrategy[TDInterval]:
     return st.sampled_from(conftest.base_intervals_sample)
 
 
-def base_ds_intervals() -> st.SearchStrategy[
-    tuple[TDInterval, TDInterval | None, TDInterval]
-]:
+def base_ds_intervals() -> (
+    st.SearchStrategy[tuple[TDInterval, TDInterval | None, TDInterval]]
+):
     """Return strategy for a sample base interval and valid ds_intervals."""
     return st.sampled_from(conftest.base_ds_intervals_list)

@@ -168,7 +168,6 @@ def test_get_sessions_range_for_bi(PricesMock, xlon, xnys, monkeypatch):
         get_prices(T("2021-12-15 08:00"), T("2021-11-17 14:30")),
         get_prices(T("2021-12-15 07:59"), T("2021-11-17 14:29")),
     ):
-
         bi = prices.bis.T1
         expected = T("2021-12-15"), T("2021-12-30")
         assert f(prices, bi, xlon) == expected

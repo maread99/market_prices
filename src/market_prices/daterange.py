@@ -394,7 +394,6 @@ class GetterDaily(_Getter):
         (start, end), end_accuracy = self._get_start_end()
 
         if self._has_duration:
-
             if end == self.end_now[0]:
                 # evaluate duration from period end, i.e. right of last indice.
                 # end will be reset to now after evaluating start.
@@ -514,7 +513,6 @@ class GetterDaily(_Getter):
         (start, end), end_accuracy = self._get_start_end()
 
         if self._has_duration:
-
             if self.pp["days"] > 0:
                 days = self.pp["days"]
                 if start is None:
@@ -998,7 +996,6 @@ class GetterIntraday(_Getter):
         (start, end), end_accuracy = self._get_start_end(hard_strict=hard_strict)
 
         if self._has_duration:
-
             intraday_duration = self.pp["hours"] * 60 + self.pp["minutes"]
             if intraday_duration:
                 if intraday_duration < self.final_interval.as_minutes:

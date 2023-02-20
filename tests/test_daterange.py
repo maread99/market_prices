@@ -1389,9 +1389,12 @@ class TestGetterIntraday:
 
         def get_bounds(
             ignore_breaks: bool,
-        ) -> tuple[
-            tuple[list[pd.Timestamp], ...], bool, pd.Timestamp, pd.Timestamp, bool
-        ] | None:
+        ) -> (
+            tuple[
+                tuple[list[pd.Timestamp], ...], bool, pd.Timestamp, pd.Timestamp, bool
+            ]
+            | None
+        ):
             # get bounds of session, or bounds of subsessions if session has a break
             am_open = ans.opens[session]
             pm_close = ans.closes[session]

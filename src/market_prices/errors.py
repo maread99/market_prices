@@ -641,7 +641,6 @@ class CompositeIndexCalendarConflict(MarketPricesError):
     """Indices of a composite calendar conflict with other indices of same calendar."""
 
     def __init__(self, calendar: ExchangeCalendar):
-
         self._msg = (
             "Unable to create a composite trading index as indices of calendar"
             f" '{calendar.name}' would overlap. This can occur when the interval is"

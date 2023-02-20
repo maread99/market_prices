@@ -368,7 +368,6 @@ class TestParseStartEnd:
             return now
 
         for d in delays:
-
             assert f(None, session, as_dates, d) == (None, None)
             assert f(session, None, as_dates, d) == (session, None)
             assert f(session, None, as_times, d) == (session_first_minute, None)
