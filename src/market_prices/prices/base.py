@@ -2360,6 +2360,7 @@ class PricesBase(metaclass=abc.ABCMeta):
         @property
         def intraday_limit(self) -> Callable[[intervals.BI], pd.Timestamp]:
             """Earliest minute for which intraday data can be requested."""
+
             # pylint: disable=protected-access
             def limit(bi: BI) -> pd.Timestamp:
                 l_limit, _ = self.prices.limits[bi]

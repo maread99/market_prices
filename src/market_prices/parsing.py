@@ -202,7 +202,6 @@ def _parse_start_end(
     # Check start isn't later than latest date/time for which prices available.
     # Has side-effect of ensuring `start` is to the left of right calendar bound.
     if start is not None:
-
         if start_is_date:
             mrs = _mr_session(cal, delay)
             if start > mrs:
