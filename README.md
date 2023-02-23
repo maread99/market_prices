@@ -225,6 +225,9 @@ All tutorials and other documentation are indexed [here](https://github.com/mare
 
 Each method's own documentation is also pretty comprehensive.
 
+## market_analy
+The [market_analy](https://github.com/maread99/market_analy) library uses prices data from `market_prices` to undertake analyses and create interactive bqplot charts. The [demo video](https://vimeo.com/801302973) covers usage of both libraries.
+
 ## exchange_calendars
 `market_prices` is nothing without [`exchange_calendars`](https://github.com/gerrymanoim/exchange_calendars).
 
