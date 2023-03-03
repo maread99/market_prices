@@ -49,7 +49,7 @@ six==1.16.0
     # via python-dateutil
 toolz==0.12.0
     # via exchange-calendars
-tqdm==4.64.1
+tqdm==4.65.0
     # via yahooquery
 typing-extensions==4.5.0
     # via pydantic
