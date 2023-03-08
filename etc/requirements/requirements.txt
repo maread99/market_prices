@@ -28,7 +28,7 @@ pandas==1.5.3
     #   exchange-calendars
     #   market-prices (pyproject.toml)
     #   yahooquery
-pydantic==1.10.5
+pydantic==1.10.6
     # via market-prices (pyproject.toml)
 pyluach==2.1.0
     # via exchange-calendars
