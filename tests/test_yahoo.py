@@ -1008,7 +1008,7 @@ class TestConstructor:
         PricesYahoo with `adj_close` parameter passed as False (default)
         and True. For each tested interval, test requests a single
         dataframe from yahooquery and then mocks the return from
-        `PricesYahoo._yq_history` to return this single source. The effect
+        `PricesYahoo._ticker.history` to return this single source. The effect
         of `adj_close` is then tested against the return from
         `PricesYahoo._request_yahoo`. Why not just test the difference
         in the return from `_request_yahoo` without the mocking? Because
@@ -1040,7 +1040,7 @@ class TestConstructor:
         )
 
         def mock_yq_history(prices: m.PricesYahoo, df: pd.DataFrame):
-            prices._ya_history = lambda *_, **__: df.copy()
+            prices._ticker.history = lambda *_, **__: df.copy()
 
         # test daily interval results in different "close" column
         mock_yq_history(prices, df_yq)
