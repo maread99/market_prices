@@ -321,7 +321,6 @@ class CompositeAnswers:
             self.ANSWERS_BASE_PATH + filename,
             index_col=0,
             parse_dates=[0, 1, 2, 3, 4],
-            infer_datetime_format=True,
         )
         # Necessary for csv saved prior to xcals v4.0
         if df.index.tz is not None:

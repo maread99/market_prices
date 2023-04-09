@@ -11,7 +11,7 @@ import numpy as np
 import pandas as pd
 from pandas import DataFrame, Series
 import pydantic
-from pytz.tzinfo import BaseTzInfo
+import pytz
 
 from market_prices import mptypes
 
@@ -461,7 +461,7 @@ def remove_intervals_from_interval(
 
 @pydantic.validate_arguments(config=dict(arbitrary_types_allowed=True))
 def interval_index_new_tz(
-    index: mptypes.IntervalDatetimeIndex, tz: Union[BaseTzInfo, str, None]
+    index: mptypes.IntervalDatetimeIndex, tz: Union[pytz.tzinfo.BaseTzInfo, str, None]
 ) -> pd.IntervalIndex:
     """Return pd.IntervalIndex with different timezone.
 
@@ -495,7 +495,7 @@ def interval_index_new_tz(
     >>> index = pd.IntervalIndex.from_arrays(left, right)
     >>> index.right.tz
     <DstTzInfo 'US/Central' LMT-1 day, 18:09:00 STD>
-    >>> new_index = interval_index_new_tz(index, tz="UTC")
+    >>> new_index = interval_index_new_tz(index, tz=pytz.UTC)
     >>> new_index.left.tz.zone == new_index.right.tz.zone == "UTC"
     True
     """
