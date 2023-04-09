@@ -330,7 +330,7 @@ class TestConstructorErrors:
         intraday_df = intraday_pt.copy()
         intraday_df.index = pd.interval_range(start=0, periods=len(intraday_pt), freq=1)
 
-        with pytest.raises(TypeError, match=match + "numeric.Int64Index'>."):
+        with pytest.raises(TypeError, match=match + "base.Index'>."):
             _ = intraday_df.pt
 
         daily_df = daily_pt.copy()

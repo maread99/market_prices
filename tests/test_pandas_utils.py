@@ -6,6 +6,7 @@ import re
 
 import pandas as pd
 import pytest
+import pytz
 
 import market_prices.utils.pandas_utils as m
 
@@ -124,7 +125,7 @@ def test_make_non_overlapping(
     pd.testing.assert_index_equal(rtrn, expected)
 
     # test non tz_naive index
-    index = m.interval_index_new_tz(index, "UTC")
+    index = m.interval_index_new_tz(index, pytz.UTC)
     rtrn = test_method(index, fully_overlapped="remove")
     expected = index.drop(index[i])
     pd.testing.assert_index_equal(rtrn, expected)
