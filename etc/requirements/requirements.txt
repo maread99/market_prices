@@ -6,11 +6,11 @@
 #
 certifi==2022.12.7
     # via requests
-charset-normalizer==3.0.1
+charset-normalizer==3.1.0
     # via requests
 colorama==0.4.6
     # via tqdm
-exchange-calendars==4.2.5
+exchange-calendars==4.2.6
     # via market-prices (pyproject.toml)
 idna==3.4
     # via requests
@@ -23,20 +23,20 @@ numpy==1.24.2
     #   exchange-calendars
     #   market-prices (pyproject.toml)
     #   pandas
-pandas==1.5.3
+pandas==2.0.0
     # via
     #   exchange-calendars
     #   market-prices (pyproject.toml)
     #   yahooquery
-pydantic==1.10.5
+pydantic==1.10.7
     # via market-prices (pyproject.toml)
-pyluach==2.1.0
+pyluach==2.2.0
     # via exchange-calendars
 python-dateutil==2.8.2
     # via
     #   exchange-calendars
     #   pandas
-pytz==2022.7.1
+pytz==2023.3
     # via
     #   exchange-calendars
     #   market-prices (pyproject.toml)
@@ -49,11 +49,13 @@ six==1.16.0
     # via python-dateutil
 toolz==0.12.0
     # via exchange-calendars
-tqdm==4.64.1
+tqdm==4.65.0
     # via yahooquery
 typing-extensions==4.5.0
     # via pydantic
-urllib3==1.26.14
+tzdata==2023.3
+    # via pandas
+urllib3==1.26.15
     # via requests
-yahooquery==2.3.0
+yahooquery==2.3.1
     # via market-prices (pyproject.toml)
