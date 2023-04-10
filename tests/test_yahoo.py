@@ -1279,7 +1279,7 @@ def expected_table_structure_us(
     sessions_durations = cc.closes[slc] - cc.opens[slc]
     sessions_rows = np.ceil(sessions_durations / interval)
     expected_num_rows = int(sessions_rows.sum())
-    sessions_end = cc.opens[slc] + (interval * sessions_rows)
+    sessions_end = cc.opens[slc] + (interval.as_pdtd * sessions_rows)
 
     start = cc.opens[slc][0]
     end = sessions_end[-1]
@@ -1377,7 +1377,7 @@ class TestRequestDataIntraday:
             assert cc.opens[slc].isin(df.index.left).all()
             assert not (cc.opens[slc] - interval).isin(df.index.left).any()
 
-            sessions_last_indice = cc.opens[slc] + (interval * sessions_rows)
+            sessions_last_indice = cc.opens[slc] + (interval.as_pdtd * sessions_rows)
             assert sessions_last_indice.isin(df.index.right).all()
             assert not (sessions_last_indice + interval).isin(df.index.right).any()
 
@@ -1442,7 +1442,9 @@ class TestRequestDataIntraday:
             expected_num_rows, sessions_rows_gross = self.get_expected_num_rows_us_lon(
                 interval, cc, slc
             )
-            sessions_last_indice = cc.opens[slc] + (interval * sessions_rows_gross)
+            sessions_last_indice = cc.opens[slc] + (
+                interval.as_pdtd * sessions_rows_gross
+            )
             start = cc.opens[slc][0]
             end = sessions_last_indice[-1]
             assertions_intraday(df, interval, prices, start, end, expected_num_rows)
@@ -1488,7 +1490,7 @@ class TestRequestDataIntraday:
             assert cc.opens[slc].isin(df.index.left).all()
             assert not (cc.opens[slc] - interval).isin(df.index.left).any()
 
-            sessions_last_indice = cc.opens[slc] + (interval * sessions_rows)
+            sessions_last_indice = cc.opens[slc] + (interval.as_pdtd * sessions_rows)
             sessions_last_indice.isin(df.index.right).all()
             assert not (sessions_last_indice + interval).isin(df.index.right).any()
 
@@ -1517,7 +1519,7 @@ class TestRequestDataIntraday:
             sessions_durations = cc.closes[slc] - cc.opens[slc]
             sessions_rows = np.ceil(sessions_durations / interval)
             expected_num_rows = int(sessions_rows.sum())
-            sessions_last_indice = cc.opens[slc] + (interval * sessions_rows)
+            sessions_last_indice = cc.opens[slc] + (interval.as_pdtd * sessions_rows)
 
             start = cc.opens[slc][0]
             end = sessions_last_indice[-1]
@@ -1551,7 +1553,7 @@ class TestRequestDataIntraday:
             sessions_durations = cc.closes[slc] - cc.opens[slc]
             sessions_rows = np.ceil(sessions_durations / interval)
             expected_num_rows = int(sessions_rows.sum())
-            sessions_last_indice = cc.opens[slc] + (interval * sessions_rows)
+            sessions_last_indice = cc.opens[slc] + (interval.as_pdtd * sessions_rows)
 
             start = cc.opens[slc][0]
             end = sessions_last_indice[-1]
