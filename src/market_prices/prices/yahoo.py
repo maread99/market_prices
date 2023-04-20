@@ -367,10 +367,7 @@ class PricesYahoo(base.PricesBase):
     def _yahoo_exchange_name(self) -> dict[str, str]:
         d = {}
         for s in self._ticker.symbols:
-            d[s] = self._ticker.price[s]["exchangeName"]
-            # the quotes endpoint's fullExchangeName was more comprehensive
-            # although endpoint went behind a cookie request as of 23/04/20
-            # d[s] = self._ticker.quotes[s]["fullExchangeName"]
+            d[s] = self._ticker.quotes[s]["fullExchangeName"]
         return d
 
     def _ascertain_calendars(
@@ -391,9 +388,8 @@ class PricesYahoo(base.PricesBase):
                 cal = exchange
             elif exchange in self.YAHOO_EXCHANGE_TO_CALENDAR:
                 cal = self.YAHOO_EXCHANGE_TO_CALENDAR[exchange]
-            # see comment to _yahoo_exchange_name (lost quotes endpoint 23/04/20)
-            # elif self._ticker.quotes[s]["market"] == "us24_market":
-            #     cal = "us_futures"
+            elif self._ticker.quotes[s]["market"] == "us24_market":
+                cal = "us_futures"
             else:
                 msg = f"Unable to ascertain calendar for symbol '{s}'."
                 raise errors.CalendarError(msg)
