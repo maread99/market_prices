@@ -40,7 +40,6 @@ EXCHANGE_TO_CALENDAR: dict = {
     "Nasdaq GIDS": "NASDAQ",
     "NYSE": "XNYS",
     "NYSEArca": "XNYS",
-    "NY Mercantile": "us_futures",
     "BATS": "XNYS",
     "DJI": "XNYS",
     "SNP": "XNYS",
