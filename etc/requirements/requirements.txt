@@ -23,7 +23,7 @@ numpy==1.24.2
     #   exchange-calendars
     #   market-prices (pyproject.toml)
     #   pandas
-pandas==2.0.0
+pandas==2.0.1
     # via
     #   exchange-calendars
     #   market-prices (pyproject.toml)
