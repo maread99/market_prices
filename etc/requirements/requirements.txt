@@ -41,7 +41,7 @@ pytz==2023.3
     #   exchange-calendars
     #   market-prices (pyproject.toml)
     #   pandas
-requests==2.28.2
+requests==2.29.0
     # via requests-futures
 requests-futures==1.0.0
     # via yahooquery
