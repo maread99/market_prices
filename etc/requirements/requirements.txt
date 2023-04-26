@@ -55,7 +55,7 @@ typing-extensions==4.5.0
     # via pydantic
 tzdata==2023.3
     # via pandas
-urllib3==1.26.15
+urllib3==2.0.0
     # via requests
 yahooquery==2.3.1
     # via market-prices (pyproject.toml)
