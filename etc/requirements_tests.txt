@@ -4,15 +4,13 @@
 #
 #    pip-compile --extra=tests --output-file=etc/requirements_tests.txt pyproject.toml
 #
-attrs==22.2.0
-    # via
-    #   hypothesis
-    #   pytest
+attrs==23.1.0
+    # via hypothesis
 black==23.3.0
     # via market-prices (pyproject.toml)
 blosc2==2.0.0
     # via tables
-certifi==2022.12.7
+certifi==2023.5.7
     # via requests
 charset-normalizer==3.1.0
     # via requests
@@ -23,13 +21,13 @@ colorama==0.4.6
     #   click
     #   pytest
     #   tqdm
-cython==0.29.34
+cython==0.29.35
     # via tables
 exceptiongroup==1.1.1
     # via
     #   hypothesis
     #   pytest
-exchange-calendars==4.2.6
+exchange-calendars==4.2.8
     # via market-prices (pyproject.toml)
 flake8==6.0.0
     # via
@@ -37,7 +35,7 @@ flake8==6.0.0
     #   market-prices (pyproject.toml)
 flake8-docstrings==1.7.0
     # via market-prices (pyproject.toml)
-hypothesis==6.71.0
+hypothesis==6.75.3
     # via market-prices (pyproject.toml)
 idna==3.4
     # via requests
@@ -55,26 +53,26 @@ mypy-extensions==1.0.0
     # via black
 numexpr==2.8.4
     # via tables
-numpy==1.24.2
+numpy==1.24.3
     # via
     #   exchange-calendars
     #   market-prices (pyproject.toml)
     #   numexpr
     #   pandas
     #   tables
-packaging==23.0
+packaging==23.1
     # via
     #   black
     #   pytest
     #   tables
-pandas==2.0.0
+pandas==2.0.1
     # via
     #   exchange-calendars
     #   market-prices (pyproject.toml)
     #   yahooquery
 pathspec==0.11.1
     # via black
-platformdirs==3.2.0
+platformdirs==3.5.1
     # via black
 pluggy==1.0.0
     # via pytest
@@ -82,7 +80,7 @@ py-cpuinfo==9.0.0
     # via tables
 pycodestyle==2.10.0
     # via flake8
-pydantic==1.10.7
+pydantic==1.10.8
     # via market-prices (pyproject.toml)
 pydocstyle==6.3.0
     # via flake8-docstrings
@@ -90,7 +88,7 @@ pyflakes==3.0.1
     # via flake8
 pyluach==2.2.0
     # via exchange-calendars
-pytest==7.2.2
+pytest==7.3.1
     # via
     #   market-prices (pyproject.toml)
     #   pytest-mock
@@ -105,7 +103,7 @@ pytz==2023.3
     #   exchange-calendars
     #   market-prices (pyproject.toml)
     #   pandas
-requests==2.28.2
+requests==2.31.0
     # via requests-futures
 requests-futures==1.0.0
     # via yahooquery
@@ -127,13 +125,13 @@ tqdm==4.65.0
     # via yahooquery
 types-pytz==2023.3.0.0
     # via market-prices (pyproject.toml)
-typing-extensions==4.5.0
+typing-extensions==4.6.1
     # via
     #   black
     #   pydantic
 tzdata==2023.3
     # via pandas
-urllib3==1.26.15
+urllib3==2.0.2
     # via requests
 yahooquery==2.3.1
     # via market-prices (pyproject.toml)
