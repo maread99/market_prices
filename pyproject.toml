@@ -74,7 +74,14 @@ tests = [
     "types-pytz",
 ]
 dev = [
-    "market-prices[tests]",
+    "black",
+    "flake8",
+    "flake8-docstrings",
+    "hypothesis",
+    "pytest",
+    "pytest-mock",
+    "tables",
+    "types-pytz",
     "mypy",
     "mypy-extensions",
     "pandas-stubs",

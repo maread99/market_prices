@@ -4,6 +4,8 @@
 #
 #    pip-compile --extra=tests --output-file=etc/requirements_tests.txt pyproject.toml
 #
+annotated-types==0.5.0
+    # via pydantic
 attrs==23.1.0
     # via hypothesis
 black==23.3.0
@@ -35,7 +37,7 @@ flake8==6.0.0
     #   market-prices (pyproject.toml)
 flake8-docstrings==1.7.0
     # via market-prices (pyproject.toml)
-hypothesis==6.75.3
+hypothesis==6.80.0
     # via market-prices (pyproject.toml)
 idna==3.4
     # via requests
@@ -53,7 +55,7 @@ mypy-extensions==1.0.0
     # via black
 numexpr==2.8.4
     # via tables
-numpy==1.24.3
+numpy==1.24.4
     # via
     #   exchange-calendars
     #   market-prices (pyproject.toml)
@@ -65,34 +67,36 @@ packaging==23.1
     #   black
     #   pytest
     #   tables
-pandas==2.0.1
+pandas==2.0.3
     # via
     #   exchange-calendars
     #   market-prices (pyproject.toml)
     #   yahooquery
 pathspec==0.11.1
     # via black
-platformdirs==3.5.1
+platformdirs==3.8.0
     # via black
-pluggy==1.0.0
+pluggy==1.2.0
     # via pytest
 py-cpuinfo==9.0.0
     # via tables
 pycodestyle==2.10.0
     # via flake8
-pydantic==1.10.8
+pydantic==2.0
     # via market-prices (pyproject.toml)
+pydantic-core==2.0.1
+    # via pydantic
 pydocstyle==6.3.0
     # via flake8-docstrings
 pyflakes==3.0.1
     # via flake8
 pyluach==2.2.0
     # via exchange-calendars
-pytest==7.3.1
+pytest==7.4.0
     # via
     #   market-prices (pyproject.toml)
     #   pytest-mock
-pytest-mock==3.10.0
+pytest-mock==3.11.1
     # via market-prices (pyproject.toml)
 python-dateutil==2.8.2
     # via
@@ -105,7 +109,7 @@ pytz==2023.3
     #   pandas
 requests==2.31.0
     # via requests-futures
-requests-futures==1.0.0
+requests-futures==1.0.1
     # via yahooquery
 six==1.16.0
     # via python-dateutil
@@ -125,13 +129,15 @@ tqdm==4.65.0
     # via yahooquery
 types-pytz==2023.3.0.0
     # via market-prices (pyproject.toml)
-typing-extensions==4.6.1
+typing-extensions==4.7.0
     # via
+    #   annotated-types
     #   black
     #   pydantic
+    #   pydantic-core
 tzdata==2023.3
     # via pandas
-urllib3==2.0.2
+urllib3==2.0.3
     # via requests
 yahooquery==2.3.1
     # via market-prices (pyproject.toml)

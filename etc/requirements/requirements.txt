@@ -4,6 +4,8 @@
 #
 #    pip-compile --output-file=etc/requirements/requirements.txt pyproject.toml
 #
+annotated-types==0.5.0
+    # via pydantic
 certifi==2023.5.7
     # via requests
 charset-normalizer==3.1.0
@@ -18,18 +20,20 @@ korean-lunar-calendar==0.3.1
     # via exchange-calendars
 lxml==4.9.2
     # via yahooquery
-numpy==1.24.3
+numpy==1.24.4
     # via
     #   exchange-calendars
     #   market-prices (pyproject.toml)
     #   pandas
-pandas==2.0.1
+pandas==2.0.3
     # via
     #   exchange-calendars
     #   market-prices (pyproject.toml)
     #   yahooquery
-pydantic==1.10.8
+pydantic==2.0
     # via market-prices (pyproject.toml)
+pydantic-core==2.0.1
+    # via pydantic
 pyluach==2.2.0
     # via exchange-calendars
 python-dateutil==2.8.2
@@ -43,7 +47,7 @@ pytz==2023.3
     #   pandas
 requests==2.31.0
     # via requests-futures
-requests-futures==1.0.0
+requests-futures==1.0.1
     # via yahooquery
 six==1.16.0
     # via python-dateutil
@@ -51,11 +55,14 @@ toolz==0.12.0
     # via exchange-calendars
 tqdm==4.65.0
     # via yahooquery
-typing-extensions==4.6.1
-    # via pydantic
+typing-extensions==4.7.0
+    # via
+    #   annotated-types
+    #   pydantic
+    #   pydantic-core
 tzdata==2023.3
     # via pandas
-urllib3==2.0.2
+urllib3==2.0.3
     # via requests
 yahooquery==2.3.1
     # via market-prices (pyproject.toml)
