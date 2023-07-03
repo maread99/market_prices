@@ -10,7 +10,6 @@ from typing import Dict, List, Optional, Union
 
 from pandas import DataFrame
 import pandas as pd
-import pydantic
 import exchange_calendars as xcals
 import yahooquery as yq
 
@@ -19,6 +18,11 @@ from market_prices.prices import base
 
 from ..mptypes import Calendar, Symbols
 from .config import config_yahoo
+
+import pydantic
+
+if int(next(c for c in pydantic.__version__ if c.isdigit())) > 1:
+    from pydantic import v1 as pydantic
 
 
 class PricesYahoo(base.PricesBase):

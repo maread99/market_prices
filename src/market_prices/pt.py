@@ -11,7 +11,6 @@ from typing import TYPE_CHECKING, Dict, Literal, Optional, Union
 import exchange_calendars as xcals
 import numpy as np
 import pandas as pd
-import pydantic
 import pytz
 from pytz import BaseTzInfo
 
@@ -23,6 +22,10 @@ from market_prices.utils import pandas_utils as pdutils
 from .mptypes import Symbols
 from .utils.calendar_utils import CompositeCalendar
 
+import pydantic
+
+if int(next(c for c in pydantic.__version__ if c.isdigit())) > 1:
+    from pydantic import v1 as pydantic
 
 # pylint: disable=too-many-lines
 

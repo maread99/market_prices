@@ -9,12 +9,15 @@ from collections.abc import Callable
 import re
 
 import pandas as pd
-import pydantic
 import pytest
 import pytz
 
 from market_prices import mptypes
 
+import pydantic
+
+if int(next(c for c in pydantic.__version__ if c.isdigit())) > 1:
+    from pydantic import v1 as pydantic
 
 # pylint: disable=missing-function-docstring, missing-type-doc
 # pylint: disable=missing-param-doc, missing-any-param-doc, redefined-outer-name
