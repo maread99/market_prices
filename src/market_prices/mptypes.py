@@ -17,9 +17,13 @@ import enum
 from typing import Any, Dict, List, Tuple, TypedDict, Union
 
 import pandas as pd
-import pydantic
 import pytz
 from exchange_calendars import ExchangeCalendar
+
+import pydantic
+
+if int(next(c for c in pydantic.__version__ if c.isdigit())) > 1:
+    from pydantic import v1 as pydantic
 
 # pylint: disable=too-few-public-methods  # nature of pydantic types.
 

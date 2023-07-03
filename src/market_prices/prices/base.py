@@ -19,7 +19,6 @@ from typing import Any, Literal, Optional, Union, TYPE_CHECKING, Tuple
 import exchange_calendars as xcals
 import numpy as np
 import pandas as pd
-import pydantic
 import pytz
 
 from market_prices import data
@@ -29,6 +28,11 @@ from market_prices.mptypes import Anchor, OpenEnd, Alignment, Priority
 from market_prices.intervals import BI, TDInterval
 from market_prices.utils import calendar_utils as calutils
 from market_prices.utils import pandas_utils as pdutils
+
+import pydantic
+
+if int(next(c for c in pydantic.__version__ if c.isdigit())) > 1:
+    from pydantic import v1 as pydantic
 
 # pylint: disable=too-many-lines
 

@@ -11,7 +11,6 @@ import exchange_calendars as xcals
 import numpy as np
 import pandas as pd
 from pandas.testing import assert_frame_equal, assert_index_equal, assert_series_equal
-import pydantic
 import pytest
 import pytz
 
@@ -22,6 +21,10 @@ from market_prices.utils import calendar_utils as calutils
 
 from .utils import get_resource, multiple_sessions_freq
 
+import pydantic
+
+if int(next(c for c in pydantic.__version__ if c.isdigit())) > 1:
+    from pydantic import v1 as pydantic
 
 # pylint: disable=missing-function-docstring, missing-type-doc
 # pylint: disable=missing-param-doc, missing-any-param-doc, redefined-outer-name

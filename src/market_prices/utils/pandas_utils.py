@@ -10,10 +10,14 @@ from typing import Any, List, Literal, Union
 import numpy as np
 import pandas as pd
 from pandas import DataFrame, Series
-import pydantic
 import pytz
 
 from market_prices import mptypes
+
+import pydantic
+
+if int(next(c for c in pydantic.__version__ if c.isdigit())) > 1:
+    from pydantic import v1 as pydantic
 
 
 def pdfreq_to_offset(pdfreq: str) -> pd.offsets.BaseOffset:  # type: ignore[name-defined]

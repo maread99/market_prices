@@ -24,7 +24,6 @@ import attr
 import exchange_calendars as xcals
 import pandas as pd
 from pandas.testing import assert_index_equal, assert_frame_equal
-import pydantic
 import pytest
 import pytz
 from pytz import UTC
@@ -39,6 +38,10 @@ from market_prices.support import tutorial_helpers as th
 
 from .utils import get_resource_pbt
 
+import pydantic
+
+if int(next(c for c in pydantic.__version__ if c.isdigit())) > 1:
+    from pydantic import v1 as pydantic
 
 # pylint: disable=missing-function-docstring, missing-type-doc
 # pylint: disable=missing-param-doc, missing-any-param-doc, redefined-outer-name
