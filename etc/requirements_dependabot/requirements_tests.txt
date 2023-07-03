@@ -129,7 +129,7 @@ tqdm==4.65.0
     # via yahooquery
 types-pytz==2023.3.0.0
     # via market-prices (pyproject.toml)
-typing-extensions==4.7.0
+typing-extensions==4.7.1
     # via
     #   annotated-types
     #   black
