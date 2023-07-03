@@ -1,0 +1,8 @@
+requirements_test.txt is in this dedicated directory simply so that
+dependabot can be configured to look only at thses dependencies and ignore
+the additional requirements in requirements_dev.txt.
+
+Dependabot has to look at requirements_test.txt, as opposed to simply
+requirements.txt, in order that the tests triggered by the dependabot PR
+run in an environment that has installed the bumped versions of the
+dependencies.
