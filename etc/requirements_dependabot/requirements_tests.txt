@@ -84,7 +84,7 @@ pycodestyle==2.10.0
     # via flake8
 pydantic==2.0
     # via market-prices (pyproject.toml)
-pydantic-core==2.0.1
+pydantic-core==2.4.0
     # via pydantic
 pydocstyle==6.3.0
     # via flake8-docstrings
