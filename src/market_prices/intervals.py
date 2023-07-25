@@ -473,22 +473,6 @@ def to_ptinterval(interval: str | timedelta | pd.Timedelta) -> PTInterval:
         return getattr(TDInterval, unit + str(value))
 
 
-class RowInterval:
-    """Custom type with pydantic validator to parse to a PTInterval.
-
-    A parameter annotated with this class can take str | pd.Timedelta as
-    accepted to the `interval` parameter of
-    `market_prices.prices.base.PricesBase.get`.
-
-    The formal parameter will be assigned a member of either the
-    TDInterval or DOInterval enum.
-    """
-
-    # pylint: disable=too-few-public-methods
-    @classmethod
-    def __get_validators__(cls):
-        yield cls._validate
-
-    @classmethod
-    def _validate(cls, v) -> PTInterval:
-        return to_ptinterval(v)
+def parse_interval(name: str, obj: str | pd.Timedelta | timedelta, _) -> PTInterval:
+    """Parse input to an `interval` parameter."""
+    return to_ptinterval(obj)

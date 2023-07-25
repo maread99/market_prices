@@ -21,11 +21,6 @@ from market_prices.utils import calendar_utils as calutils
 
 from .utils import get_resource, multiple_sessions_freq
 
-import pydantic
-
-if int(next(c for c in pydantic.__version__ if c.isdigit())) > 1:
-    from pydantic import v1 as pydantic
-
 # pylint: disable=missing-function-docstring, missing-type-doc
 # pylint: disable=missing-param-doc, missing-any-param-doc, redefined-outer-name
 # pylint: disable=too-many-public-methods, too-many-arguments, too-many-locals
@@ -698,10 +693,10 @@ class TestPriceTables:
         assert not df.pt.has_regular_interval
 
         match = " requires price table to have a regular interval."
-        with pytest.raises(ValueError):
-            df.pt.get_trading_index(xnys, match="`get_trading_index`" + match)
-        with pytest.raises(ValueError):
-            df.pt.reindex_to_calendar(xnys, match="`reindex_to_calendar`" + match)
+        with pytest.raises(ValueError, match="`get_trading_index`" + match):
+            df.pt.get_trading_index(xnys)
+        with pytest.raises(ValueError, match="`reindex_to_calendar`" + match):
+            df.pt.reindex_to_calendar(xnys)
 
         self.assert_data_for_all(df)
 
@@ -1354,7 +1349,7 @@ class TestPriceAt:
             f" as {session}. To define ts as midnight pass as a tz-aware"
             " pd.Timestamp. For prices as at a session's close use .close_at()."
         )
-        with pytest.raises(pydantic.ValidationError, match=msg):
+        with pytest.raises(ValueError, match=msg):
             f(session)
 
         # Test bounds
@@ -1501,7 +1496,7 @@ class TestCloseAt:
             f"`date` can not have a time component, although receieved as {ts}."
             " For an intraday price use .price_at()."
         )
-        with pytest.raises(pydantic.ValidationError, match=match):
+        with pytest.raises(ValueError, match=match):
             f(ts)
 
         # test non-valid input
@@ -1510,9 +1505,7 @@ class TestCloseAt:
             session.tz_localize(pytz.UTC),
             session.tz_localize(tz_default),
         ):
-            with pytest.raises(
-                pydantic.ValidationError, match=re.escape(match + f"{ts}.")
-            ):
+            with pytest.raises(ValueError, match=re.escape(match + f"{ts}.")):
                 f(ts)
 
     def test_daily_pt_session_prices(self, daily_pt, session, non_session, one_day):

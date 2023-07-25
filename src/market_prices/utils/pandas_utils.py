@@ -5,22 +5,17 @@ from __future__ import annotations
 import warnings
 from collections import abc
 from contextlib import contextmanager
-from typing import Any, List, Literal, Union
+from typing import Any, List, Literal, Union, Annotated
 
 import numpy as np
 import pandas as pd
-from pandas import DataFrame, Series
 import pytz
+from valimp import parse, Parser
 
-from market_prices import mptypes
-
-import pydantic
-
-if int(next(c for c in pydantic.__version__ if c.isdigit())) > 1:
-    from pydantic import v1 as pydantic
+from market_prices import parsing
 
 
-def pdfreq_to_offset(pdfreq: str) -> pd.offsets.BaseOffset:  # type: ignore[name-defined]
+def pdfreq_to_offset(pdfreq: str) -> pd.offsets.BaseOffset:
     """Pandas frequency string to a pandas offset.
 
     Parameters
@@ -216,7 +211,7 @@ def make_non_overlapping(
     except AttributeError:
         tz = None
     else:
-        index = interval_index_new_tz(index, None)  # type: ignore[arg-type]  # mptype
+        index = interval_index_new_tz(index, None)
 
     # evaluate full_overlap_mask
     # as 'int64' to use expanding, as series to use expanding and shift
@@ -251,7 +246,7 @@ def make_non_overlapping(
 
 def get_interval_index(
     left: pd.DatetimeIndex,
-    offset: str | pd.offsets.BaseOffset,  # type: ignore[name-defined]
+    offset: str | pd.offsets.BaseOffset,
     closed="left",
     non_overlapping=False,
 ) -> pd.IntervalIndex:
@@ -301,7 +296,7 @@ def get_interval_index(
         return index
 
 
-@pydantic.validate_arguments(config=dict(arbitrary_types_allowed=True))
+@parse
 def interval_contains(interval: pd.Interval, intervals: pd.IntervalIndex) -> np.ndarray:
     """Query which intervals are contained within an interval.
 
@@ -367,7 +362,7 @@ def interval_contains(interval: pd.Interval, intervals: pd.IntervalIndex) -> np.
     return left_cond & right_cond
 
 
-@pydantic.validate_arguments(config=dict(arbitrary_types_allowed=True))
+@parse
 def remove_intervals_from_interval(
     interval: pd.Interval, intervals: pd.IntervalIndex
 ) -> List[pd.Interval]:
@@ -463,9 +458,10 @@ def remove_intervals_from_interval(
     return diff
 
 
-@pydantic.validate_arguments(config=dict(arbitrary_types_allowed=True))
+@parse
 def interval_index_new_tz(
-    index: mptypes.IntervalDatetimeIndex, tz: Union[pytz.tzinfo.BaseTzInfo, str, None]
+    index: Annotated[pd.IntervalIndex, Parser(parsing.verify_interval_datetime_index)],
+    tz: Union[pytz.tzinfo.BaseTzInfo, str, None],
 ) -> pd.IntervalIndex:
     """Return pd.IntervalIndex with different timezone.
 
@@ -512,9 +508,12 @@ def interval_index_new_tz(
     return pd.IntervalIndex.from_arrays(indices[0], indices[1], closed=index.closed)
 
 
-@pydantic.validate_arguments(config=dict(arbitrary_types_allowed=True))
+@parse
 def index_is_normalized(
-    index: Union[pd.DatetimeIndex, mptypes.IntervalDatetimeIndex]
+    index: Annotated[
+        Union[pd.DatetimeIndex, pd.IntervalIndex],
+        Parser(parsing.verify_interval_datetime_index),
+    ]
 ) -> bool:
     """Query if an index is normalized.
 
@@ -553,7 +552,7 @@ def index_is_normalized(
         return (index == index.normalize()).all()
 
 
-@pydantic.validate_arguments(config=dict(arbitrary_types_allowed=True))
+@parse
 def indexes_union(indexes: List[pd.Index]) -> pd.Index:
     """Union multiple pd.Index objects.
 
@@ -580,8 +579,8 @@ def indexes_union(indexes: List[pd.Index]) -> pd.Index:
     return index
 
 
-@pydantic.validate_arguments(config=dict(arbitrary_types_allowed=True))
-def index_union(indexes: List[Union[pd.Index, Series, DataFrame]]) -> pd.Index:
+@parse
+def index_union(indexes: List[Union[pd.Index, pd.Series, pd.DataFrame]]) -> pd.Index:
     """Union indexes of multiple indexes, Series and/or DataFrame.
 
     Parameters

@@ -27,6 +27,7 @@ from pandas.testing import assert_index_equal, assert_frame_equal
 import pytest
 import pytz
 from pytz import UTC
+import valimp
 
 import market_prices.prices.base as m
 from market_prices import errors, helpers, intervals, mptypes, pt
@@ -37,11 +38,6 @@ from market_prices.support import tutorial_helpers as th
 # from market_prices.utils import calendar_utils as calutils
 
 from .utils import get_resource_pbt
-
-import pydantic
-
-if int(next(c for c in pydantic.__version__ if c.isdigit())) > 1:
-    from pydantic import v1 as pydantic
 
 # pylint: disable=missing-function-docstring, missing-type-doc
 # pylint: disable=missing-param-doc, missing-any-param-doc, redefined-outer-name
@@ -2420,18 +2416,17 @@ class TestGet:
         with pytest.raises(ValueError, match=msg):
             prices.get(interval, composite=True)
 
-        msg = "unexpected keyword argument: 'minute'"
-        with pytest.raises(pydantic.ValidationError, match=msg):
+        msg = "Got unexpected keyword argument: 'minute'"
+        with pytest.raises(valimp.InputsError, match=msg):
             prices.get(minute=3)
 
         # Verify that a parameter that takes a Literal raises exception if pass
         # non-valid value. Only test for one such parameter.
         msg = re.escape(
-            "1 validation error for Get\nanchor\n  unexpected value; permitted:"
-            " 'workback', 'open' (type=value_error.const; given=wrkback;"
-            " permitted=('workback', 'open'))"
+            "anchor\n\tTakes a value from <('workback', 'open')> although"
+            " received 'wrkback'."
         )
-        with pytest.raises(pydantic.ValidationError, match=msg):
+        with pytest.raises(valimp.InputsError, match=msg):
             prices.get("30T", anchor="wrkback")
 
         # verify period parameters being verified by `verify_period_parameters`
@@ -2467,17 +2462,18 @@ class TestGet:
     # ----- Tests related to `interval` parameter -----
 
     def test_interval_validation(self, prices_us):
-        """Test pydantic validating `interval`.
+        """Test that parsing validates `interval`.
 
-        Only tests that `interval` being validated by `to_ptinterval`.
-        `to_ptinterval` is comprehensively tested elsewhere.
+        Only tests that `interval` is being validated by `to_ptinterval`
+        via `intevals.parse_interval`. `to_ptinterval` is
+        comprehensively tested elsewhere.
         """
         # Verify invalid interval unit
         match = re.escape(
             "`interval` unit must by one of ['MIN', 'T', 'H', 'D', 'M']"
             " (or lower-case) although evaluated to 'G'."
         )
-        with pytest.raises(pydantic.ValidationError, match=match):
+        with pytest.raises(ValueError, match=match):
             prices_us.get("3G")
 
     def test_intervals_inferred(self, prices_us):
@@ -2985,8 +2981,8 @@ class TestGet:
             )
         start_session = sessions[0]
 
-        num_sessions_in_week = cal.sessions_distance(
-            start_session, start_session + pd.Timedelta(6, "D")
+        num_sessions_in_week = int(
+            cal.sessions_distance(start_session, start_session + pd.Timedelta(6, "D"))
         )
 
         # verify getting intraday data with bound as date

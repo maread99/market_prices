@@ -4,15 +4,17 @@ from __future__ import annotations
 
 import abc
 import collections
+import datetime
 import functools
 import warnings
-from typing import TYPE_CHECKING, Dict, Literal, Optional, Union
+from typing import TYPE_CHECKING, Literal, Optional, Union, Annotated
 
 import exchange_calendars as xcals
 import numpy as np
 import pandas as pd
 import pytz
 from pytz import BaseTzInfo
+from valimp import parse, Coerce, Parser
 
 import market_prices.utils.calendar_utils as calutils
 from market_prices import errors, helpers, intervals, mptypes, parsing
@@ -21,11 +23,6 @@ from market_prices.utils import pandas_utils as pdutils
 
 from .mptypes import Symbols
 from .utils.calendar_utils import CompositeCalendar
-
-import pydantic
-
-if int(next(c for c in pydantic.__version__ if c.isdigit())) > 1:
-    from pydantic import v1 as pydantic
 
 # pylint: disable=too-many-lines
 
@@ -90,8 +87,7 @@ class PT:
                     " and frequency is greater than one day."
                 )
                 raise ValueError(msg)
-        elif pdutils.index_is_normalized(df.index):  # type: ignore[arg-type]
-            # typing note: can pass IntervalIndex, param typed for pydantic
+        elif pdutils.index_is_normalized(df.index):
             new_cls = PTMultipleSessions
         elif df.index[0].left == df.index[0].right and pdutils.is_midnight(
             df.index[0].left
@@ -148,7 +144,7 @@ class _PT(metaclass=abc.ABCMeta):
 
     @property
     @abc.abstractmethod  # abstracted so each subclass knows actual type
-    def index(self) -> pd.DatatimeIndex | pd.IntervalIndex:
+    def index(self) -> pd.DatetimeIndex | pd.IntervalIndex:
         """Return index of prices table."""
 
     @property
@@ -247,13 +243,9 @@ class _PT(metaclass=abc.ABCMeta):
             assert isinstance(self.index, pd.DatetimeIndex)
             index = self.index.tz_localize(tz)
         elif tz == pytz.UTC:
-            index = pdutils.interval_index_new_tz(
-                self.index, tz  # type: ignore[arg-type]  # expects mptype
-            )
+            index = pdutils.interval_index_new_tz(self.index, tz)
         else:
-            index = pdutils.interval_index_new_tz(
-                self.index, None  # type: ignore[arg-type]  # expects mptype
-            )
+            index = pdutils.interval_index_new_tz(self.index, None)
         return self._new_index(index)
 
     def _set_tz(self, tz: BaseTzInfo | None) -> pd.DataFrame:
@@ -293,7 +285,7 @@ class _PT(metaclass=abc.ABCMeta):
         if ts.tz == self.tz:
             return ts
         elif ts.tz is None:
-            return ts.tz_localize(self.tz)  # type: ignore[unreachable]  # is reachable
+            return ts.tz_localize(self.tz)
         else:
             return ts.tz_convert(self.tz)
 
@@ -371,7 +363,7 @@ class _PT(metaclass=abc.ABCMeta):
     def _compatible_index(self, index: pd.IntervalIndex) -> bool:
         """Query if `index` compatible with table index."""
 
-    @pydantic.validate_arguments(config=dict(arbitrary_types_allowed=True))
+    @parse
     def get_trading_index(
         self,
         calendar: xcals.ExchangeCalendar,
@@ -449,7 +441,7 @@ class _PT(metaclass=abc.ABCMeta):
             non_compat_sessions = compat_sessions[~compat_sessions]
             raise errors.IndexConflictError(calendar, non_compat_sessions.index)
 
-    @pydantic.validate_arguments(config=dict(arbitrary_types_allowed=True))
+    @parse
     def reindex_to_calendar(
         self,
         calendar: xcals.ExchangeCalendar,
@@ -553,7 +545,7 @@ class _PT(metaclass=abc.ABCMeta):
                 (NB not possible for PTDaily).
         """
 
-    @pydantic.validate_arguments(config=dict(arbitrary_types_allowed=True))
+    @parse
     def indices_trading(
         self, calendar: xcals.ExchangeCalendar
     ) -> Union[pd.DatetimeIndex, pd.IntervalIndex]:
@@ -587,7 +579,7 @@ class _PT(metaclass=abc.ABCMeta):
         # Can't use its.all() as nan equates to True
         return its[~(its.isna() | its.eq(False))].index
 
-    @pydantic.validate_arguments(config=dict(arbitrary_types_allowed=True))
+    @parse
     def indices_non_trading(
         self, calendar: xcals.ExchangeCalendar
     ) -> Union[pd.DatetimeIndex, pd.IntervalIndex]:
@@ -619,7 +611,7 @@ class _PT(metaclass=abc.ABCMeta):
         its = self.indices_trading_status(calendar)
         return its[its.eq(False)].index
 
-    @pydantic.validate_arguments(config=dict(arbitrary_types_allowed=True))
+    @parse
     def indices_partial_trading(
         self, calendar: xcals.ExchangeCalendar
     ) -> Union[pd.DatetimeIndex, pd.IntervalIndex]:
@@ -652,7 +644,7 @@ class _PT(metaclass=abc.ABCMeta):
         its = self.indices_trading_status(calendar)
         return its[its.isna()].index
 
-    @pydantic.validate_arguments(config=dict(arbitrary_types_allowed=True))
+    @parse
     def indices_all_trading(self, calendar: xcals.ExchangeCalendar) -> bool:
         """Query if all indices represent trading indices.
 
@@ -707,10 +699,10 @@ class _PT(metaclass=abc.ABCMeta):
                 middle.append(pd.Interval(s, e, side))
             return pd.IntervalIndex(first + middle + last)
 
-    @pydantic.validate_arguments(config=dict(arbitrary_types_allowed=True))
+    @parse
     def indices_partial_trading_info(
         self, calendar: xcals.ExchangeCalendar
-    ) -> Dict[pd.IntervalIndex, pd.IntervalIndex]:
+    ) -> dict[pd.IntervalIndex, pd.IntervalIndex]:
         """Return information on partial trading indices.
 
         Parameters
@@ -891,7 +883,7 @@ class _PT(metaclass=abc.ABCMeta):
 
         return df
 
-    @pydantic.validate_arguments(config=dict(arbitrary_types_allowed=True))
+    @parse
     def operate(
         self,
         tz: Optional[Union[Literal[False], str, BaseTzInfo]] = False,
@@ -1085,7 +1077,7 @@ class PTDaily(_PT):
     """.pt accessor for prices table with daily interval."""
 
     @property
-    def index(self) -> pd.DatatimeIndex:
+    def index(self) -> pd.DatetimeIndex:
         """Return index of prices table."""
         return self.prices.index
 
@@ -1182,8 +1174,15 @@ class PTDaily(_PT):
         )
         raise NotImplementedError(msg)
 
-    @pydantic.validate_arguments
-    def session_prices(self, session: mptypes.DateTimestamp) -> pd.DataFrame:
+    @parse
+    def session_prices(
+        self,
+        session: Annotated[
+            Union[pd.Timestamp, str, datetime.datetime, int, float],
+            Coerce(pd.Timestamp),
+            Parser(parsing.verify_datetimestamp),
+        ],
+    ) -> pd.DataFrame:
         """Return OHLCV prices for a given session.
 
         Parameters
@@ -1201,17 +1200,24 @@ class PTDaily(_PT):
                 level 0: symbol
                 level 1: ['open', 'high', 'low', 'close', 'volume']
         """
-        # so mypy treats as Timestamp...
-        session_ = pd.Timestamp(session)  # type: ignore[call-overload]
-        parsing.verify_date_not_oob(session_, self.first_ts, self.last_ts, "session")
+        if TYPE_CHECKING:
+            assert isinstance(session, pd.Timestamp)
+        parsing.verify_date_not_oob(session, self.first_ts, self.last_ts, "session")
         if self.index.tz is not None:
-            session_ = session_.tz_localize(pytz.UTC)
-        if session_ not in self.index:
-            raise ValueError(f"`session` {session_} is not present in the table.")
-        return self.prices.loc[[session_]]
+            session = session.tz_localize(pytz.UTC)
+        if session not in self.index:
+            raise ValueError(f"`session` {session} is not present in the table.")
+        return self.prices.loc[[session]]
 
-    @pydantic.validate_arguments
-    def close_at(self, date: mptypes.DateTimestamp) -> pd.DataFrame:
+    @parse
+    def close_at(
+        self,
+        date: Annotated[
+            Union[pd.Timestamp, str, datetime.datetime, int, float],
+            Coerce(pd.Timestamp),
+            Parser(parsing.verify_datetimestamp),
+        ],
+    ) -> pd.DataFrame:
         """Return price as at end of a given day.
 
         For symbols where `date` represents a trading session, price will
@@ -1233,13 +1239,13 @@ class PTDaily(_PT):
             columns: Index
                 symbol.
         """
-        # so mypy treats as Timestamp...
-        date_ = pd.Timestamp(date)  # type: ignore[call-overload]
-        parsing.verify_date_not_oob(date_, self.first_ts, self.last_ts)
+        if TYPE_CHECKING:
+            assert isinstance(date, pd.Timestamp)
+        parsing.verify_date_not_oob(date, self.first_ts, self.last_ts)
         if self.index.tz is not None:
-            date_ = date_.tz_localize(pytz.UTC)
+            date = date.tz_localize(pytz.UTC)
         prices = self.operate(fill="ffill", close_only=True)
-        i = prices.index.get_indexer([date_], "ffill")[0]
+        i = prices.index.get_indexer([date], "ffill")[0]
         return prices.iloc[[i]]
 
     # Downsampling
@@ -1266,8 +1272,7 @@ class PTDaily(_PT):
         if not isinstance(calendar, xcals.ExchangeCalendar):
             raise TypeError(error_start + f" although received {calendar}." + advices)
 
-        if calendar.day != pdfreq.base:  # type: ignore[attr-defined]
-            # typing note: CustomBusinessDay does have .base attr
+        if calendar.day != pdfreq.base:
             raise ValueError(
                 error_start + " which has a `calendar.day` attribute equal to the"
                 " base CustomBusinessDay being downsampled to. Received calendar as"
@@ -1285,8 +1290,7 @@ class PTDaily(_PT):
         # to remove any indices that would otherwise result in the last indice
         # being comprised of less than the required number of CustomBuisnessDays.
         sessions = calendar.sessions_in_range(df.pt.first_ts, df.pt.last_ts)
-        excess_sessions = len(sessions) % pdfreq.n  # type: ignore[attr-defined]
-        # typing note: CustomBusinessDay does have .n attr
+        excess_sessions = len(sessions) % pdfreq.n
 
         # first row of dataframe to be resampled has to be a `calendar` session,
         # to the contrary initial rows (labeled earlier than a calendar session)
@@ -1359,7 +1363,7 @@ class PTDaily(_PT):
 
         return resampled
 
-    @pydantic.validate_arguments(config=dict(arbitrary_types_allowed=True))
+    @parse
     def downsample(  # pylint: disable=arguments-differ
         self,
         pdfreq: Union[str, pd.offsets.BaseOffset],
@@ -1466,12 +1470,12 @@ class PTDaily(_PT):
             raise ValueError(msg) from None
         else:
             assert offset is not None
-            freqstr: str = offset.freqstr  # type: ignore[assignment]  # is a str
+            freqstr: str = offset.freqstr
 
         value, unit = helpers.extract_freq_parts(freqstr)
         if unit.lower() == "d":
             if isinstance(self.freq, pd.offsets.CustomBusinessDay):
-                pdfreq = self.freq.base * value  # type: ignore[attr-defined]
+                pdfreq = self.freq.base * value
                 return self._downsample_cbdays(pdfreq, calendar)
             else:
                 return self._downsample_days(pdfreq)
@@ -1613,7 +1617,7 @@ class PTIntraday(_PTIntervalIndex):
 
     def _tz_index(self, tz: str | BaseTzInfo) -> pd.IntervalIndex:
         """Return index with tz as `tz`."""
-        return pdutils.interval_index_new_tz(self.index, tz)  # type: ignore[arg-type]
+        return pdutils.interval_index_new_tz(self.index, tz)
 
     def _set_tz(self, tz: str | BaseTzInfo) -> pd.DataFrame:  # type: ignore[override]
         """Convert index to a given timezone."""
@@ -1634,7 +1638,7 @@ class PTIntraday(_PTIntervalIndex):
 
     # Mappings to sessions
 
-    @pydantic.validate_arguments(config=dict(arbitrary_types_allowed=True))
+    @parse
     def sessions(
         self,
         calendar: Union[xcals.ExchangeCalendar, calutils.CompositeCalendar],
@@ -1676,7 +1680,7 @@ class PTIntraday(_PTIntervalIndex):
         srs.name = "session"
         return srs
 
-    @pydantic.validate_arguments(config=dict(arbitrary_types_allowed=True))
+    @parse
     def session_column(
         self,
         calendar: Union[xcals.ExchangeCalendar, calutils.CompositeCalendar],
@@ -1757,8 +1761,8 @@ class PTIntraday(_PTIntervalIndex):
         else:
             return False
 
-    @pydantic.validate_arguments(config=dict(arbitrary_types_allowed=True))
     @functools.lru_cache
+    @parse
     def indices_trading_status(self, calendar: xcals.ExchangeCalendar) -> pd.Series:
         """Query indices trading/non-trading status.
 
@@ -1790,7 +1794,7 @@ class PTIntraday(_PTIntervalIndex):
 
     # trading minutes
 
-    @pydantic.validate_arguments(config=dict(arbitrary_types_allowed=True))
+    @parse
     def indices_trading_minutes(self, calendar: xcals.ExchangeCalendar) -> pd.Series:
         """Return number of trading minutes that comprise each indice.
 
@@ -1942,20 +1946,29 @@ class PTIntraday(_PTIntervalIndex):
         i = self._get_loc(ts, method="ffill")
         return self.prices.iloc[[i]]
 
-    @pydantic.validate_arguments
+    @parse
     def price_at(  # pylint: disable=arguments-differ
-        self, ts: mptypes.TimeTimestamp, tz: Optional[mptypes.Timezone] = None
+        self,
+        ts: Annotated[
+            Union[pd.Timestamp, str, datetime.datetime, int, float],
+            Coerce(pd.Timestamp),
+            Parser(parsing.verify_timetimestamp),
+        ],
+        tz: Annotated[
+            Union[pytz.BaseTzInfo, str, None],
+            Parser(parsing.to_timezone, parse_none=False),
+        ] = None,
     ) -> pd.DataFrame:
         """Return most recent price as at a given timestamp.
 
         Parameters
         ----------
-        ts : Union[pd.Timestamp, str, datetime.datetime, int, float]
+        ts
             Timestamp as at which to return most recent available price.
             Will raise ValueError if `ts` represents a session. To request
-            prices at midnight pass as a tz-aware pandas Timestamp.
+            prices at midnight pass as a tz-aware `pd.Timestamp`.
 
-        tz : Optional[BaseTzInfo | str], default: table's tz
+        tz : default: table's tz
             Timezone of `ts` and to use for returned index.
             If `ts` is tz-aware then `tz` will NOT override `ts` timezone,
             although will be used to define the index of the returned
@@ -1967,19 +1980,21 @@ class PTIntraday(_PTIntervalIndex):
         session_prices
         """
         # pylint: disable=missing-param-doc
-        if tz is None:
-            self._verify_tz_awareness()
-        tz_ = self.tz if tz is None else tz
         if TYPE_CHECKING:
             assert isinstance(ts, pd.Timestamp)
-            assert isinstance(tz_, BaseTzInfo)
-        ts_ = parsing.parse_timestamp(ts, tz_)
+            assert tz is None or isinstance(tz, BaseTzInfo)
+
+        if tz is None:
+            self._verify_tz_awareness()
+            tz = self.tz
+
+        ts = parsing.parse_timestamp(ts, tz)
         parsing.verify_time_not_oob(
-            ts_, self.first_ts.astimezone(pytz.UTC), self.last_ts.astimezone(pytz.UTC)
+            ts, self.first_ts.astimezone(pytz.UTC), self.last_ts.astimezone(pytz.UTC)
         )
         df = self.utc.pt.fillna("ffill")
-        row = df.pt._get_row(ts_)  # pylint: disable=protected-access
-        side = "left" if row.index.contains(ts_) else "right"
+        row = df.pt._get_row(ts)  # pylint: disable=protected-access
+        side = "left" if row.index.contains(ts) else "right"
         column = "open" if side == "left" else "close"
         if self.has_symbols:
             if TYPE_CHECKING:
@@ -1989,10 +2004,10 @@ class PTIntraday(_PTIntervalIndex):
         else:
             columns = [column]
         res = row[columns]
-        ts_ = getattr(row.index, side)
+        ts = getattr(row.index, side)
         if TYPE_CHECKING:
-            assert isinstance(ts_, pd.Timestamp)
-        res.index = ts_ if tz_ is None else ts_.tz_convert(tz_)
+            assert isinstance(ts, pd.Timestamp)
+        res.index = ts if tz is None else ts.tz_convert(tz)
         res.columns = (
             res.columns.droplevel(1) if self.has_symbols else pd.Index(["price"])
         )
@@ -2147,7 +2162,7 @@ class PTIntraday(_PTIntervalIndex):
         table_interval = self.interval
         # Resample each n rows, avoids introducing non-trading times and
         # allows a row to encompass prices from contiguous trading sessions
-        num_rows = interval // table_interval  # type: ignore[operator]
+        num_rows = interval // table_interval
         excess_rows = len(self.prices) % num_rows
         df = self.prices[excess_rows:].copy()
         agg_functions = helpers.agg_funcs(df)
@@ -2165,11 +2180,11 @@ class PTIntraday(_PTIntervalIndex):
         res = helpers.volume_to_na(res)
         return res
 
-    @pydantic.validate_arguments(config=dict(arbitrary_types_allowed=True))
-    def downsample(  # type: ignore[override]  # extends super implementation
+    @parse
+    def downsample(
         # pylint: disable=arguments-differ
         self,
-        pdfreq: mptypes.PandasFrequency,
+        pdfreq: Annotated[str, Coerce(mptypes.PandasFrequency)],
         anchor: Literal["workback", "open"] = "workback",
         calendar: Optional[xcals.ExchangeCalendar] = None,
         curtail_end: bool = False,
@@ -2290,6 +2305,9 @@ class PTIntraday(_PTIntervalIndex):
         reindex_to_calendar
         """
         # pylint: disable=too-many-arguments, missing-param-doc
+        if TYPE_CHECKING:
+            assert isinstance(pdfreq, mptypes.PandasFrequency)
+
         if not self.has_regular_interval:
             raise ValueError(
                 "Cannot downsample a table for which a regular interval"
@@ -2325,7 +2343,7 @@ class PTIntraday(_PTIntervalIndex):
                 f" whilst table interval is {table_interval}."
             )
 
-        if interval % table_interval:  # type: ignore[operator]  # % is supported
+        if interval % table_interval:
             raise ValueError(
                 "Table interval must be a factor of downsample interval,"
                 f" although downsampled interval evaluated as {interval}"
@@ -2387,8 +2405,8 @@ class PTMultipleSessions(_PTIntervalIndexNotIntraday):
         else:
             return np.NaN
 
-    @pydantic.validate_arguments(config=dict(arbitrary_types_allowed=True))
     @functools.lru_cache
+    @parse
     def indices_trading_status(self, calendar: xcals.ExchangeCalendar) -> pd.Series:
         """Query indices trading/non-trading status.
 
@@ -2417,10 +2435,10 @@ class PTMultipleSessions(_PTIntervalIndexNotIntraday):
         srs = self.index.to_series()
         return srs.apply(self._are_trading_sessions, args=[calendar])
 
-    @pydantic.validate_arguments(config=dict(arbitrary_types_allowed=True))
-    def indices_partial_trading_info(  # type: ignore[override]  # changes super imp.
+    @parse
+    def indices_partial_trading_info(
         self, calendar: xcals.ExchangeCalendar
-    ) -> Dict[pd.IntervalIndex, pd.DatetimeIndex]:
+    ) -> dict[pd.IntervalIndex, pd.DatetimeIndex]:
         """Return info on partial trading indices.
 
         Returns information on indices that cover both sessions and
@@ -2495,15 +2513,14 @@ class PTDailyIntradayComposite(_PTIntervalIndexNotIntraday):
     def daily_part(self) -> pd.DataFrame:
         """Part of composite table comprising daily intervals."""
         df = self.prices[self.index.left == self.index.right]
-        # mypy incorrectly assumes df is a pd.Series indexed with pd.Index
-        df.index = df.index.left.tz_convert(None)  # type: ignore[attr-defined]
-        return df  # type: ignore[return-value]  # return is as requried and declared.
+        df.index = df.index.left.tz_convert(None)
+        return df
 
     @property
     def intraday_part(self) -> pd.DataFrame:
         """Part of composite table comprising intraday intervals."""
         df = self.prices[self.index.left != self.index.right]
-        return df  # type: ignore[return-value]  # return is as requried and declared.
+        return df
 
     def indices_trading_status(self, calendar: xcals.ExchangeCalendar) -> pd.Series:
         """Query indices trading/non-trading status.
@@ -2537,8 +2554,15 @@ class PTDailyIntradayComposite(_PTIntervalIndexNotIntraday):
         srs.index = self.index
         return srs
 
-    @pydantic.validate_arguments
-    def price_at(self, ts: mptypes.TimeTimestamp) -> pd.DataFrame:
+    @parse
+    def price_at(
+        self,
+        ts: Annotated[
+            Union[pd.Timestamp, str, datetime.datetime, int, float],
+            Coerce(pd.Timestamp),
+            Parser(parsing.verify_timetimestamp),
+        ],
+    ) -> pd.DataFrame:
         """Most recent registered price as at a given timestamp.
 
         Note: Only available over part of index defined by intraday

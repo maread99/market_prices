@@ -5,19 +5,17 @@ Third party types will usually be defined with a full dotted path from the packa
 
 ## mptypes
 
-`market_prices` defines [type aliases](#Type-aliases) and [custom pydantic types](#Custom-pydantic-types) to annotate some parameters of public methods. Such types are all defined in the `mptypes.py` module.
+`market_prices` defines [type aliases](#Type-aliases) and custom types to annotate some parameters of public methods. Such types are defined in the `mptypes.py` module.
 
-When a parameter takes an mptype the underlying valid types are expressed in the 'Parameters' section of the method's documentation. 
+When a parameter takes an mptype the underlying valid types are expressed in the 'Parameters' section of the method's documentation.
 
 ### Type aliases
-`market_prices` uses type aliases to represent multiple underlying types that are acceptable input. The underlying types can be inspected by calling the type alias:
+`market_prices` occassionally uses type aliases to represent multiple underlying types that are acceptable input. The underlying types can be inspected by calling the type alias:
 
 ```python
->>> from market_prices.mptypes import Calendar
+>>> from market_prices.mptypes import Symbols, Calendar
+>>> Symbols
+typing.Union[list[str], str]
 >>> Calendar
-typing.Union[pydantic.types.StrictStr, exchange_calendars.exchange_calendar.ExchangeCalendar]
+typing.Union[str, exchange_calendars.exchange_calendar.ExchangeCalendar]
 ```
-
-### Custom pydantic types
-
-The [parsing](./parsing.md) documentation explains how custom pydantic types are sometimes used to validate and parse parameters.
