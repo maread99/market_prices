@@ -70,7 +70,7 @@ The `.pt` accessor opens the door to a wealth of functionality to interrogate an
 ## Other documentation
 
 ### Parsing
-[parsing.md](./public/parsing.md) offers a short explanation of how `market_prices` uses pydantic to validate parameters of public method.
+[parsing.md](./public/parsing.md) offers a explanation of how the [`valimp`](https://github.com/maread99/valimp) library is used to validate and otherwise parse inputs to public functions.
 
 ### Typing
 [typing.md](./public/typing.md) covers:

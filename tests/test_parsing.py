@@ -2,15 +2,19 @@
 
 from __future__ import annotations
 
+from collections import abc
+from collections.abc import Callable
 import dataclasses
+import datetime
 import itertools
 import re
 import typing
-from collections import abc
+from typing import Annotated, Union, TYPE_CHECKING
 
 import pandas as pd
 import pytest
 import pytz
+from valimp import parse, Parser, Coerce
 
 import market_prices.parsing as m
 from market_prices import errors, helpers, mptypes
@@ -146,7 +150,7 @@ class TestParseStartEnd:
     @pytest.fixture
     def f_with_ans(
         self, calendars_with_answers_extended
-    ) -> abc.Iterator[tuple[abc.Callable, Answers]]:
+    ) -> abc.Iterator[tuple[Callable, Answers]]:
         calendar, answers = calendars_with_answers_extended
 
         def f(
@@ -511,7 +515,7 @@ class TestParseStartEnd:
         self, f_with_ans, one_min, today
     ) -> abc.Iterator[
         tuple[
-            abc.Callable,
+            Callable,
             list[tuple[pd.Timestamp, pd.Timestamp, pd.Timestamp]],
             list[tuple[pd.Timestamp, pd.Timestamp, pd.Timestamp]],
         ]
@@ -932,3 +936,195 @@ def test_verify_time_not_oob(one_min):
         f(midnight, midnight + one_min, midnight)
     with pytest.raises(errors.DatetimeTooLateError):
         f(midnight, midnight, midnight - one_min)
+
+
+# ------------------ tests for valimp.Parser functions --------------------
+
+
+def test_verify_interval_datetime_index():
+    @parse
+    def mock_func(
+        arg: Annotated[pd.IntervalIndex, Parser(m.verify_interval_datetime_index)]
+    ) -> pd.IntervalIndex:
+        return arg
+
+    # verify valid input
+    dti = pd.date_range("2021", periods=3, freq="MS")
+    interval_index = pd.IntervalIndex.from_arrays(dti, dti)
+    assert mock_func(interval_index) is interval_index
+
+    # verify invalid input
+    int_index = pd.Index([1, 2, 3])
+    invalid_int_index = pd.IntervalIndex.from_arrays(int_index, int_index)
+    match = re.escape(
+        "'arg' can only take a pd.IntervalIndex that has each side"
+        " as type pd.DatetimeIndex, although received with left side"
+        " as type '<class 'pandas.core.indexes.base.Index'>'."
+    )
+    with pytest.raises(ValueError, match=match):
+        mock_func(invalid_int_index)
+
+
+def test_lead_symbol():
+    class MockCls:
+        """Mock class to test parsing.lead_symbol."""
+
+        # pylint: disable=too-few-public-methods
+
+        def _verify_lead_symbol(self, symbol: str):
+            if symbol != "MSFT":
+                raise ValueError(f"{symbol} not in symbols.")
+
+        @parse
+        def mock_func(self, arg: Annotated[str, Parser(m.lead_symbol)]) -> str:
+            return arg
+
+    f = MockCls().mock_func
+
+    # verify valid inpout
+    s = "MSFT"
+    assert f(s) is s
+
+    # verify raises error if symbol not valid lead_symbol
+    s = "RFT"
+    match = f"{s} not in symbols."
+    with pytest.raises(ValueError, match=match):
+        f("RFT")
+
+
+def assert_valid_timezone(func: Callable, field: str):
+    """Assert `func` arg takes input valid for pytz.timezone.
+
+    Asserts valid input returns as would be returned by pytz.timezone.
+    Verifies that invalid input for pytz.timezone raises an error.
+    """
+    # verify valid input
+    assert func("UTC") == pytz.UTC
+    expected = pytz.timezone("Europe/London")
+    assert func("Europe/London") == expected
+    assert func(expected) == expected
+
+
+def test_to_timezone():
+    @parse
+    def mock_func(
+        arg: Annotated[Union[pytz.BaseTzInfo, str], Parser(m.to_timezone)]
+    ) -> pytz.BaseTzInfo:
+        assert isinstance(arg, pytz.BaseTzInfo)
+        return arg
+
+    assert_valid_timezone(mock_func, "Timezone")
+
+
+def test_to_prices_timezone():
+    tz = pytz.timezone("US/Eastern")
+
+    class MockCls:
+        """Mock class to test parsing.to_prices_timezone."""
+
+        @property
+        def symbols(self) -> list[str]:
+            return ["MSFT"]
+
+        @property
+        def timezones(self) -> dict:
+            return {"MSFT": tz}
+
+        @parse
+        def mock_func(
+            self,
+            arg: Annotated[Union[str, pytz.BaseTzInfo], Parser(m.to_prices_timezone)],
+        ) -> pytz.BaseTzInfo:
+            assert isinstance(arg, pytz.BaseTzInfo)
+            return arg
+
+    f = MockCls().mock_func
+
+    # verify valid input
+    assert_valid_timezone(f, "PricesTimezone")
+
+    # verify can take a symbol
+    assert f("MSFT") == tz
+    # but not any symbol
+    with pytest.raises(pytz.UnknownTimeZoneError):
+        f("HEY")
+
+
+def test_to_datetimestamp():
+    @parse
+    def mock_func(
+        arg: Annotated[
+            Union[pd.Timestamp, str, datetime.datetime, int, float, None],
+            Coerce(pd.Timestamp),
+            Parser(m.verify_datetimestamp, parse_none=False),
+        ] = None,
+    ) -> pd.Timestamp:
+        if TYPE_CHECKING:
+            assert isinstance(arg, pd.Timestamp)
+        return arg
+
+    # verify valid input
+    assert mock_func() is None
+    assert mock_func(None) is None
+    expected = pd.Timestamp("2022-03-01")
+    assert mock_func("2022-03-01") == expected
+    assert mock_func("2022-03") == expected
+    assert mock_func(expected) == expected
+    assert mock_func(expected.value) == expected
+
+    # verify input cannot be timezone aware
+    expected = pd.Timestamp("2022-03-01")
+    ts = expected.tz_localize(pytz.UTC)
+    match = re.escape(f"`arg` must be tz-naive, although receieved as {ts}")
+    with pytest.raises(ValueError, match=match):
+        mock_func(ts)
+
+    # verify input cannot have a time component
+    obj = "2022-03-01 00:01"
+    match = re.escape(
+        "`arg` can not have a time component, although receieved"
+        f" as {pd.Timestamp(obj)}. For an intraday price use .price_at()."
+    )
+    with pytest.raises(ValueError, match=match):
+        mock_func(obj)
+
+
+def test_to_timetimestamp():
+    @parse
+    def mock_func(
+        arg: Annotated[
+            Union[pd.Timestamp, str, datetime.datetime, int, float, None],
+            Coerce(pd.Timestamp),
+            Parser(m.verify_timetimestamp, parse_none=False),
+        ] = None,
+    ) -> pd.Timestamp:
+        if TYPE_CHECKING:
+            assert isinstance(arg, pd.Timestamp)
+        return arg
+
+    # verify valid input
+    assert mock_func() is None
+    assert mock_func(None) is None
+    expected = pd.Timestamp("2022-03-01 00:01")
+    assert mock_func("2022-03-01 00:01") == expected
+    assert mock_func(expected) == expected
+    assert mock_func(expected.value) == expected
+
+    # verify input can be midnight if tz aware
+    ts = pd.Timestamp("2022-03-01 00:00", tz=pytz.UTC)
+    assert mock_func(ts) == ts
+
+    # verify input can be timezone naive if not midnight
+    ts = pd.Timestamp("2022-03-01 00:01")
+    assert mock_func(ts) == ts
+
+    # verify input cannot be midnight and timezone naive
+    ts = pd.Timestamp("2022-03-01 00:00")
+    match = re.escape(
+        "`arg` must have a time component or be tz-aware,"
+        f" although receieved as {ts}. To define arg as midnight pass"
+        " as a tz-aware pd.Timestamp. For prices as at a session's"
+        " close use .close_at()."
+    )
+    with pytest.raises(ValueError, match=match):
+        mock_func(ts)

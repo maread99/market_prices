@@ -11,18 +11,15 @@ import functools
 from collections import abc
 from typing import TYPE_CHECKING, Literal
 
-import exchange_calendars as xcals  # type: ignore[import]
+import exchange_calendars as xcals
+from exchange_calendars.calendar_helpers import Date, Minute, Session, TradingMinute
 import numpy as np
 import pandas as pd
 import pytz
-from exchange_calendars.calendar_helpers import Date, Minute, Session, TradingMinute
+from valimp import parse
+
 from market_prices import helpers, intervals, errors
 from market_prices.utils import pandas_utils as pdutils
-
-import pydantic
-
-if int(next(c for c in pydantic.__version__ if c.isdigit())) > 1:
-    from pydantic import v1 as pydantic
 
 
 def get_exchange_info() -> pd.DataFrame:
@@ -95,7 +92,7 @@ class NoBreakError(ValueError):
         return msg
 
 
-@pydantic.validate_arguments(config=dict(arbitrary_types_allowed=True))
+@parse
 def subsession_length(
     calendar: xcals.ExchangeCalendar,
     session: Session,
@@ -765,7 +762,7 @@ class CompositeCalendar:
             end = self._parse_end(end)
         slc_start = self._sessions_nanos.searchsorted(start.value, "left")
         slc_stop = self._sessions_nanos.searchsorted(end.value, "right")
-        return self.sessions[slc_start:slc_stop]  # type: ignore[misc]
+        return self.sessions[slc_start:slc_stop]
 
     def sessions_overlap(
         self, start: Date | None = None, end: Date | None = None
@@ -991,7 +988,7 @@ class CompositeCalendar:
             raise errors.CompositeIndexCalendarConflict(cal) from e
 
         # work in tz-naive for quicker .union
-        index = pdutils.interval_index_new_tz(index, None)  # type: ignore[arg-type]
+        index = pdutils.interval_index_new_tz(index, None)
         for cal in self.calendars[1:]:
             if isinstance(ignore_breaks_, dict):
                 ignore_breaks = ignore_breaks_[cal]
@@ -1002,20 +999,13 @@ class CompositeCalendar:
                 )
             except xcals.errors.IntervalsOverlapError as e:
                 raise errors.CompositeIndexCalendarConflict(cal) from e
-            index_ = pdutils.interval_index_new_tz(
-                index_, None  # type: ignore[arg-type]  # uses mptype
-            )
+            index_ = pdutils.interval_index_new_tz(index_, None)
             index = index.union(index_, sort=False)
         index = index.sort_values()
-        if (
-            raise_overlapping
-            and not index.is_non_overlapping_monotonic  # type: ignore[attr-defined]
-        ):
+        if raise_overlapping and not index.is_non_overlapping_monotonic:
             raise errors.CompositeIndexConflict()
         if utc:
-            index = pdutils.interval_index_new_tz(
-                index, pytz.UTC  # type: ignore[arg-type]  # uses mptype
-            )
+            index = pdutils.interval_index_new_tz(index, pytz.UTC)
         return index
 
 

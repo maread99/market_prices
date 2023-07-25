@@ -6,11 +6,12 @@ import copy
 import datetime
 import functools
 import warnings
-from typing import Dict, List, Optional, Union
+from typing import Optional, Union
 
 from pandas import DataFrame
 import pandas as pd
 import exchange_calendars as xcals
+from valimp import parse
 import yahooquery as yq
 
 from market_prices import errors, helpers, intervals, mptypes
@@ -18,11 +19,6 @@ from market_prices.prices import base
 
 from ..mptypes import Calendar, Symbols
 from .config import config_yahoo
-
-import pydantic
-
-if int(next(c for c in pydantic.__version__ if c.isdigit())) > 1:
-    from pydantic import v1 as pydantic
 
 
 class PricesYahoo(base.PricesBase):
@@ -326,15 +322,15 @@ class PricesYahoo(base.PricesBase):
     YAHOO_EXCHANGE_TO_CALENDAR = config_yahoo.EXCHANGE_TO_CALENDAR
     YAHOO_DELAY_MAPPING = config_yahoo.DELAY_MAPPING
 
-    @pydantic.validate_arguments(config=dict(arbitrary_types_allowed=True))
+    @parse
     def __init__(
         self,
-        symbols: Union[str, List[str]],
+        symbols: Union[str, list[str]],
         calendars: Optional[mptypes.Calendars] = None,
         lead_symbol: Optional[str] = None,
-        delays: Optional[Union[int, List[int], Dict[str, int]]] = None,
+        delays: Optional[Union[int, list[int], dict[str, int]]] = None,
         adj_close: bool = False,
-        proxies: Optional[Dict[str, str]] = None,
+        proxies: Optional[dict[str, str]] = None,
     ):
         symbols = helpers.symbols_to_list(symbols)
         self._ticker = yq.Ticker(
@@ -848,9 +844,7 @@ class PricesYahoo(base.PricesBase):
             start = start if start is not None else sdf.index[0]
             calendar = self.calendars[symbol]
             index = self._get_trading_index(calendar, interval, start, end)
-            reindex_index = (
-                index if interval.is_daily else index.left  # type: ignore[union-attr]
-            )
+            reindex_index = index if interval.is_daily else index.left
             sdf = sdf.reindex(reindex_index)
             if interval.is_intraday:
                 sdf = self._fill_reindexed(sdf, calendar, interval, symbol)
@@ -987,7 +981,7 @@ class PricesYahoo(base.PricesBase):
 
         cals = list(prices_obj.calendars_unique)
         fewer_cals = len(cals) < len(self.calendars_unique)
-        for bi in self.bis:  # type: ignore[attr-defined]  # enum has __iter__ attr.
+        for bi in self.bis:
             new_pdata = copy.deepcopy(self._pdata[bi])
             if new_pdata._table is not None:
                 table = new_pdata._table[symbols].copy()

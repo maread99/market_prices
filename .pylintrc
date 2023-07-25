@@ -82,8 +82,8 @@ max-line-length=100
 max-module-lines=2000
 
 [TYPING]
-py-version=3.8
-runtime-typing=no
+py-version=3.9
+runtime-typing=True
 
 [PARAMETER_DOCUMENTATION]
 accept-no-param-doc=no

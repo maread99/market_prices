@@ -1,34 +1,44 @@
 # Parsing
 
-`market_prices` uses the [pydantic library](https://pydantic-docs.helpmanual.io/) to parse parameters received by public functions and methods. Pydantic ensures that the type passed to a formal parameter conforms with the parameter's type annotation. Passing a object with an invalid type will raise a `pydantic.ValidationError` with a message advising of the invalid inputs and what was expected.
+`market_prices` uses the [`valimp`](https://github.com/maread99/valimp) library to parse parameters received by public functions and methods.
+
+## Type validation
+ The `valimp.parse` decorator ensures that the objects passed to a function's parameters conform with the corresponding type annotation. Where a parameter takes a container this validation extends to validating the type of the container items. For example, an input for the following parameter would be validated as being a `dict` and each item of that dictionary would be validated as having the key as a `str` and the value as either an `int` or a `float`:
+
+```python
+param: dict[str, Union[int, float]]
+```
+
+An instance of `valimp.InputsError` is raised if at least one object passed to a function does not confrom with the corresponding type annotation.
 
 ## Coercing
 
-When a parameter receives an invalid type pydantic will try to coerce it to a valid type. For example, a parameter annoated with `int` could be passed a `str` "3" which would be coerced to the `int` 3. It could also be passed a `float` 2.99 which would be coerced the `int` 2!
+An instance of `valimp.Coerce` in a parameter's annotation simply indicates that the object will
+be subsequently coerced to a specific type. For example, the following 'start' parameter can take an object of type `pd.Timestamp`, `str`, `datetime.datetime`, `int`, or `float`. In all cases the object will be coerced to a `pd.Timestamp` (NB a None value is never coerced).
 
-Parameters that do not allow coercing are typed with a pydantic 'Strict' type, for example `pydantic.StrictInt`.
-
-## Custom pydantic types
-`market_prices` defines custom pydantic types for certain parameters. The parsing of custom types may perform additional validations and define default values.
-
-For example, the type `mptypes.PricesTimezone` is defined for parameters that allow a timezone to be specified by way of a symbol or `pytz` timezone object. The parsing process checks that the input is of a valid type and value and then passes through a pytz timezone object to the formal parameter.
-
-The type's documentation includes the requirements for input to be considered valid.
 ```python
->>> from market_prices.mptypes import DateTimestamp
->>> help(DateTimestamp)
+start: Annotated[
+    Union[pd.Timestamp, str, datetime.datetime, int, float, None],
+    Coerce(pd.Timestamp),
+] = None,
 ```
-    Help on class DateTimestamp in module market_prices.mptypes:
 
-    class DateTimestamp(Timestamp)
-     |  Type to parse to a pd.Timestamp and validate as a date.
-     |  
-     |  Considered a valid date (rather than a time), if:
-     |      - no time component or time component defined as 00:00.
-     |      - tz-naive.
-     |  
-     |  A parameter annotated with this class can take any object that is
-     |  acceptable as a single-argument input to pd.Timestamp:
-     |      Union[pd.Timestamp, str, datetime.datetime, int, float]
-     |  
-     |  The formal parameter will be assigned a pd.Timestamp.
+(NB The type annotation is wrapped in `typing.Annotated` and the `valimp.Coerce` instance is passed to the annotated metadata.)
+
+## Ad-hoc validation
+
+An instance of `valimp.Parser` in the type annotation indicates that the input will be subsequently parsed before reaching the decorated function. This parsing may undertake further validation or dynamically assign a default value. For example, the following 'session' parameter will be coerced to a `pd.Timestamp` which in turn will be verified as representing a date (as opposed to a time) by the `parsing.verify_datetimestamp` function.
+
+```python
+session: Annotated[
+    Union[pd.Timestamp, str, datetime.datetime, int, float, None],
+    Coerce(pd.Timestamp),
+    Parser(parsing.verify_datetimestamp, parse_none=False),
+] = None,
+```
+
+In this case if the input does not represent a date then `parsing.verify_datetimestamp` will raise an appropriate error (the parsing functions' documentation offer advices as to what's required for an input to be considered valid).
+
+(NB The `parse_none` argument indicates to the `parse` decorator that a `None` value should not be parsed.)
+
+(NB The type annotation is wrapped in `typing.Annotated` and the `valimp.Parser` instance is passed to the annotated metadata.)

@@ -12,14 +12,16 @@ from collections.abc import Callable
 import contextlib
 import copy
 import dataclasses
+import datetime
 import functools
 import warnings
-from typing import Any, Literal, Optional, Union, TYPE_CHECKING, Tuple
+from typing import Any, Literal, Optional, Union, TYPE_CHECKING, Annotated
 
 import exchange_calendars as xcals
 import numpy as np
 import pandas as pd
 import pytz
+from valimp import parse, Parser, Coerce
 
 from market_prices import data
 from market_prices import daterange as dr
@@ -29,10 +31,6 @@ from market_prices.intervals import BI, TDInterval
 from market_prices.utils import calendar_utils as calutils
 from market_prices.utils import pandas_utils as pdutils
 
-import pydantic
-
-if int(next(c for c in pydantic.__version__ if c.isdigit())) > 1:
-    from pydantic import v1 as pydantic
 
 # pylint: disable=too-many-lines
 
@@ -593,8 +591,7 @@ class PricesBase(metaclass=abc.ABCMeta):
 
         ll = None if self.bi_daily is None else self.base_limits[self.bi_daily]
         if isinstance(ll, pd.Timedelta):
-            # typing - recognises as datetime rather than timestamp
-            ll = helpers.now(intervals.BI_ONE_DAY) - ll  # type: ignore[assignment]
+            ll = helpers.now(intervals.BI_ONE_DAY) - ll
         # margin to ensure calendar's first session is not later than limit.
         kwargs = {"start": ll - pd.Timedelta(14, "D")} if ll is not None else {}
         for k, v in d.items():
@@ -618,8 +615,7 @@ class PricesBase(metaclass=abc.ABCMeta):
             # complexity. Cleaner to restrict the calendars here.
             intraday_ll = self.base_limits[self.bis_intraday[-1]]
             if isinstance(intraday_ll, pd.Timedelta):
-                # typing - recognises as datetime rather than timestamp
-                intraday_ll = helpers.now() - intraday_ll  # type: ignore[assignment]
+                intraday_ll = helpers.now() - intraday_ll
             if cal.first_minute > intraday_ll:
                 assert isinstance(intraday_ll, pd.Timestamp)
                 raise errors.CalendarTooShortError(cal, intraday_ll)
@@ -966,7 +962,7 @@ class PricesBase(metaclass=abc.ABCMeta):
         elif self.bi_daily is not None:
             session = self.limits_sessions[self.bi_daily][0]
         else:
-            session = min(  # type: ignore[type-var]  # ll cannot be None
+            session = min(
                 [
                     ll
                     for bi, (ll, rl) in self.limits_sessions.items()
@@ -1803,7 +1799,7 @@ class PricesBase(metaclass=abc.ABCMeta):
         # NOTE: If develop data.Data to not have a hard right limit then will be able
         # to simply pass through drg.daterange[0] to ._get_bi_table.
         bi_now = helpers.now(bi) - self.gpp.delay + bi  # + bi to include live interval
-        end = min(end, bi_now)  # type: ignore[assignment]  # datetime Timestamp issue
+        end = min(end, bi_now)
         table = self._get_bi_table(bi, (start, end))
         return table, bi
 
@@ -1833,9 +1829,7 @@ class PricesBase(metaclass=abc.ABCMeta):
         df = df.groupby(target_indices).agg(agg_f)
         df.index = pd.IntervalIndex(df.index)  # convert from CategoricalIndex
         df = helpers.volume_to_na(df)
-        df.index = pdutils.interval_index_new_tz(
-            df.index, pytz.UTC  # type: ignore[arg-type]  # expects mptype
-        )
+        df.index = pdutils.interval_index_new_tz(df.index, pytz.UTC)
         if df.pt.interval is None:
             # Overlapping indices of a calendar-specific trading trading were curtailed.
             warnings.warn(errors.IntervalIrregularWarning())
@@ -2031,9 +2025,7 @@ class PricesBase(metaclass=abc.ABCMeta):
             else:  # downsample for monthly
                 pdfreq = ds_interval.as_pdfreq
                 df = helpers.resample(df_bi, pdfreq, origin="start")
-                df.index = pdutils.get_interval_index(
-                    df.index, pdfreq  # type: ignore[arg-type]  # expects mptype
-                )
+                df.index = pdutils.get_interval_index(df.index, pdfreq)
                 if df.pt.first_ts < self.limits[intervals.BI_ONE_DAY][0]:
                     # This can happen if getting all data. As the Getter's .daterange
                     # can return start as None (at least as at April 22). Ideal would
@@ -2082,8 +2074,7 @@ class PricesBase(metaclass=abc.ABCMeta):
         table_daily = self._get_table_daily(force_ds_daily=True)
         # up to and exclusive of split_s
         table_daily = table_daily[: split_s - helpers.ONE_DAY]
-        # typing note - expression returns what it is, i.e. a DataFrame, not a Series.
-        table_daily = table_daily.tz_localize(pytz.UTC)  # type: ignore[assignment]
+        table_daily = table_daily.tz_localize(pytz.UTC)
         table_daily.index = pd.IntervalIndex.from_arrays(
             table_daily.index, table_daily.index, "left"
         )
@@ -2482,12 +2473,21 @@ class PricesBase(metaclass=abc.ABCMeta):
             """Query if params represent request for all available data."""
             return self.pp_raw["start"] is None and not self.duration
 
-    @pydantic.validate_arguments
+    @parse
     def get(
         self,
-        interval: Optional[intervals.RowInterval] = None,
-        start: Optional[mptypes.Timestamp] = None,
-        end: Optional[mptypes.Timestamp] = None,
+        interval: Annotated[
+            Union[str, pd.Timedelta, datetime.timedelta, None],
+            Parser(intervals.parse_interval, parse_none=False),
+        ] = None,
+        start: Annotated[
+            Union[pd.Timestamp, str, datetime.datetime, int, float, None],
+            Coerce(pd.Timestamp),
+        ] = None,
+        end: Annotated[
+            Union[pd.Timestamp, str, datetime.datetime, int, float, None],
+            Coerce(pd.Timestamp),
+        ] = None,
         minutes: int = 0,
         hours: int = 0,
         days: int = 0,
@@ -2495,15 +2495,21 @@ class PricesBase(metaclass=abc.ABCMeta):
         months: int = 0,
         years: int = 0,
         add_a_row: bool = False,
-        lead_symbol: Optional[mptypes.LeadSymbol] = None,
-        tzin: Optional[mptypes.PricesTimezone] = None,
+        lead_symbol: Annotated[Optional[str], Parser(parsing.lead_symbol)] = None,
+        tzin: Annotated[
+            Optional[Union[str, pytz.BaseTzInfo]],
+            Parser(parsing.to_prices_timezone, parse_none=False),
+        ] = None,
         anchor: Literal["workback", "open"] = "open",
         openend: Literal["maintain", "shorten"] = "maintain",
         priority: Literal["period", "end"] = "end",
         strict: bool = True,
         composite: bool = False,
         force: bool = False,
-        tzout: Optional[mptypes.PricesTimezone] = None,
+        tzout: Annotated[
+            Optional[Union[str, pytz.BaseTzInfo]],
+            Parser(parsing.to_prices_timezone, parse_none=False),
+        ] = None,
         fill: Optional[Literal["ffill", "bfill", "both"]] = None,
         include: Optional[mptypes.Symbols] = None,
         exclude: Optional[mptypes.Symbols] = None,
@@ -2585,7 +2591,9 @@ class PricesBase(metaclass=abc.ABCMeta):
         - Period Parameters -
         These parameters define the period over which to get prices.
 
-        start : Union[pd.Timestamp, str, datetime.datetime, int, float],
+        start : Union[
+            pd.Timestamp, str, datetime.datetime, int, float, None
+        ],
         default: earliest available datetime (only if `start` required)
             The first date or minute of the period for which to get
             prices.
@@ -2605,7 +2613,9 @@ class PricesBase(metaclass=abc.ABCMeta):
                     timestamp's timezone, if passed as a tz-aware
                     pd.Timestamp, or otherwise as `tzin`.
 
-        end : Union[pd.Timestamp, str, datetime.datetime, int, float],
+        end : Union[
+            pd.Timestamp, str, datetime.datetime, int, float, None
+        ],
         default: most recent available datetime (only if `end` required)
             The last date or minute of the period for which to get
             prices.
@@ -2650,10 +2660,10 @@ class PricesBase(metaclass=abc.ABCMeta):
             Period duration in calendar years. Can be combined with
             `weeks` and `months`.
 
-        tzin : Optional[Union[str, BaseTzinfo],
+        tzin : str | BaseTzinfo | None,
         default: timezone of any `lead_symbol`, otherwise `self.default_tz`
             Timezone of any input to `start` and `end` that represents a
-            minte (as opposed to a session).
+            minute (as opposed to a session).
 
             Can be passed as a timezone defined as a `str` that's valid
             input to `pytz.timezone`, for example 'utc' or 'US/Eastern`,
@@ -2677,7 +2687,8 @@ class PricesBase(metaclass=abc.ABCMeta):
 
         - Parameters related to index -
 
-        interval : str | timedelta | pd.Timedelta, default: inferred
+        interval : str | timedelta | pd.Timedelta | None,
+        default: None (interval inferred)
             Time interval to be represented by each price row.
 
             Pass as either:
@@ -2744,7 +2755,7 @@ class PricesBase(metaclass=abc.ABCMeta):
             See intervals.ipynb tutorial for further explanation and
             examples.
 
-        lead_symbol : Optional[str],
+        lead_symbol : str | None,
         default: symbol associated with most common calendar
             A symbol associated with the calendar that should be used to
             evaluate the period over which prices are returned.
@@ -2964,7 +2975,7 @@ class PricesBase(metaclass=abc.ABCMeta):
 
          - Post-processing options (formatting and tidying) -
 
-        tzout : Optional[Union[str, BaseTzinfo],
+        tzout : Union[str, BaseTzinfo, None],
         default: as `tzin` if `interval` intraday, otherwise None
             Timezone to set index to.
 
@@ -3270,6 +3281,13 @@ class PricesBase(metaclass=abc.ABCMeta):
         # pylint: disable=too-many-branches, too-many-statements, missing-param-doc
         # pylint: disable=differing-type-doc
 
+        if TYPE_CHECKING:
+            assert start is None or isinstance(start, pd.Timestamp)
+            assert end is None or isinstance(start, pd.Timestamp)
+            assert isinstance(lead_symbol, str)
+            assert tzin is None or isinstance(tzin, pytz.BaseTzInfo)
+            assert tzout is None or isinstance(tzout, pytz.BaseTzInfo)
+
         anchor_ = Anchor.WORKBACK if anchor.lower() == "workback" else Anchor.OPEN
         openend_ = OpenEnd.SHORTEN if openend.lower() == "shorten" else OpenEnd.MAINTAIN
         priority_ = Priority.PERIOD if priority.lower() == "period" else Priority.END
@@ -3289,27 +3307,14 @@ class PricesBase(metaclass=abc.ABCMeta):
                 )
                 raise ValueError(msg)
 
-        if lead_symbol is None:
-            lead_symbol_ = self.lead_symbol_default
-        else:
-            assert isinstance(lead_symbol, str)
-            lead_symbol_ = lead_symbol
-
         if tzin is None:
-            tzin_ = self.timezones[lead_symbol_]
-        else:
-            assert isinstance(tzin, pytz.BaseTzInfo)
-            tzin_ = tzin
+            tzin = self.timezones[lead_symbol]
 
-        if start is None:
-            start_ = None
-        else:
-            start_ = parsing.parse_timestamp(start, tzin_)  # type: ignore[arg-type]
+        if start is not None:
+            start = parsing.parse_timestamp(start, tzin)
 
-        if end is None:
-            end_ = None
-        else:
-            end_ = parsing.parse_timestamp(end, tzin_)  # type: ignore[arg-type]
+        if end is not None:
+            end = parsing.parse_timestamp(end, tzin)
 
         pp: mptypes.PP = {
             "minutes": minutes,
@@ -3318,13 +3323,13 @@ class PricesBase(metaclass=abc.ABCMeta):
             "weeks": weeks,
             "months": months,
             "years": years,
-            "start": start_,
-            "end": end_,
+            "start": start,
+            "end": end,
             "add_a_row": add_a_row,
         }
         parsing.verify_period_parameters(pp)
 
-        cal = self.calendars[lead_symbol_]
+        cal = self.calendars[lead_symbol]
 
         interval_: intervals.PTInterval | None
         if interval is None and not self._inferred_intraday_interval(cal, pp):
@@ -3337,7 +3342,7 @@ class PricesBase(metaclass=abc.ABCMeta):
             interval_ = interval
 
         self._gpp = self.GetPricesParams(
-            self, pp, interval_, lead_symbol_, anchor_, openend_, strict, priority_
+            self, pp, interval_, lead_symbol, anchor_, openend_, strict, priority_
         )
 
         table = None
@@ -3409,8 +3414,8 @@ class PricesBase(metaclass=abc.ABCMeta):
             table.index = self._force_partial_indices(table)
 
         if table.pt.is_intraday:
-            tzout_ = tzin_ if tzout is None else tzout
-        elif tzout is not pytz.UTC:  # type: ignore[comparison-overlap]
+            tzout_: pytz.BaseTzInfo | Literal[False] = tzin if tzout is None else tzout
+        elif tzout is not pytz.UTC:
             # if tzout tz aware or None
             tzout_ = False  # output as default tz
         else:
@@ -3437,10 +3442,9 @@ class PricesBase(metaclass=abc.ABCMeta):
             value:
                 Date range over which data now stored locally.
         """
-        for bi in self.bis:  # type: ignore[attr-defined]  # enum has __iter__ attr.
+        for bi in self.bis:
             try:
-                self.get(bi, start=self.limits[bi][0])  # type: ignore[arg-type]  # ...
-                # ... expecting mptypes used by pydantic.
+                self.get(bi, start=self.limits[bi][0])
             except errors.PricesIntradayUnavailableError:
                 limit = TDInterval.T10
                 if not self.has_single_calendar and bi > limit:
@@ -3449,17 +3453,21 @@ class PricesBase(metaclass=abc.ABCMeta):
                 raise
         return self._pdata_ranges
 
-    @pydantic.validate_arguments
+    @parse
     def session_prices(
         self,
-        session: Optional[mptypes.DateTimestamp] = None,
+        session: Annotated[
+            Union[pd.Timestamp, str, datetime.datetime, int, float, None],
+            Coerce(pd.Timestamp),
+            Parser(parsing.verify_datetimestamp, parse_none=False),
+        ] = None,
         stack: bool = False,
     ) -> pd.DataFrame:
         """Return prices for specific session.
 
         Parameters
         ----------
-        session: Optional[Union[pd.Timestamp, str, datetime.datetime, int, float]],
+        session: Union[pd.Timestamp, str, datetime.datetime, int, float, None],
         default: most recent available session
             Session to return prices for.
 
@@ -3504,24 +3512,22 @@ class PricesBase(metaclass=abc.ABCMeta):
         See `specific_query_methods.ipynb` tutorial for example usage.
         """
         # pylint: disable=missing-param-doc, differing-type-doc
+        if TYPE_CHECKING:
+            assert session is None or isinstance(session, pd.Timestamp)
         assert self.bi_daily is not None
-        T = pd.Timestamp  # pylint: disable=invalid-name
-        # next line and `session_` only required so mypy accepts change of type from
-        # pydantic mptype to Timestamp.
-        session_ = None if session is None else T(session)  # type: ignore[arg-type]
         mr_session = self.last_requestable_session_any
-        if session_ is None:
+        if session is None:
             table = self._get_bi_table(self.bi_daily, (mr_session, mr_session))
             return table.pt.stacked if stack else table
 
         first_session = self.earliest_requestable_session
-        parsing.verify_date_not_oob(session_, first_session, mr_session, "session")
+        parsing.verify_date_not_oob(session, first_session, mr_session, "session")
 
-        if not any(cal.is_session(session_) for cal in self.calendars_unique):
-            msg = f"{session_} is not a session of any associated calendar."
+        if not any(cal.is_session(session) for cal in self.calendars_unique):
+            msg = f"{session} is not a session of any associated calendar."
             raise ValueError(msg)
 
-        table = self._get_bi_table(self.bi_daily, (session_, session_))
+        table = self._get_bi_table(self.bi_daily, (session, session))
         return table.pt.stacked if stack else table
 
     def _date_to_session(
@@ -3535,13 +3541,20 @@ class PricesBase(metaclass=abc.ABCMeta):
         session = f([c.date_to_session(date, direction) for c in self.calendars_unique])
         return session
 
-    @pydantic.validate_arguments
-    def close_at(self, date: Optional[mptypes.DateTimestamp] = None) -> pd.DataFrame:
+    @parse
+    def close_at(
+        self,
+        date: Annotated[
+            Union[pd.Timestamp, str, datetime.datetime, int, float, None],
+            Coerce(pd.Timestamp),
+            Parser(parsing.verify_datetimestamp, parse_none=False),
+        ] = None,
+    ) -> pd.DataFrame:
         """Return most recent end-of-day prices as at a specific date.
 
         Parameters
         ----------
-        date : Union[pd.Timestamp, str, datetime.datetime, int, float]
+        date : pd.Timestamp, str | datetime.datetime | int | float | None
         default: most recent date
             Date for which to return most recent end-of-day prices.
 
@@ -3569,19 +3582,18 @@ class PricesBase(metaclass=abc.ABCMeta):
         See `specific_query_methods.ipynb` tutorial for example usage.
         """
         # pylint: disable=missing-param-doc, differing-type-doc
+        if TYPE_CHECKING:
+            assert date is None or isinstance(date, pd.Timestamp)
         assert self.bi_daily is not None
-        # next line and `date_` only required so mypy accepts change of type from
-        # pydantic mptype to Timestamp.
-        date_ = None if date is None else pd.Timestamp(date)  # type: ignore[arg-type]
         mr_session = self.last_requestable_session_any
-        if date_ is None:
-            date_ = mr_session
+        if date is None:
+            date = mr_session
         else:
             first_session = self.earliest_requestable_session
-            parsing.verify_date_not_oob(date_, first_session, mr_session)
+            parsing.verify_date_not_oob(date, first_session, mr_session)
 
-        end_sesh = self._date_to_session(date_, "latest", "previous")
-        start_sesh = self._date_to_session(date_, "earliest", "previous")
+        end_sesh = self._date_to_session(date, "latest", "previous")
+        start_sesh = self._date_to_session(date, "earliest", "previous")
         start_sesh = min([start_sesh, self.last_requestable_session_all])
         table = self._get_bi_table(self.bi_daily, (start_sesh, end_sesh))
         return table.pt.naive.pt.close_at(end_sesh)
@@ -3734,11 +3746,18 @@ class PricesBase(metaclass=abc.ABCMeta):
         df.columns.name = "symbol"
         return df
 
-    @pydantic.validate_arguments
+    @parse
     def price_at(
         self,
-        minute: Optional[mptypes.TimeTimestamp] = None,
-        tz: Optional[mptypes.PricesTimezone] = None,
+        minute: Annotated[
+            Union[pd.Timestamp, str, datetime.datetime, int, float, None],
+            Coerce(pd.Timestamp),
+            Parser(parsing.verify_timetimestamp, parse_none=False),
+        ] = None,
+        tz: Annotated[
+            Optional[Union[str, pytz.BaseTzInfo]],
+            Parser(parsing.to_prices_timezone, parse_none=False),
+        ] = None,
     ) -> pd.DataFrame:
         """Most recent price as at a minute or 'now'.
 
@@ -3759,7 +3778,7 @@ class PricesBase(metaclass=abc.ABCMeta):
         Parameters
         ----------
         minute :
-        Optional[Union[pd.Timestamp, str, datetime.datetime, int, float]],
+        pd.Timestamp | str | datetime.datetime | int | float | None,
         default: now
             Minute at which require price data.
 
@@ -3769,7 +3788,7 @@ class PricesBase(metaclass=abc.ABCMeta):
             request prices at a minute representing midnight pass as a
             timezone aware pd.Timestamp.
 
-        tz : Optional[Union[str, pytz.BaseTzInfo]], default: `default_tz`
+        tz : str | pytz.BaseTzInfo | None, default: `default_tz`
             Timezone of `minute` (if `minute` otherwise timezone naive) and
             for returned index. Can be passed as:
 
@@ -3797,45 +3816,45 @@ class PricesBase(metaclass=abc.ABCMeta):
         # pylint: disable=missing-param-doc, differing-type-doc, differing-param-doc
         # pylint: disable=too-complex, too-many-locals, too-many-branches
         # pylint: disable=too-many-statements
-        assert tz is None or isinstance(tz, pytz.BaseTzInfo)
-        tz_ = tz if tz is not None else self.tz_default
-        T = pd.Timestamp  # pylint: disable=invalid-name
-        # next line and `minute_` only required so mypy accepts change of type from
-        # pydantic mptype to Timestamp.
-        minute_ = None if minute is None else T(minute)  # type: ignore[arg-type]
+        if TYPE_CHECKING:
+            assert (minute is None) or isinstance(minute, pd.Timestamp)
+            assert tz is None or isinstance(tz, pytz.BaseTzInfo)
+
+        if tz is None:
+            tz = self.tz_default
         l_limit, r_limit = self.earliest_requestable_minute, helpers.now()
-        if minute_ is not None:
-            minute_ = parsing.parse_timestamp(minute_, tz_)
-            parsing.verify_time_not_oob(minute_, l_limit, r_limit)
+        if minute is not None:
+            minute = parsing.parse_timestamp(minute, tz)
+            parsing.verify_time_not_oob(minute, l_limit, r_limit)
 
         if (
-            minute_ is None
-            or minute_ < self.limit_intraday()
-            or minute_ > helpers.now() - self.min_delay  # no intraday data available
+            minute is None
+            or minute < self.limit_intraday()
+            or minute > helpers.now() - self.min_delay  # no intraday data available
         ):
-            return self._price_at_from_daily(minute_, tz_)
+            return self._price_at_from_daily(minute, tz)
 
         # get bis for which indices are not misaligned
-        start_sesh = self._minute_to_session(minute_, "earliest", "previous")
-        end_sesh = self._minute_to_session(minute_, "latest", "previous")
+        start_sesh = self._minute_to_session(minute, "earliest", "previous")
+        end_sesh = self._minute_to_session(minute, "latest", "previous")
         bis_synced = []
         for bi in self.bis_intraday:
             if self._indices_aligned[bi][slice(start_sesh, end_sesh)].all():
                 bis_synced.append(bi)
 
-        minute_received = minute_
+        minute_received = minute
         minute_advanced = False
-        if not self.cc.is_open_on_minute(minute_):
+        if not self.cc.is_open_on_minute(minute):
             # only useful if `minute_` is between a (sub)session close and right side of
             # an unaligned final indice (inclusive of close). Advancing non-trading
             # minute will include the unanligned indice and hence get price_at the
             # close rather than as at end of prior indice.
-            adv = self.cc.minute_to_trading_minute(minute_, "next") - helpers.ONE_MIN
+            adv = self.cc.minute_to_trading_minute(minute, "next") - helpers.ONE_MIN
             assert isinstance(adv, pd.Timestamp)
-            minute_ = adv
+            minute = adv
             minute_advanced = True
 
-        rngs = self._price_at_rng(bis_synced, minute_)
+        rngs = self._price_at_rng(bis_synced, minute)
         # of those, bis for which prices available
         bis = []
         for bi, rng in rngs.items():
@@ -3843,23 +3862,23 @@ class PricesBase(metaclass=abc.ABCMeta):
             if pdata.available_range(rng):
                 bis.append(bi)
         if not bis:
-            return self._price_at_from_daily(minute_, tz_)
+            return self._price_at_from_daily(minute, tz)
 
         # of those, those can represent minute most accurately
-        ma_tss = self._price_at_most_accurate(bis, minute_)
+        ma_tss = self._price_at_most_accurate(bis, minute)
         srs = pd.Series(ma_tss)
-        diff = minute_ - srs
+        diff = minute - srs
         ma_bis_srs = diff[diff == min(diff)]
         ma_bis = [intervals.to_ptinterval(td) for td in ma_bis_srs.index]
 
         # of those, those that have stored data
         bis_stored = []
-        for bi in ma_bis:  # type: ignore[assignment]  # assigning TDInterval, not BI
+        for bi in ma_bis:
             pdata = self._pdata[bi]
             if pdata.requested_range(rngs[bi]):
                 bis_stored.append(bi)
 
-        bi = bis_stored[-1] if bis_stored else ma_bis[-1]  # type: ignore[assignment]
+        bi = bis_stored[-1] if bis_stored else ma_bis[-1]
         table = self._get_bi_table(bi, rngs[bi])
 
         minute_ma = ma_tss[bi]
@@ -3888,29 +3907,41 @@ class PricesBase(metaclass=abc.ABCMeta):
                     # indice was right side of an indice that is unaligned
                     # with (sub)session close. Can roll back to last trading minute + 1
                     table_pa.index = pd.DatetimeIndex([rolled + helpers.ONE_MIN])
-        table_pa.index = table_pa.index.tz_convert(tz_)
+        table_pa.index = table_pa.index.tz_convert(tz)
         return table_pa
 
-    @pydantic.validate_arguments
+    @parse
     def price_range(
         self,
-        start: Optional[mptypes.Timestamp] = None,
-        end: Optional[mptypes.Timestamp] = None,
+        start: Annotated[
+            Union[pd.Timestamp, str, datetime.datetime, int, float, None],
+            Coerce(pd.Timestamp),
+        ] = None,
+        end: Annotated[
+            Union[pd.Timestamp, str, datetime.datetime, int, float, None],
+            Coerce(pd.Timestamp),
+        ] = None,
         minutes: int = 0,
         hours: int = 0,
         days: int = 0,
         weeks: int = 0,
         months: int = 0,
         years: int = 0,
-        lead_symbol: Optional[mptypes.LeadSymbol] = None,
-        tzin: Optional[mptypes.PricesTimezone] = None,
+        lead_symbol: Annotated[Optional[str], Parser(parsing.lead_symbol)] = None,
+        tzin: Annotated[
+            Optional[Union[str, pytz.BaseTzInfo]],
+            Parser(parsing.to_prices_timezone, parse_none=False),
+        ] = None,
         strict: bool = True,
-        tzout: Optional[mptypes.PricesTimezone] = None,
+        tzout: Annotated[
+            Optional[Union[str, pytz.BaseTzInfo]],
+            Parser(parsing.to_prices_timezone, parse_none=False),
+        ] = None,
         include: Optional[mptypes.Symbols] = None,
         exclude: Optional[mptypes.Symbols] = None,
         stack: bool = False,
         underlying: bool = False,
-    ) -> Union[pd.DataFrame, Tuple[pd.DataFrame, pd.DataFrame]]:
+    ) -> Union[pd.DataFrame, tuple[pd.DataFrame, pd.DataFrame]]:
         """Return OHLCV data for a period.
 
         Returns the following for each symbol:
@@ -3927,7 +3958,7 @@ class PricesBase(metaclass=abc.ABCMeta):
         ----------
         Method parameters as for `get`, except:
 
-        tzout : Optional[Union[str, BaseTzinfo], default: as `tzin`
+        tzout : str | BaseTzinfo | None, default: as `tzin`
             Timezone of period as expressed by the index (or level 0 of).
 
             Defined in same way as `tzout` parameter of `get`.
@@ -3952,7 +3983,7 @@ class PricesBase(metaclass=abc.ABCMeta):
 
         Returns
         -------
-        Union[pd.DataFrame, tuple[pd.DataFrame, pd.DataFrame]]
+        pd.DataFrame | tuple[pd.DataFrame, pd.DataFrame]
 
             If `stack` False and `underlying` False (default): pd.DataFrame
                 Single-row pd.DataFrame with 'open', 'high' 'low', 'close'
@@ -3985,7 +4016,7 @@ class PricesBase(metaclass=abc.ABCMeta):
                 columns: pd.Index
                     'open', 'close', 'high' 'low' 'volume'.
 
-            If underlying is True: tuple[pd.DataFrame, pd.DataFrame]]
+            If underlying is True: tuple[pd.DataFrame, pd.DataFrame]
                 [0] As above
 
                 [1] Underlying Dataframe from which range data evaluated.
@@ -3998,6 +4029,13 @@ class PricesBase(metaclass=abc.ABCMeta):
         See `specific_query_methods.ipynb` tutorial for example usage.
         """
         # pylint: disable=missing-param-doc, too-many-arguments, too-many-locals
+        if TYPE_CHECKING:
+            assert start is None or isinstance(start, pd.Timestamp)
+            assert end is None or isinstance(start, pd.Timestamp)
+            assert isinstance(lead_symbol, str)
+            assert tzin is None or isinstance(tzin, pytz.BaseTzInfo)
+            assert tzout is None or isinstance(tzout, pytz.BaseTzInfo)
+
         interval = None
         add_a_row = False
         force = False
@@ -4017,9 +4055,9 @@ class PricesBase(metaclass=abc.ABCMeta):
             add_a_row,
             lead_symbol,
             tzin,
-            anchor,  # type: ignore[arg-type]
-            openend,  # type: ignore[arg-type]
-            priority,  # type: ignore[arg-type]
+            anchor,
+            openend,
+            priority,
             strict,
             composite,
             force,
@@ -4037,16 +4075,11 @@ class PricesBase(metaclass=abc.ABCMeta):
         groups = df.groupby(by=group)
         res = groups.agg(helpers.agg_funcs(df))
 
-        # set tzout_
-        tzout_: pytz.BaseTzInfo
-        if tzout is not None:
-            assert isinstance(tzout, pytz.BaseTzInfo)
-            tzout_ = tzout
-        elif tzin is not None:
-            assert isinstance(tzin, pytz.BaseTzInfo)
-            tzout_ = tzin
-        else:
-            tzout_ = self.timezones[self.gpp.lead_symbol]
+        if tzout is None:
+            if tzin is not None:
+                tzout = tzin
+            else:
+                tzout = self.timezones[self.gpp.lead_symbol]
 
         # Define indice
         if df.pt.is_daily:
@@ -4058,7 +4091,7 @@ class PricesBase(metaclass=abc.ABCMeta):
                 first_session = helpers.to_tz_naive(left)
                 left = self.cc.session_open(first_session)
         right = min(right, helpers.now())
-        interval = pd.Interval(left.tz_convert(tzout_), right.tz_convert(tzout_))
+        interval = pd.Interval(left.tz_convert(tzout), right.tz_convert(tzout))
         res.index = pd.IntervalIndex([interval])
 
         if stack:

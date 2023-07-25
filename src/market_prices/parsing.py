@@ -1,16 +1,18 @@
 """Functions to parse public input.
 
-Supplements parsing functionality employed via pydantic.
-
 Covers:
-    Verification.
-    Conversion.
-    Assignment of default values.
+    Verification
+    Coercion
+    Dynamic assignment of default values
+
+Functions to parse/validate via a `valimp.Parser` are defined under a
+dedicated sections.
 """
 
 from __future__ import annotations
 
 import typing
+from typing import Any
 
 import exchange_calendars as xcals
 import pandas as pd
@@ -73,7 +75,7 @@ def parse_timestamp(ts: pd.Timestamp, tzin: pytz.BaseTzInfo) -> pd.Timestamp:
     if helpers.is_date(ts):
         return ts
     if ts.tz is None:
-        ts = ts.tz_localize(tzin)  # type: ignore[unreachable]  # 'tis reachable
+        ts = ts.tz_localize(tzin)
     return ts.tz_convert(pytz.UTC)
 
 
@@ -477,3 +479,118 @@ def verify_time_not_oob(
         raise errors.DatetimeTooEarlyError(time, l_limit, "time")
     if time > r_limit:
         raise errors.DatetimeTooLateError(time, r_limit, "time")
+
+
+# ---------- parse/vaidation functions and Parsers for valimp -------------
+
+# sig_template
+# def verify_*(
+#         name: str,
+#         obj: Any,
+#         params: dict[str, Any],
+# ):
+
+
+def verify_interval_datetime_index(
+    name: str, obj: pd.DatetimeIndex | pd.IntervalIndex, _
+) -> pd.DatetimeIndex | pd.IntervalIndex:
+    """Verify pd.IntervalIndex has both sides as pd.DatetimeIndex."""
+    if isinstance(obj, pd.IntervalIndex) and not isinstance(obj.left, pd.DatetimeIndex):
+        raise ValueError(
+            f"'{name}' can only take a pd.IntervalIndex that has each side"
+            " as type pd.DatetimeIndex, although received with left side"
+            f" as type '{type(obj.left)}'."
+        )
+    return obj
+
+
+def lead_symbol(name, obj: str | None, params: dict[str, Any]) -> str:
+    """Parse `lead_symbol` parameter of `PricesBase.get`."""
+    if obj is None:
+        obj = params["self"].lead_symbol_default
+    params["self"]._verify_lead_symbol(obj)  # pylint: disable=protected-access
+    return obj
+
+
+def verify_datetimestamp(name: str, obj: pd.Timestamp, _) -> pd.Timestamp:
+    """Validate a pd.Timestamp as a date.
+
+    Considered a valid date (rather than a time), if:
+        - no time component or time component defined as 00:00.
+        - tz-naive.
+    """
+    if obj.tz is not None:
+        msg = f"`{name}` must be tz-naive, although receieved as {obj}."
+        raise ValueError(msg)
+
+    if obj != obj.normalize():
+        msg = (
+            f"`{name}` can not have a time component, although receieved"
+            f" as {obj}. For an intraday price use .price_at()."
+        )
+        raise ValueError(msg)
+    return obj
+
+
+def verify_timetimestamp(name: str, obj: pd.Timestamp, _) -> pd.Timestamp:
+    """Validate a pd.Timestamp as representing a time.
+
+    Considered a valid time (rather than a date) if:
+        - time component defined as anything other than 00:00.
+        - time component defined as 00:00 and tz-aware.
+    """
+    if obj == obj.normalize() and obj.tz is None:
+        msg = (
+            f"`{name}` must have a time component or be tz-aware, although"
+            f" receieved as {obj}. To define {name} as midnight pass as a"
+            f" tz-aware pd.Timestamp. For prices as at a session's close use"
+            f" .close_at()."
+        )
+        raise ValueError(msg)
+    return obj
+
+
+def to_timezone(name: str, obj: pytz.BaseTzInfo | str, _) -> pytz.BaseTzInfo:
+    """Parse input to a timezone.
+
+    A parameter parsed with this function can take either of:
+        - an instance returned by pytz.timezone (i.e. instance of subclass
+            of pytz.BaseTzInfo)
+        - `str` that can be passed to pytz.timezone (for example 'utc' or
+            'US/Eastern`)
+    """
+    if isinstance(obj, pytz.BaseTzInfo):
+        return obj
+    return pytz.timezone(obj)
+
+
+def to_prices_timezone(
+    name: str, obj: str | pytz.BaseTzInfo, params: dict[str, Any]
+) -> pytz.BaseTzInfo:
+    """Parse a tz input to a timezone.
+
+    Only for parsing `tz`, `tzin` or `tzout` parameters of public
+    methods of PricesBase (or subclass of).
+
+    Parameters
+    ----------
+    obj : pytz.BaseTzInfo | str
+
+        pytz.BaseTzInfo, any instance returned by pytz.timezone.
+
+        str, as either:
+            - valid input to `pytz.timezone`, for example 'utc' or
+                'US/Eastern`, to parse to pytz.timezone(<value>)
+            - any symbol of `PricesBase.symbols` to parse to the timezone
+                associated with that symbol.
+
+    Returns
+    -------
+    timezone : pytz.BaseTzInfo
+        Instance of a subclass of `pytz.BaseTzInfo`.
+    """
+    if isinstance(obj, pytz.BaseTzInfo):
+        return obj
+    if obj in params["self"].symbols:
+        return params["self"].timezones[obj]
+    return pytz.timezone(obj)
