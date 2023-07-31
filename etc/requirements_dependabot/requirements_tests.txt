@@ -55,7 +55,7 @@ mypy-extensions==1.0.0
     # via black
 numexpr==2.8.4
     # via tables
-numpy==1.24.4
+numpy==1.25.2
     # via
     #   exchange-calendars
     #   market-prices (pyproject.toml)
