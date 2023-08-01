@@ -10,7 +10,7 @@ attrs==23.1.0
     # via hypothesis
 black==23.3.0
     # via market-prices (pyproject.toml)
-blosc2==2.0.0
+blosc2==2.2.6
     # via tables
 certifi==2023.5.7
     # via requests
