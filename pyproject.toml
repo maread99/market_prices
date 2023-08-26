@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "market-prices"
 description = "Meaningful OHLCV datasets"
 authors = [
-  {email = "marcusaread@gmail.com"},
+  {email = "marcusaread.prog@proton.me"},
   {name = "Marcus Read"}
 ]
 readme = "README.md"

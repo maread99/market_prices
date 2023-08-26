@@ -29,20 +29,18 @@ class PricesYahoo(base.PricesBase):
 
     Parameters
     ----------
-    symbols: Union[str, List[str]]
+    symbols: str | list[str]
         Symbols for which require price data. For example:
             'AMZN'
             'FB AAPL AMZN NFLX GOOG MSFT'
             ['FB', 'AAPL', 'AMZN']
 
-    calendars :
-    Optional[
-        Union[
-            mptypes.Calendar,
-            list[mptypes.Calendar],
-            dict[str, mptypes.Calendar],
-        ]
-    ], default: evaluated
+    calendars : 
+        mptypes.Calendar | 
+        list[myptypes.Calendar] | 
+        dict[str, mytypes.Calendar] | 
+        None
+    , default: evaluated
         Calendar(s) defining trading times and timezones for `symbols`.
 
         By default a calendar for each symbol is ascertained by

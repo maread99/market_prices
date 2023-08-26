@@ -928,13 +928,13 @@ class _PT(metaclass=abc.ABCMeta):
                     filling any initial missing values that would not
                     otherwise be filled with "ffill" alone.
 
-        include : List[str] | str | None, default: include all symbols
+        include : list[str] | str | None, default: include all symbols
             Symbols to include. All other symbols will be excluded. If
                 passed, do not pass `exclude`.
 
             Ignored if table does not have symbols.
 
-        exclude : List[str] | str | None, default: exclude no symbols
+        exclude : list[str] | str | None, default: exclude no symbols
             Symbols to exclude. All other symbols will be included. If
                 passed, do not pass `include`.
 
@@ -1142,7 +1142,7 @@ class PTDaily(_PT):
         """Query if table index compatible with an index of daily frequency."""
         return True
 
-    @functools.lru_cache
+    @functools.cache
     def indices_trading_status(self, calendar: xcals.ExchangeCalendar) -> pd.Series:
         """Query indices trading/non-trading status.
 
@@ -1187,7 +1187,7 @@ class PTDaily(_PT):
 
         Parameters
         ----------
-        session : Union[pd.Timestamp, str, datetime.datetime, int, float]
+        session : pd.Timestamp | str | datetime.datetime | int | float
             Session for which require prices. Must not include time
             component. If passsed as a pd.Timestamp must be tz-naive.
 
@@ -1227,7 +1227,7 @@ class PTDaily(_PT):
 
         Parameters
         ----------
-        date : Union[pd.Timestamp, str, datetime.datetime, int, float]
+        date : pd.Timestamp | str | datetime.datetime | int | float
             Date for which require end-of-day prices. Must not include time
             component. If passsed as a pd.Timestamp must be tz-naive.
 
@@ -1761,7 +1761,7 @@ class PTIntraday(_PTIntervalIndex):
         else:
             return False
 
-    @functools.lru_cache
+    @functools.cache
     @parse
     def indices_trading_status(self, calendar: xcals.ExchangeCalendar) -> pd.Series:
         """Query indices trading/non-trading status.
@@ -2405,7 +2405,7 @@ class PTMultipleSessions(_PTIntervalIndexNotIntraday):
         else:
             return np.NaN
 
-    @functools.lru_cache
+    @functools.cache
     @parse
     def indices_trading_status(self, calendar: xcals.ExchangeCalendar) -> pd.Series:
         """Query indices trading/non-trading status.

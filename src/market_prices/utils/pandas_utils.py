@@ -5,7 +5,7 @@ from __future__ import annotations
 import warnings
 from collections import abc
 from contextlib import contextmanager
-from typing import Any, List, Literal, Union, Annotated
+from typing import Any, Literal, Union, Annotated
 
 import numpy as np
 import pandas as pd
@@ -365,7 +365,7 @@ def interval_contains(interval: pd.Interval, intervals: pd.IntervalIndex) -> np.
 @parse
 def remove_intervals_from_interval(
     interval: pd.Interval, intervals: pd.IntervalIndex
-) -> List[pd.Interval]:
+) -> list[pd.Interval]:
     """Difference between an interval and some intervals.
 
     Parameters
@@ -379,7 +379,7 @@ def remove_intervals_from_interval(
 
     Returns
     -------
-    List[pd.Interval]
+    list[pd.Interval]
         List of intervals that remain after subtracting 'intervals' from
         'interval'.
 
@@ -553,7 +553,7 @@ def index_is_normalized(
 
 
 @parse
-def indexes_union(indexes: List[pd.Index]) -> pd.Index:
+def indexes_union(indexes: list[pd.Index]) -> pd.Index:
     """Union multiple pd.Index objects.
 
     Parameters
@@ -580,7 +580,7 @@ def indexes_union(indexes: List[pd.Index]) -> pd.Index:
 
 
 @parse
-def index_union(indexes: List[Union[pd.Index, pd.Series, pd.DataFrame]]) -> pd.Index:
+def index_union(indexes: list[Union[pd.Index, pd.Series, pd.DataFrame]]) -> pd.Index:
     """Union indexes of multiple indexes, Series and/or DataFrame.
 
     Parameters

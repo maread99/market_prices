@@ -17,7 +17,7 @@ from __future__ import annotations
 from collections import abc
 import datetime
 import itertools
-from typing import Tuple, Dict, Literal
+from typing import Literal
 import re
 
 import attr
@@ -191,7 +191,7 @@ def mock_now(monkeypatch, now: pd.Timestamp):
 
 # --- PricesBaseTst fixtures ---
 
-ResourcePBT = Tuple[Dict[str, pd.DataFrame], pd.Timestamp]
+ResourcePBT = tuple[dict[str, pd.DataFrame], pd.Timestamp]
 # [0] keys as names of base intervals, values as corresponding prices tables.
 # [1] timestamp when price tables created.
 
