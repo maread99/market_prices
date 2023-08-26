@@ -162,8 +162,8 @@ class PricesBase(metaclass=abc.ABCMeta):
         - Abstract Methods -
 
         _request_data(self, interval: BaseInterval,
-                      start: Optional[pd.Timestamp],
-                      end: Optional[pd.Timestamp]) -> pd.DataFrame:
+                      start: pd.Timestamp | None,
+                      end: pd.Timestamp | None) -> pd.DataFrame:
             Request data from source with `interval` from `start` to
             `end`.
 
@@ -313,7 +313,7 @@ class PricesBase(metaclass=abc.ABCMeta):
             .has_single_calendar -> bool
                 Query if all symbols share the same calendar.
 
-            ._indices_aligned -> Dict[BaseInterval, pd.Series]:
+            ._indices_aligned -> dict[BaseInterval, pd.Series]:
                 Query if indices are aligned. Return by base interval
                 and session.
 
@@ -461,7 +461,7 @@ class PricesBase(metaclass=abc.ABCMeta):
         param: str
             Parameter name.
 
-        value: Union[Any, list, dict]:
+        value: Any | list | dict:
             Any:
                 scalar to apply to every symbol
 
@@ -479,7 +479,7 @@ class PricesBase(metaclass=abc.ABCMeta):
             Each item represents a symbol, all symbols represented.
                 key: str
                     symbol.
-                value: Optional[Any]
+                value: Any | None
                     value corresponding with symbol.
         """
         if not isinstance(value, (list, dict)):
@@ -2591,9 +2591,7 @@ class PricesBase(metaclass=abc.ABCMeta):
         - Period Parameters -
         These parameters define the period over which to get prices.
 
-        start : Union[
-            pd.Timestamp, str, datetime.datetime, int, float, None
-        ],
+        start : pd.Timestamp | str | datetime.datetime | int | float | None
         default: earliest available datetime (only if `start` required)
             The first date or minute of the period for which to get
             prices.
@@ -2613,9 +2611,7 @@ class PricesBase(metaclass=abc.ABCMeta):
                     timestamp's timezone, if passed as a tz-aware
                     pd.Timestamp, or otherwise as `tzin`.
 
-        end : Union[
-            pd.Timestamp, str, datetime.datetime, int, float, None
-        ],
+        end : pd.Timestamp | str | datetime.datetime | int | float | None
         default: most recent available datetime (only if `end` required)
             The last date or minute of the period for which to get
             prices.
@@ -2975,7 +2971,7 @@ class PricesBase(metaclass=abc.ABCMeta):
 
          - Post-processing options (formatting and tidying) -
 
-        tzout : Union[str, BaseTzinfo, None],
+        tzout : str | BaseTzinfo | None,
         default: as `tzin` if `interval` intraday, otherwise None
             Timezone to set index to.
 
@@ -3001,7 +2997,7 @@ class PricesBase(metaclass=abc.ABCMeta):
             table reflect session prices, not prices between successive
             midnight UTC.
 
-        fill : Optional[Literal["ffill", "bfill", "both"]], default: None
+        fill : Literal["ffill", "bfill", "both"] | None, default: None
             Fill missing values where a symbol's calendar is not open
             during the interval covered by an indice.
 
@@ -3016,15 +3012,15 @@ class PricesBase(metaclass=abc.ABCMeta):
 
                 None: (default) do not fill.
 
-        include : Union[List[str], str], optional
+        include : list[str] | str | None
             Symbol or symbols to include. All other symbols will be
             excluded. If passed, do not pass `exclude`.
 
-        exclude : Union[List[str], str], optional
+        exclude : list[str] | str | None
             Symbol or symbols to include. All other symbols will be
             included. If passed, do not pass `include`.
 
-        side : Optional[Literal['left', 'right']], default: None
+        side : Literal['left', 'right'] | None, default: None
             Ignored if interval is (or inferred as) daily.
 
             Determines index:
@@ -3196,7 +3192,7 @@ class PricesBase(metaclass=abc.ABCMeta):
 
             Return prices as a pd.DataFrame with a .pt accessor:
 
-                index : Union[pd.IntervalIndex, pd.DatetimeIndex]
+                index : pd.IntervalIndex | pd.DatetimeIndex
 
                     If `interval` passed or infered as intraday:
                         pd.IntervalIndex with each row covering prices for
@@ -3467,7 +3463,8 @@ class PricesBase(metaclass=abc.ABCMeta):
 
         Parameters
         ----------
-        session: Union[pd.Timestamp, str, datetime.datetime, int, float, None],
+        session:
+            pd.Timestamp | str | datetime.datetime | int | float | None
         default: most recent available session
             Session to return prices for.
 

@@ -5,7 +5,7 @@ from __future__ import annotations
 import functools
 import pathlib
 from collections import abc
-from typing import Literal, TYPE_CHECKING, Tuple
+from typing import Literal, TYPE_CHECKING
 import shelve
 
 import exchange_calendars as xcals
@@ -1339,7 +1339,7 @@ class Answers:
 
     # --- Evaluated sets of minutes ---
 
-    Minutes = Tuple[pd.Timestamp, pd.Timestamp, pd.Timestamp, pd.Timestamp]
+    Minutes = tuple[pd.Timestamp, pd.Timestamp, pd.Timestamp, pd.Timestamp]
 
     @functools.lru_cache(maxsize=4)
     def _evaluate_trading_and_break_minutes(
