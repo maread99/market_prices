@@ -1112,14 +1112,14 @@ class GetterIntraday(_Getter):
 
         For example, if `interval` were 1H, `ds_interval` were 2H and
         `daterange` were to return:
-            ((Timestamp('2022-03-08 14:30', tz='UTC'),
-              Timestamp('2022-03-10 22:30', tz='UTC')),
-            Timestamp('2022-03-10 21:00', tz='UTC'))
+            ((Timestamp('2022-03-08 14:30', tz=zoneinfo.ZoneInfo("UTC")),
+              Timestamp('2022-03-10 22:30', tz=zoneinfo.ZoneInfo("UTC"))),
+            Timestamp('2022-03-10 21:00', tz=zoneinfo.ZoneInfo("UTC"))
 
         ...then `daterange_tight` would return:
-            ((Timestamp('2022-03-08 14:30', tz='UTC'),
-              Timestamp('2022-03-10 21:30', tz='UTC')),
-            Timestamp('2022-03-10 21:00', tz='UTC'))
+            ((Timestamp('2022-03-08 14:30', tz=zoneinfo.ZoneInfo("UTC")),
+              Timestamp('2022-03-10 21:30', tz=zoneinfo.ZoneInfo("UTC"))),
+            Timestamp('2022-03-10 21:00', tz=zoneinfo.ZoneInfo("UTC"))
         """
         (start, end), end_accuracy = self.daterange
         if end - end_accuracy >= self.interval:

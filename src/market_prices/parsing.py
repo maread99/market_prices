@@ -13,12 +13,13 @@ from __future__ import annotations
 
 import typing
 from typing import Any
+from zoneinfo import ZoneInfo
 
 import exchange_calendars as xcals
 import pandas as pd
-import pytz
 
 from market_prices import errors, helpers, mptypes, intervals
+from market_prices.helpers import UTC
 
 
 def verify_period_parameters(pp: mptypes.PP):
@@ -61,7 +62,7 @@ def verify_period_parameters(pp: mptypes.PP):
             raise ValueError(msg)
 
 
-def parse_timestamp(ts: pd.Timestamp, tzin: pytz.BaseTzInfo) -> pd.Timestamp:
+def parse_timestamp(ts: pd.Timestamp, tzin: ZoneInfo) -> pd.Timestamp:
     """Parse timestamp to date or UTC time.
 
     Parameters
@@ -76,7 +77,7 @@ def parse_timestamp(ts: pd.Timestamp, tzin: pytz.BaseTzInfo) -> pd.Timestamp:
         return ts
     if ts.tz is None:
         ts = ts.tz_localize(tzin)
-    return ts.tz_convert(pytz.UTC)
+    return ts.tz_convert(UTC)
 
 
 def _parse_start(
@@ -491,19 +492,6 @@ def verify_time_not_oob(
 # ):
 
 
-def verify_interval_datetime_index(
-    name: str, obj: pd.DatetimeIndex | pd.IntervalIndex, _
-) -> pd.DatetimeIndex | pd.IntervalIndex:
-    """Verify pd.IntervalIndex has both sides as pd.DatetimeIndex."""
-    if isinstance(obj, pd.IntervalIndex) and not isinstance(obj.left, pd.DatetimeIndex):
-        raise ValueError(
-            f"'{name}' can only take a pd.IntervalIndex that has each side"
-            " as type pd.DatetimeIndex, although received with left side"
-            f" as type '{type(obj.left)}'."
-        )
-    return obj
-
-
 def lead_symbol(name, obj: str | None, params: dict[str, Any]) -> str:
     """Parse `lead_symbol` parameter of `PricesBase.get`."""
     if obj is None:
@@ -550,23 +538,22 @@ def verify_timetimestamp(name: str, obj: pd.Timestamp, _) -> pd.Timestamp:
     return obj
 
 
-def to_timezone(name: str, obj: pytz.BaseTzInfo | str, _) -> pytz.BaseTzInfo:
+def to_timezone(name: str, obj: ZoneInfo | str, _) -> ZoneInfo:
     """Parse input to a timezone.
 
     A parameter parsed with this function can take either of:
-        - an instance returned by pytz.timezone (i.e. instance of subclass
-            of pytz.BaseTzInfo)
-        - `str` that can be passed to pytz.timezone (for example 'utc' or
-            'US/Eastern`)
+        - an instance of `zoneinfo.ZoneInfo`.
+        - `str` that can be passed to `zoneinfo.ZoneInfo` (for example
+            'UTC' or 'US/Eastern`).
     """
-    if isinstance(obj, pytz.BaseTzInfo):
+    if isinstance(obj, ZoneInfo):
         return obj
-    return pytz.timezone(obj)
+    return ZoneInfo(obj)
 
 
 def to_prices_timezone(
-    name: str, obj: str | pytz.BaseTzInfo, params: dict[str, Any]
-) -> pytz.BaseTzInfo:
+    name: str, obj: str | ZoneInfo, params: dict[str, Any]
+) -> ZoneInfo:
     """Parse a tz input to a timezone.
 
     Only for parsing `tz`, `tzin` or `tzout` parameters of public
@@ -574,23 +561,22 @@ def to_prices_timezone(
 
     Parameters
     ----------
-    obj : pytz.BaseTzInfo | str
+    obj : ZoneInfo | str
 
-        pytz.BaseTzInfo, any instance returned by pytz.timezone.
+        ZoneInfo, any instance returned by `zoneinfo.ZoneInfo`
 
         str, as either:
-            - valid input to `pytz.timezone`, for example 'utc' or
-                'US/Eastern`, to parse to pytz.timezone(<value>)
+            - valid input to `zoneinfo.ZoneInfo`, for example 'UTC' or
+                'US/Eastern`
             - any symbol of `PricesBase.symbols` to parse to the timezone
                 associated with that symbol.
 
     Returns
     -------
-    timezone : pytz.BaseTzInfo
-        Instance of a subclass of `pytz.BaseTzInfo`.
+    timezone : zoneinfo.ZoneInfo
     """
-    if isinstance(obj, pytz.BaseTzInfo):
+    if isinstance(obj, ZoneInfo):
         return obj
     if obj in params["self"].symbols:
         return params["self"].timezones[obj]
-    return pytz.timezone(obj)
+    return ZoneInfo(obj)

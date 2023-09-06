@@ -15,10 +15,10 @@ import exchange_calendars as xcals
 from exchange_calendars.calendar_helpers import Date, Minute, Session, TradingMinute
 import numpy as np
 import pandas as pd
-import pytz
 from valimp import parse
 
 from market_prices import helpers, intervals, errors
+from market_prices.helpers import UTC
 from market_prices.utils import pandas_utils as pdutils
 
 
@@ -354,7 +354,7 @@ class CompositeCalendar:
 
         Excludes minutes when no underlying calendar is open.
         """
-        return pd.DatetimeIndex(self.minutes_nanos, tz=pytz.UTC)
+        return pd.DatetimeIndex(self.minutes_nanos, tz=UTC)
 
     @property
     def first_minutes(self) -> pd.Series:
@@ -1005,7 +1005,7 @@ class CompositeCalendar:
         if raise_overlapping and not index.is_non_overlapping_monotonic:
             raise errors.CompositeIndexConflict()
         if utc:
-            index = pdutils.interval_index_new_tz(index, pytz.UTC)
+            index = pdutils.interval_index_new_tz(index, UTC)
         return index
 
 
@@ -1198,8 +1198,8 @@ class _CompositeNonTradingIndex:
 
         index = self._index.sort_values()
         if utc:
-            left = index.left.tz_localize(pytz.UTC)
-            right = index.right.tz_localize(pytz.UTC)
+            left = index.left.tz_localize(UTC)
+            right = index.right.tz_localize(UTC)
             return pd.IntervalIndex.from_arrays(left, right, "left")
         else:
             return index

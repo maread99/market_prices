@@ -4,18 +4,23 @@ from __future__ import annotations
 
 import re
 import sys
-from typing import Literal
+from typing import Literal, TYPE_CHECKING
+import zoneinfo
 
 import pandas as pd
 import numpy as np
-import pytz
 
-from market_prices import intervals, mptypes
+from market_prices import mptypes
 from market_prices.utils import general_utils as genutils
 from market_prices.utils import pandas_utils as pdutils
 
+if TYPE_CHECKING:
+    from market_prices import intervals
+
 if "pytest" in sys.modules:
     import pytest  # noqa: F401  # pylint: disable=unused-import  # used within doctest
+
+UTC = zoneinfo.ZoneInfo("UTC")
 
 ONE_DAY: pd.Timedelta = pd.Timedelta(1, "D")
 ONE_MIN: pd.Timedelta = pd.Timedelta(1, "T")
@@ -97,9 +102,9 @@ def to_utc(ts: pd.Timestamp) -> pd.Timestamp:
         Timestamp to return a copy of with timezone set to UTC.
     """
     try:
-        return ts.tz_convert(pytz.UTC)
+        return ts.tz_convert(UTC)
     except TypeError:
-        return ts.tz_localize(pytz.UTC)
+        return ts.tz_localize(UTC)
 
 
 def to_tz_naive(ts: pd.Timestamp) -> pd.Timestamp:
@@ -113,8 +118,8 @@ def to_tz_naive(ts: pd.Timestamp) -> pd.Timestamp:
         Timestamp to return a timezone-naive copy of.
     """
     if ts.tz is None:
-        return ts  # type: ignore[unreachable]  # 'tis very reachable
-    return ts.tz_convert(pytz.UTC).tz_convert(None)
+        return ts
+    return ts.tz_convert(UTC).tz_convert(None)
 
 
 def now(
@@ -145,7 +150,7 @@ def now(
         UTC time.
     """
     # pylint: disable=missing-param-doc
-    now_ = pd.Timestamp.now(tz=pytz.UTC)
+    now_ = pd.Timestamp.now(tz=UTC)
     if interval is not None and not interval.is_intraday:
         now_ = now_.tz_convert(None)
         res = "D"
@@ -312,7 +317,7 @@ def volume_to_na(df: pd.DataFrame) -> pd.DataFrame:
     bv: pd.Series
     if has_symbols(df):
         for s in df.columns.remove_unused_levels().levels[0]:
-            bv = df[(s, "close")].isna()  # type: ignore[assignment]  # is a Series
+            bv = df[(s, "close")].isna()
             df.loc[bv, (s, "volume")] = np.nan
     else:
         bv = df["close"].isna()
@@ -322,7 +327,7 @@ def volume_to_na(df: pd.DataFrame) -> pd.DataFrame:
 
 def resample(
     resample_me: pd.DataFrame | pd.core.groupby.groupby.GroupBy,
-    rule: pd.offsets.BaseOffset,  # type: ignore[name-defined]  # is defined
+    rule: pd.offsets.BaseOffset,
     data: pd.DataFrame | None = None,
     origin: str = "start",
 ) -> pd.DataFrame:

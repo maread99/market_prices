@@ -6,13 +6,11 @@ import warnings
 from collections import abc
 from contextlib import contextmanager
 from typing import Any, Literal, Union, Annotated
+from zoneinfo import ZoneInfo
 
 import numpy as np
 import pandas as pd
-import pytz
 from valimp import parse, Parser
-
-from market_prices import parsing
 
 
 def pdfreq_to_offset(pdfreq: str) -> pd.offsets.BaseOffset:
@@ -458,10 +456,24 @@ def remove_intervals_from_interval(
     return diff
 
 
+# valimp Parser function
+def verify_interval_datetime_index(
+    name: str, obj: pd.DatetimeIndex | pd.IntervalIndex, _
+) -> pd.DatetimeIndex | pd.IntervalIndex:
+    """Verify pd.IntervalIndex has both sides as pd.DatetimeIndex."""
+    if isinstance(obj, pd.IntervalIndex) and not isinstance(obj.left, pd.DatetimeIndex):
+        raise ValueError(
+            f"'{name}' can only take a pd.IntervalIndex that has each side"
+            " as type pd.DatetimeIndex, although received with left side"
+            f" as type '{type(obj.left)}'."
+        )
+    return obj
+
+
 @parse
 def interval_index_new_tz(
-    index: Annotated[pd.IntervalIndex, Parser(parsing.verify_interval_datetime_index)],
-    tz: Union[pytz.tzinfo.BaseTzInfo, str, None],
+    index: Annotated[pd.IntervalIndex, Parser(verify_interval_datetime_index)],
+    tz: Union[ZoneInfo, str, None],
 ) -> pd.IntervalIndex:
     """Return pd.IntervalIndex with different timezone.
 
@@ -488,15 +500,16 @@ def interval_index_new_tz(
 
     Examples
     --------
+    >>> tz = ZoneInfo("US/Central")
     >>> left = pd.date_range(
-    ...     '2021-05-01 12:00', periods=5, freq='1H', tz='US/Central'
+    ...     '2021-05-01 12:00', periods=5, freq='1H', tz=tz
     ... )
     >>> right = left + pd.Timedelta(30, 'T')
     >>> index = pd.IntervalIndex.from_arrays(left, right)
     >>> index.right.tz
-    <DstTzInfo 'US/Central' LMT-1 day, 18:09:00 STD>
-    >>> new_index = interval_index_new_tz(index, tz=pytz.UTC)
-    >>> new_index.left.tz.zone == new_index.right.tz.zone == "UTC"
+    zoneinfo.ZoneInfo(key='US/Central')
+    >>> new_index = interval_index_new_tz(index, tz=ZoneInfo("UTC"))
+    >>> new_index.left.tz.key == new_index.right.tz.key == "UTC"
     True
     """
     indices = []
@@ -512,7 +525,7 @@ def interval_index_new_tz(
 def index_is_normalized(
     index: Annotated[
         Union[pd.DatetimeIndex, pd.IntervalIndex],
-        Parser(parsing.verify_interval_datetime_index),
+        Parser(verify_interval_datetime_index),
     ]
 ) -> bool:
     """Query if an index is normalized.

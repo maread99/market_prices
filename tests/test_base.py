@@ -20,11 +20,11 @@ import exchange_calendars as xcals
 import numpy as np
 import pandas as pd
 from pandas.testing import assert_frame_equal, assert_index_equal, assert_series_equal
-import pytz
 import pytest
 
 import market_prices.prices.base as m
 from market_prices import helpers, intervals, errors, daterange, mptypes
+from market_prices.helpers import UTC
 from market_prices.prices.yahoo import PricesYahoo
 from market_prices.utils import calendar_utils as calutils
 
@@ -86,13 +86,13 @@ def test_create_composite(t1_us_lon, t5_us_lon, one_day):
     f = m.create_composite
 
     first_df = t5_us_lon
-    start = pd.Timestamp("2022-02-03 14:00", tz=pytz.UTC)
-    stop = pd.Timestamp("2022-02-09 15:32", tz=pytz.UTC)
+    start = pd.Timestamp("2022-02-03 14:00", tz=UTC)
+    stop = pd.Timestamp("2022-02-09 15:32", tz=UTC)
     second_df = t1_us_lon[start:stop]
 
     start_indice = first_df.index[33]
     end_indice = second_df.index[-6]
-    assert end_indice.right == pd.Timestamp("2022-02-09 15:28", tz=pytz.UTC)
+    assert end_indice.right == pd.Timestamp("2022-02-09 15:28", tz=UTC)
     first = (first_df, start_indice)
     second = (second_df, end_indice)
 
@@ -776,7 +776,7 @@ class TestPricesBaseSetup:
 
         limits = [
             pd.Timestamp("2000-01-01 15:00"),
-            pd.Timestamp("2000-01-01", tz=pytz.UTC),
+            pd.Timestamp("2000-01-01", tz=UTC),
         ]
         for limit in limits:
             with pytest.raises(ValueError, match=match_daily_limit(limit)):
@@ -998,7 +998,7 @@ class TestPricesBaseSetup:
             return pd.Timestamp("2022-02-14 21:21:05", tz=tz)
 
         monkeypatch.setattr("pandas.Timestamp.now", mock_now)
-        now = mock_now(tz=pytz.UTC)
+        now = mock_now(tz=UTC)
         today = now.floor("D").tz_convert(None)
 
         calendars = [xnys, xhkg, xlon]
@@ -1194,7 +1194,7 @@ class TestPricesBaseSetup:
         one_day,
     ):
         """Test `_indices_aligned` and `_indices_aligned_for_drg`."""
-        now = pd.Timestamp("2021-12-31 23:59", tz=pytz.UTC)
+        now = pd.Timestamp("2021-12-31 23:59", tz=UTC)
         monkeypatch.setattr("pandas.Timestamp.now", lambda *_, **__: now)
         calendars = [xnys, xlon, xhkg]
 
@@ -1289,7 +1289,7 @@ class TestPricesBaseSetup:
     ):
         """Test `_indexes_status` and `_has_valid_fully_trading_indices`."""
         # pylint: disable=too-complex, unbalanced-tuple-unpacking
-        now = pd.Timestamp("2022", tz=pytz.UTC)
+        now = pd.Timestamp("2022", tz=UTC)
         monkeypatch.setattr("pandas.Timestamp.now", lambda *_, **__: now)
         symbols = ["ONE", "TWO"]
 
@@ -1549,9 +1549,9 @@ def test__minute_to_session(PricesMock, cal_start, side, one_min, monkeypatch):
 
     # assert assumption that sessions overlap
     xlon_session_close = xlon.session_close(session)
-    assert xlon_session_close == pd.Timestamp("2021-01-19 16:30", tz=pytz.UTC)
+    assert xlon_session_close == pd.Timestamp("2021-01-19 16:30", tz=UTC)
     xnys_session_open = xnys.session_open(session)
-    assert xnys_session_open == pd.Timestamp("2021-01-19 14:30", tz=pytz.UTC)
+    assert xnys_session_open == pd.Timestamp("2021-01-19 14:30", tz=UTC)
 
     xnys_session_close = xnys.session_close(session)
 
@@ -1717,7 +1717,7 @@ def test__get_trading_index(
     Test covers only verifying that arguments are passed through and
     ignore_breaks argument provided by method.
     """
-    now = pd.Timestamp("2021-12-31 23:59", tz=pytz.UTC)
+    now = pd.Timestamp("2021-12-31 23:59", tz=UTC)
     monkeypatch.setattr("pandas.Timestamp.now", lambda *_, **__: now)
 
     cal = xhkg
@@ -1766,7 +1766,7 @@ def test__get_trading_index(
 class TestBis:
     """Tests methods and properties that return base interval/s."""
 
-    _now = pd.Timestamp("2022", tz=pytz.UTC)
+    _now = pd.Timestamp("2022", tz=UTC)
 
     @pytest.fixture
     def now(self) -> abc.Iterator[pd.Timestamp]:
@@ -1804,13 +1804,13 @@ class TestBis:
             )
 
             BASE_LIMITS = {
-                BaseInterval.T1: pd.Timestamp("2021-12-01", tz=pytz.UTC),
-                BaseInterval.T2: pd.Timestamp("2021-11-01", tz=pytz.UTC),
-                BaseInterval.T5: pd.Timestamp("2021-10-01", tz=pytz.UTC),
-                BaseInterval.T10: pd.Timestamp("2021-09-01", tz=pytz.UTC),
-                BaseInterval.T15: pd.Timestamp("2021-06-01", tz=pytz.UTC),
-                BaseInterval.T30: pd.Timestamp("2021-03-01", tz=pytz.UTC),
-                BaseInterval.H1: pd.Timestamp("2021-01-01", tz=pytz.UTC),
+                BaseInterval.T1: pd.Timestamp("2021-12-01", tz=UTC),
+                BaseInterval.T2: pd.Timestamp("2021-11-01", tz=UTC),
+                BaseInterval.T5: pd.Timestamp("2021-10-01", tz=UTC),
+                BaseInterval.T10: pd.Timestamp("2021-09-01", tz=UTC),
+                BaseInterval.T15: pd.Timestamp("2021-06-01", tz=UTC),
+                BaseInterval.T30: pd.Timestamp("2021-03-01", tz=UTC),
+                BaseInterval.H1: pd.Timestamp("2021-01-01", tz=UTC),
                 BaseInterval.D1: daily_limit,
             }
 
@@ -2030,8 +2030,8 @@ class TestBis:
             )
 
         # a trading hour, from inspection of schedules
-        start = pd.Timestamp("2021-12-23 15:00", tz=pytz.UTC)
-        end = pd.Timestamp("2021-12-23 16:00", tz=pytz.UTC)
+        start = pd.Timestamp("2021-12-23 15:00", tz=UTC)
+        end = pd.Timestamp("2021-12-23 16:00", tz=UTC)
         pp = dict(
             minutes=0,
             hours=0,
@@ -2047,7 +2047,7 @@ class TestBis:
         prices.gpp.drg_intraday = get_drg(pp)
         assert prices._bis_valid == prices.bis_intraday[:-1]
 
-        pp["end"] = pd.Timestamp("2021-12-23 15:12", tz=pytz.UTC)
+        pp["end"] = pd.Timestamp("2021-12-23 15:12", tz=UTC)
         drg = get_drg(pp)
         self.set_prices_gpp_drg_properties(prices, drg)
         # only those bis <= 12 min duration should be valid
@@ -2149,16 +2149,17 @@ class TestBis:
         ------
         tuple[m.PricesBase, pd.Timestamp]
             [0] Instance of PricesMockBisAlt (revised `PricesMockBis`)
-            [1] Early close pd.Timestamp("2021-12-24 03:10", tz=pytz.UTC)
+            [1] Early close
+              pd.Timestamp("2021-12-24 03:10", tz=zoneinfo.ZoneInfo("UTC"))
         """
         # pylint: disable=redundant-yields-doc
         early_close_session = pd.Timestamp("2021-12-24")
         early_close = xasx.session_close(early_close_session)
         # assert assumption that early close
-        assert early_close == pd.Timestamp("2021-12-24 03:10", tz=pytz.UTC)
+        assert early_close == pd.Timestamp("2021-12-24 03:10", tz=UTC)
 
         revised_limits = PricesMockBis.BASE_LIMITS.copy()
-        t1_limit = pd.Timestamp("2021-12-29", tz="UTC")
+        t1_limit = pd.Timestamp("2021-12-29", tz=UTC)
         revised_limits[PricesMockBis.BaseInterval.T1] = t1_limit
 
         class PricesMockBisAlt(PricesMockBis):  # type: ignore[valid-type, misc]
@@ -2182,7 +2183,7 @@ class TestBis:
         no_partial = prices._bis_no_partial_indices
 
         start = prices.BASE_LIMITS[prices.bis.T2]
-        end = pd.Timestamp("2021-12-23 05:00", tz=pytz.UTC)
+        end = pd.Timestamp("2021-12-23 05:00", tz=UTC)
         # period with no partial indices
         drg = self.get_mock_drg(GetterMock, cc, start, end)
         self.set_prices_gpp_drg_properties(prices, drg)
@@ -2229,13 +2230,13 @@ class TestBis:
         Tests following properties:
             `_bis_end_most_accurate`
         """
-        now = pd.Timestamp("2021-12-31 15:14", tz=pytz.UTC)
+        now = pd.Timestamp("2021-12-31 15:14", tz=UTC)
         monkeypatch.setattr("pandas.Timestamp.now", lambda *_, **__: now)
 
         cal = xnys
         ds_interval = intervals.TDInterval.H1  # all bis valid
         prices = PricesMockBis(symbols, cal, ds_interval=ds_interval)
-        start = pd.Timestamp("2021", tz=pytz.UTC)  # start for all drg
+        start = pd.Timestamp("2021", tz=UTC)  # start for all drg
         period_end_now = prices._bis_period_end_now
         bis_most_accurate = prices._bis_most_accurate
 
@@ -2243,14 +2244,14 @@ class TestBis:
 
         # verify period end does not evaluate as now for any bis.
         for end in [
-            pd.Timestamp("2021-12-31 15:13", tz=pytz.UTC),
-            pd.Timestamp("2021-12-31 15:00", tz=pytz.UTC),
-            pd.Timestamp("2021-12-31 12:00", tz=pytz.UTC),
-            pd.Timestamp("2021-12-30 15:14", tz=pytz.UTC),
-            pd.Timestamp("2021-12-30 15:13", tz=pytz.UTC),
-            pd.Timestamp("2021-12-29 12:00", tz=pytz.UTC),
-            pd.Timestamp("2021-06-29 12:00", tz=pytz.UTC),
-            pd.Timestamp("2021-01-29 12:00", tz=pytz.UTC),
+            pd.Timestamp("2021-12-31 15:13", tz=UTC),
+            pd.Timestamp("2021-12-31 15:00", tz=UTC),
+            pd.Timestamp("2021-12-31 12:00", tz=UTC),
+            pd.Timestamp("2021-12-30 15:14", tz=UTC),
+            pd.Timestamp("2021-12-30 15:13", tz=UTC),
+            pd.Timestamp("2021-12-29 12:00", tz=UTC),
+            pd.Timestamp("2021-06-29 12:00", tz=UTC),
+            pd.Timestamp("2021-01-29 12:00", tz=UTC),
         ]:
             pp = get_pp(start=start, end=end)
             drg = self.get_drg(cal, pp=pp)
@@ -2261,7 +2262,7 @@ class TestBis:
             prices.gpp.anchor = mptypes.Anchor.WORKBACK
             assert period_end_now(prices.bis_intraday) == []
 
-        end = pd.Timestamp("2021-12-23 18:15", tz=pytz.UTC)
+        end = pd.Timestamp("2021-12-23 18:15", tz=UTC)
         pp = get_pp(start=start, end=end)
         drg = self.get_drg(cal, pp=pp)
         self.set_prices_gpp_drg_properties(prices, drg)
@@ -2275,7 +2276,7 @@ class TestBis:
         # with end late dec, all bis could serve prices at period end
         assert prices._bis_end_most_accurate == expected
         # although with end mid June, only base intervals, >T15 can
-        end = pd.Timestamp("2021-06-16 18:15", tz=pytz.UTC)
+        end = pd.Timestamp("2021-06-16 18:15", tz=UTC)
         pp = get_pp(start=start, end=end)
         drg = self.get_drg(cal, pp=pp)
         self.set_prices_gpp_drg_properties(prices, drg)
@@ -2311,8 +2312,8 @@ class TestBis:
         ds_interval = intervals.TDInterval.H1  # all bis valid
         prices = PricesMockBis(symbols, cal, ds_interval=ds_interval)
         prices.gpp.calendar = cal
-        start = pd.Timestamp("2021", tz=pytz.UTC)  # start for all drg
-        end = pd.Timestamp("2021-12-23 05:45", tz=pytz.UTC)
+        start = pd.Timestamp("2021", tz=UTC)  # start for all drg
+        end = pd.Timestamp("2021-12-23 05:45", tz=UTC)
         pp = get_pp(start=start, end=end)
         drg = self.get_drg(cal, pp=pp)
         self.set_prices_gpp_drg_properties(prices, drg)
@@ -2572,7 +2573,7 @@ def test_get_prices_params_cls(PricesMock, xnys, xhkg):
         assert drg._strict is strict
         assert drg.pp == gpp.pp(intraday=False)
 
-    start = pd.Timestamp("2021-12-15 12:22", tz=pytz.UTC)
+    start = pd.Timestamp("2021-12-15 12:22", tz=UTC)
     pp = get_pp(start=start, days=2)
     ds_interval = intervals.TDInterval.H2
     lead_symbol = "TWO"
@@ -2584,7 +2585,7 @@ def test_get_prices_params_cls(PricesMock, xnys, xhkg):
     assert_properties(gpp, ds_interval, lead_symbol, anchor, openend, strict, priority)
 
     # expected starts from knowledge of schedule
-    start_expected = pd.Timestamp("2021-12-15 14:30", tz=pytz.UTC)
+    start_expected = pd.Timestamp("2021-12-15 14:30", tz=UTC)
     pp_expected = get_pp(start=start_expected, days=2)
     assert gpp.pp(intraday=True) == pp_expected
     start_expected_daily = pd.Timestamp("2021-12-15")
@@ -2604,8 +2605,8 @@ def test_get_prices_params_cls(PricesMock, xnys, xhkg):
     drg = gpp.drg_intraday_no_limit
     assert_drg_intraday_properties(drg, gpp, False, ds_interval, no_limit=True)
     drg.interval = prices.bis.T5
-    acc_expected = pd.Timestamp("2021-12-16 21:00", tz=pytz.UTC)
-    end_expected = pd.Timestamp("2021-12-16 22:30", tz=pytz.UTC)
+    acc_expected = pd.Timestamp("2021-12-16 21:00", tz=UTC)
+    end_expected = pd.Timestamp("2021-12-16 22:30", tz=UTC)
     assert drg.daterange == ((start_expected, end_expected), acc_expected)
     assert not drg.ignore_breaks
 
@@ -2635,7 +2636,7 @@ def test_get_prices_params_cls(PricesMock, xnys, xhkg):
     assert drg.daterange == ((start_expected_daily, end_expected), end_expected)
 
     # alternative parameters
-    end = pd.Timestamp("2021-12-15 03:10", tz=pytz.UTC)
+    end = pd.Timestamp("2021-12-15 03:10", tz=UTC)
     pp = get_pp(end=end, hours=3, minutes=30)
     ds_interval = intervals.TDInterval.H1
     lead_symbol = "ONE"
@@ -2659,13 +2660,13 @@ def test_get_prices_params_cls(PricesMock, xnys, xhkg):
     drg.interval = prices.bis.H1
     assert drg.ignore_breaks
     # from knowledge of schedule...
-    end_expected = pd.Timestamp("2021-12-15 02:30", tz=pytz.UTC)
-    start_expected = pd.Timestamp("2021-12-14 05:30", tz=pytz.UTC)
+    end_expected = pd.Timestamp("2021-12-15 02:30", tz=UTC)
+    start_expected = pd.Timestamp("2021-12-14 05:30", tz=UTC)
     assert drg.daterange == ((start_expected, end_expected), end_expected)
 
     drg.interval = prices.bis.T5
     assert not drg.ignore_breaks
-    start_expected = pd.Timestamp("2021-12-14 06:00", tz=pytz.UTC)
+    start_expected = pd.Timestamp("2021-12-14 06:00", tz=UTC)
     assert drg.daterange == ((start_expected, end_expected), end_expected)
 
     # alternative parameters just to verify request_earliest_available_data True

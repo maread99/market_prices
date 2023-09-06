@@ -8,21 +8,20 @@ import datetime
 import functools
 import warnings
 from typing import TYPE_CHECKING, Literal, Optional, Union, Annotated
+from zoneinfo import ZoneInfo
 
 import exchange_calendars as xcals
 import numpy as np
 import pandas as pd
-import pytz
-from pytz import BaseTzInfo
 from valimp import parse, Coerce, Parser
 
 import market_prices.utils.calendar_utils as calutils
 from market_prices import errors, helpers, intervals, mptypes, parsing
+from market_prices.helpers import UTC
 from market_prices.utils import general_utils as genutils
 from market_prices.utils import pandas_utils as pdutils
-
-from .mptypes import Symbols
-from .utils.calendar_utils import CompositeCalendar
+from market_prices.utils.calendar_utils import CompositeCalendar
+from market_prices.mptypes import Symbols
 
 # pylint: disable=too-many-lines
 
@@ -224,17 +223,17 @@ class _PT(metaclass=abc.ABCMeta):
 
     @property
     @abc.abstractmethod
-    def _tz(self) -> BaseTzInfo | None:
+    def _tz(self) -> ZoneInfo | None:
         """Timezone of index."""
 
     @property
-    def tz(self) -> BaseTzInfo | None:
+    def tz(self) -> ZoneInfo | None:
         """Timezone of index."""
         return self._tz
 
     # Index operations
 
-    def _set_tz_non_local(self, tz: BaseTzInfo | None) -> pd.DataFrame:
+    def _set_tz_non_local(self, tz: ZoneInfo | None) -> pd.DataFrame:
         """Set tz to None or utc."""
         if tz == self._tz:
             return self.prices
@@ -242,13 +241,13 @@ class _PT(metaclass=abc.ABCMeta):
         if self.is_daily:
             assert isinstance(self.index, pd.DatetimeIndex)
             index = self.index.tz_localize(tz)
-        elif tz == pytz.UTC:
+        elif tz == UTC:
             index = pdutils.interval_index_new_tz(self.index, tz)
         else:
             index = pdutils.interval_index_new_tz(self.index, None)
         return self._new_index(index)
 
-    def _set_tz(self, tz: BaseTzInfo | None) -> pd.DataFrame:
+    def _set_tz(self, tz: ZoneInfo | None) -> pd.DataFrame:
         """Convert index to a timezone.
 
         Subclass should overide if provides for setting tz to anything
@@ -256,7 +255,7 @@ class _PT(metaclass=abc.ABCMeta):
         """
         return self._set_tz_non_local(tz)
 
-    def set_tz(self, tz: str | BaseTzInfo):
+    def set_tz(self, tz: str | ZoneInfo):
         """Convert index timezone.
 
         Parameters
@@ -680,7 +679,7 @@ class _PT(metaclass=abc.ABCMeta):
             for nanos in [calendar.first_minutes_nanos, calendar.break_ends_nanos]:
                 arr = np.intersect1d(nanos, trading_mins.values.view("int64"))
                 if arr.size > 0:
-                    trading_mins = trading_mins.drop(pd.DatetimeIndex(arr, tz=pytz.UTC))
+                    trading_mins = trading_mins.drop(pd.DatetimeIndex(arr, tz=UTC))
 
         all_mins = pd.date_range(start, end, freq="1T")
         non_t = all_mins.difference(trading_mins)
@@ -886,7 +885,7 @@ class _PT(metaclass=abc.ABCMeta):
     @parse
     def operate(
         self,
-        tz: Optional[Union[Literal[False], str, BaseTzInfo]] = False,
+        tz: Optional[Union[Literal[False], str, ZoneInfo]] = False,
         fill: Optional[Literal["ffill", "bfill", "both"]] = None,
         include: Optional[Symbols] = None,
         exclude: Optional[Symbols] = None,
@@ -908,16 +907,16 @@ class _PT(metaclass=abc.ABCMeta):
 
         Parameters
         ----------
-        tz : Literal[False] | str | BaseTzInfo | None,
+        tz : Literal[False] | str | ZoneInfo | None,
         default: False (no change)
             For tables with an intraday interval:
                 timezone to set the index to. Only available if index is
                 timezone aware. If passed as string should be a valid
-                arg of pytz.timezone.
+                arg for `zoneinfo.ZoneInfo`.
 
             For tables with an interval that is daily or higher (including
             tables that are a composite of daily and intraday price data):
-                "UTC" or pytz.UTC: UTC
+                "UTC" or `zoneinfo.ZoneInfo("UTC")`: UTC
                 None: tz-naive index.
 
         fill : Literal['ffill', 'bfill', 'both'] | None, default: None
@@ -998,7 +997,7 @@ class _PT(metaclass=abc.ABCMeta):
             prices = prices.pt.fillna(fill)
 
         if isinstance(tz, str):
-            tz = pytz.timezone(tz)
+            tz = ZoneInfo(tz)
         if tz or tz is None:
             if self.is_intraday:
                 if tz is None:
@@ -1007,7 +1006,7 @@ class _PT(metaclass=abc.ABCMeta):
                     self._verify_tz_awareness()
                     prices = prices.pt._set_tz(tz)
             else:  # pylint: disable=else-if-used
-                if tz not in (None, pytz.UTC):
+                if tz not in (None, UTC):
                     raise ValueError(
                         f"`tz` for class {type(self)} can only be UTC or timezone naive"
                         f" (None), not {tz}."
@@ -1097,10 +1096,10 @@ class PTDaily(_PT):
 
     @property
     def _utc_index(self) -> pd.DatetimeIndex:
-        return self.prices.index.tz_localize(None).tz_localize(pytz.UTC)
+        return self.prices.index.tz_localize(None).tz_localize(UTC)
 
     @property
-    def _tz(self) -> BaseTzInfo | None:
+    def _tz(self) -> ZoneInfo | None:
         """Timezone of index."""
         return self.index.tz
 
@@ -1204,7 +1203,7 @@ class PTDaily(_PT):
             assert isinstance(session, pd.Timestamp)
         parsing.verify_date_not_oob(session, self.first_ts, self.last_ts, "session")
         if self.index.tz is not None:
-            session = session.tz_localize(pytz.UTC)
+            session = session.tz_localize(UTC)
         if session not in self.index:
             raise ValueError(f"`session` {session} is not present in the table.")
         return self.prices.loc[[session]]
@@ -1243,7 +1242,7 @@ class PTDaily(_PT):
             assert isinstance(date, pd.Timestamp)
         parsing.verify_date_not_oob(date, self.first_ts, self.last_ts)
         if self.index.tz is not None:
-            date = date.tz_localize(pytz.UTC)
+            date = date.tz_localize(UTC)
         prices = self.operate(fill="ffill", close_only=True)
         i = prices.index.get_indexer([date], "ffill")[0]
         return prices.iloc[[i]]
@@ -1526,15 +1525,15 @@ class _PTIntervalIndex(_PT):  # pylint: disable=abstract-method  # imp'd in subc
         indexes = []
         for index in (ii.left, ii.right):
             if index.tz is None:
-                indexes.append(index.tz_localize(pytz.UTC))
-            elif index.tz == pytz.UTC:
+                indexes.append(index.tz_localize(UTC))
+            elif index.tz == UTC:
                 indexes.append(index)
             else:
-                indexes.append(index.tz_convert(pytz.UTC))
+                indexes.append(index.tz_convert(UTC))
         return pd.IntervalIndex.from_arrays(indexes[0], indexes[1], ii.closed)
 
     @property
-    def _tz(self) -> BaseTzInfo | None:
+    def _tz(self) -> ZoneInfo | None:
         if self.index.left.tz == self.index.right.tz:
             return self.index.left.tz
         else:
@@ -1615,16 +1614,16 @@ class PTIntraday(_PTIntervalIndex):
         """Query if interval is less than daily."""
         return True
 
-    def _tz_index(self, tz: str | BaseTzInfo) -> pd.IntervalIndex:
+    def _tz_index(self, tz: str | ZoneInfo) -> pd.IntervalIndex:
         """Return index with tz as `tz`."""
         return pdutils.interval_index_new_tz(self.index, tz)
 
-    def _set_tz(self, tz: str | BaseTzInfo) -> pd.DataFrame:  # type: ignore[override]
+    def _set_tz(self, tz: str | ZoneInfo) -> pd.DataFrame:  # type: ignore[override]
         """Convert index to a given timezone."""
         # typing note: extends super args to provide for tz to be passed as str.
         return self._new_index(self._tz_index(tz))
 
-    def set_tz(self, tz: str | BaseTzInfo) -> pd.DataFrame:
+    def set_tz(self, tz: str | ZoneInfo) -> pd.DataFrame:
         """Set index timezone.
 
         Parameters
@@ -1738,7 +1737,7 @@ class PTIntraday(_PTIntervalIndex):
         """Query if `index` compatible with table index."""
         if self.interval == helpers.ONE_MIN:  # shortcut
             return True
-        assert index.left.tz is pytz.UTC
+        assert index.left.tz is UTC
         df = self.prices if self.is_daily else self.utc
         index_union = df.pt.index.union(index, sort=False).sort_values()
         return index_union.is_non_overlapping_monotonic
@@ -1955,7 +1954,7 @@ class PTIntraday(_PTIntervalIndex):
             Parser(parsing.verify_timetimestamp),
         ],
         tz: Annotated[
-            Union[pytz.BaseTzInfo, str, None],
+            Union[ZoneInfo, str, None],
             Parser(parsing.to_timezone, parse_none=False),
         ] = None,
     ) -> pd.DataFrame:
@@ -1982,7 +1981,7 @@ class PTIntraday(_PTIntervalIndex):
         # pylint: disable=missing-param-doc
         if TYPE_CHECKING:
             assert isinstance(ts, pd.Timestamp)
-            assert tz is None or isinstance(tz, BaseTzInfo)
+            assert tz is None or isinstance(tz, ZoneInfo)
 
         if tz is None:
             self._verify_tz_awareness()
@@ -1990,7 +1989,7 @@ class PTIntraday(_PTIntervalIndex):
 
         ts = parsing.parse_timestamp(ts, tz)
         parsing.verify_time_not_oob(
-            ts, self.first_ts.astimezone(pytz.UTC), self.last_ts.astimezone(pytz.UTC)
+            ts, self.first_ts.astimezone(UTC), self.last_ts.astimezone(UTC)
         )
         df = self.utc.pt.fillna("ffill")
         row = df.pt._get_row(ts)  # pylint: disable=protected-access

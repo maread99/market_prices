@@ -3,12 +3,14 @@
 from __future__ import annotations
 from collections import abc
 import re
+from typing import Annotated
 
 import pandas as pd
 import pytest
-import pytz
+from valimp import parse, Parser
 
 import market_prices.utils.pandas_utils as m
+from market_prices.helpers import UTC
 
 # pylint: disable=missing-function-docstring,redefined-outer-name,too-many-public-methods
 # pylint: disable=missing-param-doc,missing-any-param-doc,too-many-locals
@@ -125,7 +127,7 @@ def test_make_non_overlapping(
     pd.testing.assert_index_equal(rtrn, expected)
 
     # test non tz_naive index
-    index = m.interval_index_new_tz(index, pytz.UTC)
+    index = m.interval_index_new_tz(index, UTC)
     rtrn = test_method(index, fully_overlapped="remove")
     expected = index.drop(index[i])
     pd.testing.assert_index_equal(rtrn, expected)
@@ -145,3 +147,30 @@ def test_remove_intervals_from_interval_invalid_input(
         m.remove_intervals_from_interval(
             interval, interval_index_not_monotonoic_increasing
         )
+
+
+# ------------------ tests for valimp.Parser functions --------------------
+
+
+def test_verify_interval_datetime_index():
+    @parse
+    def mock_func(
+        arg: Annotated[pd.IntervalIndex, Parser(m.verify_interval_datetime_index)]
+    ) -> pd.IntervalIndex:
+        return arg
+
+    # verify valid input
+    dti = pd.date_range("2021", periods=3, freq="MS")
+    interval_index = pd.IntervalIndex.from_arrays(dti, dti)
+    assert mock_func(interval_index) is interval_index
+
+    # verify invalid input
+    int_index = pd.Index([1, 2, 3])
+    invalid_int_index = pd.IntervalIndex.from_arrays(int_index, int_index)
+    match = re.escape(
+        "'arg' can only take a pd.IntervalIndex that has each side"
+        " as type pd.DatetimeIndex, although received with left side"
+        " as type '<class 'pandas.core.indexes.base.Index'>'."
+    )
+    with pytest.raises(ValueError, match=match):
+        mock_func(invalid_int_index)

@@ -15,6 +15,7 @@ from valimp import parse
 import yahooquery as yq
 
 from market_prices import errors, helpers, intervals, mptypes
+from market_prices.helpers import UTC
 from market_prices.prices import base
 
 from ..mptypes import Calendar, Symbols
@@ -35,10 +36,10 @@ class PricesYahoo(base.PricesBase):
             'FB AAPL AMZN NFLX GOOG MSFT'
             ['FB', 'AAPL', 'AMZN']
 
-    calendars : 
-        mptypes.Calendar | 
-        list[myptypes.Calendar] | 
-        dict[str, mytypes.Calendar] | 
+    calendars :
+        mptypes.Calendar |
+        list[myptypes.Calendar] |
+        dict[str, mytypes.Calendar] |
         None
     , default: evaluated
         Calendar(s) defining trading times and timezones for `symbols`.
@@ -491,7 +492,7 @@ class PricesYahoo(base.PricesBase):
             if bi == intervals.ONE_DAY:
                 d[bi] = earliest
             elif today - limit < earliest:
-                d[bi] = pd.Timestamp(earliest, tz="UTC")
+                d[bi] = pd.Timestamp(earliest, tz=UTC)
         self._update_base_limits(d)
 
     # Methods to request data from yahooquery.

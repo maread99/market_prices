@@ -12,9 +12,9 @@ import exchange_calendars as xcals
 from exchange_calendars.utils import pandas_utils as xcals_pdutils
 import numpy as np
 import pandas as pd
-from pytz import UTC
 
 from market_prices import intervals
+from market_prices.helpers import UTC
 from market_prices.utils import pandas_utils as pdutils
 from market_prices.prices.base import PricesBase
 
@@ -56,7 +56,7 @@ def get_store_pbt(mode: str = "a") -> pd.HDFStore:
 
 
 def get_shelf() -> shelve.DbfilenameShelf:
-    """Return pbt resoureces shelf.
+    """Return pbt resources shelf.
 
     Shelf has keys as pbt resource keys and values as pd.Timestamp
     corresponding to time when resource was created.
@@ -175,9 +175,9 @@ def save_resource_pbt(
                 " `overwrite` as True."
             )
 
-        now = pd.Timestamp.now(tz="UTC")
+        now = pd.Timestamp.now(tz=UTC)
         prices.request_all_prices()
-        if pd.Timestamp.now(tz="UTC").floor("T") != now.floor("T"):
+        if pd.Timestamp.now(tz=UTC).floor("T") != now.floor("T"):
             remove_resource_pbt(key, store_only=True)
             raise RuntimeError(
                 "Operation aborted as unable to get all data within the same minute."

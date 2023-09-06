@@ -19,11 +19,11 @@ import pandas as pd
 from pandas import Timestamp as T
 from pandas.testing import assert_index_equal
 import pytest
-import pytz
 import exchange_calendars as xcals
 
 from market_prices.intervals import TDInterval
 from market_prices import errors, helpers
+from market_prices.helpers import UTC
 import market_prices.utils.calendar_utils as m
 import market_prices.utils.pandas_utils as pdutils
 
@@ -328,7 +328,7 @@ class CompositeAnswers:
         # Necessary for csv saved prior to xcals v4.0
         for col in df:
             if df[col].dt.tz is None:
-                df[col] = df[col].dt.tz_localize(pytz.UTC)
+                df[col] = df[col].dt.tz_localize(UTC)
         return df
 
     @functools.cached_property
@@ -380,7 +380,7 @@ class CompositeAnswers:
         for col in all_opens:
             all_opens[col] = all_opens[col].dt.tz_convert(None)
         opens_min = all_opens.min(axis=1)
-        return opens_min.dt.tz_localize(pytz.UTC)
+        return opens_min.dt.tz_localize(UTC)
 
     @functools.cached_property
     def _closes(self) -> pd.Series:
@@ -392,7 +392,7 @@ class CompositeAnswers:
         for col in all_closes:
             all_closes[col] = all_closes[col].dt.tz_convert(None)
         closes_max = all_closes.max(axis=1)
-        return closes_max.dt.tz_localize(pytz.UTC)
+        return closes_max.dt.tz_localize(UTC)
 
     # properties of composite calendar
 
@@ -984,11 +984,11 @@ class TestCompositeCalendar:
         # test utc option
         args = ("2021-02", "2021-03")
         index_utc = f(*args, utc=True)
-        assert index_utc.left.tz == pytz.UTC and index_utc.right.tz == pytz.UTC
+        assert index_utc.left.tz == UTC and index_utc.right.tz == UTC
         index_naive = f(*args, utc=False)
         assert index_naive.left.tz is None and index_naive.right.tz is None
         assert_index_equal(index_naive.left, index_utc.left.tz_convert(None))
-        assert_index_equal(index_naive.right.tz_localize(pytz.UTC), index_utc.right)
+        assert_index_equal(index_naive.right.tz_localize(UTC), index_utc.right)
 
         # Compare with expected from manual inspection of period with unusual timings.
         # NB also tests passing end as last session of composite calendar
@@ -1137,7 +1137,7 @@ class TestCCTradingIndex:
         """Get expected index for or within a single trading (sub)session."""
         if add_interval:
             end += interval
-        tz = pytz.UTC if utc else None
+        tz = UTC if utc else None
         dti = pd.date_range(start, end, freq=interval.as_pdfreq, tz=tz)
         return pd.IntervalIndex.from_arrays(dti[:-1], dti[1:], "left")
 
@@ -1190,16 +1190,16 @@ class TestCCTradingIndex:
             assert_index_equal(rtrn, rtrn_)
 
             # passing as times
-            start = T("2021-12-24 08:01", tz=pytz.UTC)
-            end = T("2021-12-29 16:30", tz=pytz.UTC)
+            start = T("2021-12-24 08:01", tz=UTC)
+            end = T("2021-12-29 16:30", tz=UTC)
             rtrn = f(interval, start, end)
             unaligned = last_session_duration % interval != pd.Timedelta(0)
             expected = index[1:-1] if unaligned else index[1:]
             assert_index_equal(rtrn, expected)
 
             # passing as times
-            start = T("2021-12-24 08:01", tz=pytz.UTC)
-            end = T("2021-12-29 16:29", tz=pytz.UTC)
+            start = T("2021-12-24 08:01", tz=UTC)
+            end = T("2021-12-29 16:29", tz=UTC)
             rtrn = f(interval, start, end)
             assert_index_equal(rtrn, index[1:-1])
 
@@ -1494,7 +1494,7 @@ class TestCCTradingIndex:
 
         # verify xnys closed 24 and xhkg closed on 27, so...
         minute = xhkg.session_close(session_next_xhkg)
-        next_ = pd.Timestamp("2021-12-27 14:30", tz=pytz.UTC)
+        next_ = pd.Timestamp("2021-12-27 14:30", tz=UTC)
         assertions(cc, minute, False, minute - one_min, next_)
 
     def test_minute_properties(self):
@@ -1542,5 +1542,5 @@ class TestCCTradingIndex:
         assertions(cc.opens_nanos, xnys.opens_nanos, xlon.opens_nanos, xhkg.opens_nanos)
 
         # verify cc.minutes
-        assert cc.minutes.tz == pytz.UTC
+        assert cc.minutes.tz == UTC
         assert (cc.minutes.tz_convert(None) == pd.DatetimeIndex(cc.minutes_nanos)).all()

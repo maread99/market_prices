@@ -6,16 +6,17 @@ import math
 import re
 import typing
 from collections import abc
+from zoneinfo import ZoneInfo
 
 import exchange_calendars as xcals
 import numpy as np
 import pandas as pd
 from pandas.testing import assert_frame_equal, assert_index_equal, assert_series_equal
 import pytest
-import pytz
 
 import market_prices.pt as m
 from market_prices import errors, helpers
+from market_prices.helpers import UTC
 from market_prices.intervals import TDInterval
 from market_prices.utils import calendar_utils as calutils
 
@@ -300,13 +301,13 @@ def calendars_overlapping(cmes, x247) -> abc.Iterator[list[xcals.ExchangeCalenda
 
 
 @pytest.fixture(scope="session")
-def tz_default(xnys) -> abc.Iterator[pytz.tzinfo.BaseTzInfo]:
+def tz_default(xnys) -> abc.Iterator[ZoneInfo]:
     yield xnys.tz
 
 
 @pytest.fixture(scope="session")
-def tz_moscow() -> abc.Iterator[pytz.tzinfo.BaseTzInfo]:
-    yield pytz.timezone("Europe/Moscow")
+def tz_moscow() -> abc.Iterator[ZoneInfo]:
+    yield ZoneInfo("Europe/Moscow")
 
 
 class TestConstructorErrors:
@@ -408,7 +409,7 @@ class TestPriceTables:
 
     @pytest.fixture(scope="class")
     def session_utc(self) -> abc.Iterator[pd.Timestamp]:
-        yield pd.Timestamp("2021-11-02", tz=pytz.UTC)
+        yield pd.Timestamp("2021-11-02", tz=UTC)
 
     @pytest.fixture(scope="class")
     def session_naive(self, session_utc) -> abc.Iterator[pd.Timestamp]:
@@ -416,7 +417,7 @@ class TestPriceTables:
 
     @pytest.fixture(scope="class", autouse=True)
     def minute_utc(self) -> abc.Iterator[pd.Timestamp]:
-        yield pd.Timestamp("2021-12-21 15:31", tz=pytz.UTC)
+        yield pd.Timestamp("2021-12-21 15:31", tz=UTC)
 
     @pytest.fixture(scope="class", autouse=True)
     def minute_naive(self, minute_utc) -> abc.Iterator[pd.Timestamp]:
@@ -426,7 +427,7 @@ class TestPriceTables:
     def minute_default_tz(self, minute_utc, tz_default) -> abc.Iterator[pd.Timestamp]:
         yield minute_utc.tz_convert(tz_default)
 
-    def assert_interval_index_tz(self, df: pd.DataFrame, tz: pytz.BaseTzInfo | None):
+    def assert_interval_index_tz(self, df: pd.DataFrame, tz: ZoneInfo | None):
         """Assert tz of interval index."""
         assert df.index.left.tz is tz
         assert df.index.right.tz is tz
@@ -435,16 +436,14 @@ class TestPriceTables:
         """Assert data frame values are equivalent. Does not check index."""
         assert_frame_equal(df0.reset_index(drop=True), df1.reset_index(drop=True))
 
-    def assert_interval_index_tz_properties(
-        self, df, default_tz: pytz.BaseTzInfo | None
-    ):
+    def assert_interval_index_tz_properties(self, df, default_tz: ZoneInfo | None):
         self.assert_interval_index_tz(df, default_tz)
         assert df.pt.tz is default_tz
         self.assert_interval_index_tz(df.pt.naive, None)
         assert df.pt.naive.pt.tz is None
         self.assert_frames_equal(df.pt.naive, df)
-        self.assert_interval_index_tz(df.pt.utc, pytz.UTC)
-        assert df.pt.utc.pt.tz is pytz.UTC
+        self.assert_interval_index_tz(df.pt.utc, UTC)
+        assert df.pt.utc.pt.tz is UTC
         self.assert_frames_equal(df.pt.utc, df)
 
     def assert_set_tz_not_implemented(self, df):
@@ -454,7 +453,7 @@ class TestPriceTables:
             " .pt.utc and .pt.naive methods."
         )
         with pytest.raises(NotImplementedError, match=match):
-            df.pt.set_tz(pytz.timezone("Europe/Moscow"))
+            df.pt.set_tz(ZoneInfo("Europe/Moscow"))
 
     def assert_not_implemented(self, method, *args, **kwargs):
         match = (
@@ -526,8 +525,8 @@ class TestPriceTables:
         assert_frame_equal(df.pt.naive, df)
         assert df.pt.convert_to_table_tz(session_utc) == session_naive
         assert df.pt.convert_to_table_tz(session_naive) == session_naive
-        assert df.pt.utc.index.tz is pytz.UTC
-        assert df.pt.utc.pt.tz is pytz.UTC
+        assert df.pt.utc.index.tz is UTC
+        assert df.pt.utc.pt.tz is UTC
         assert_frame_equal(df.pt.utc, df, check_index_type=False)
         assert df.pt.utc.pt.convert_to_table_tz(session_utc) == session_utc
         assert df.pt.utc.pt.convert_to_table_tz(session_naive) == session_utc
@@ -577,11 +576,11 @@ class TestPriceTables:
 
         f = df.pt.convert_to_table_tz
         assert f(minute_utc) == minute_default_tz
-        assert f(minute_utc).tz.zone == tz_default.zone
+        assert f(minute_utc).tz == tz_default
         assert f(minute_naive) == minute_naive.tz_localize(tz_default)
-        assert f(minute_naive).tz.zone == tz_default.zone
+        assert f(minute_naive).tz == tz_default
         assert f(minute_default_tz) == minute_default_tz
-        assert f(minute_default_tz).tz.zone == tz_default.zone
+        assert f(minute_default_tz).tz == tz_default
 
         df_tz_moscow = df.pt.set_tz(tz_moscow)
         self.assert_interval_index_tz(df_tz_moscow, tz_moscow)
@@ -678,11 +677,11 @@ class TestPriceTables:
 
         f = df.pt.convert_to_table_tz
         assert f(minute_utc) == minute_default_tz
-        assert f(minute_utc).tz.zone == tz_default.zone
+        assert f(minute_utc).tz == tz_default
         assert f(minute_naive) == minute_naive.tz_localize(tz_default)
-        assert f(minute_naive).tz.zone == tz_default.zone
+        assert f(minute_naive).tz == tz_default
         assert f(minute_default_tz) == minute_default_tz
-        assert f(minute_default_tz).tz.zone == tz_default.zone
+        assert f(minute_default_tz).tz == tz_default
 
         df_tz_moscow = df.pt.set_tz(tz_moscow)
         self.assert_interval_index_tz(df_tz_moscow, tz_moscow)
@@ -716,12 +715,12 @@ class TestPriceTables:
         assert df.pt.first_ts == df.index[0].left
         assert df.pt.last_ts == df.index[-1].right
 
-        self.assert_interval_index_tz_properties(df, pytz.UTC)
+        self.assert_interval_index_tz_properties(df, UTC)
         self.assert_set_tz_not_implemented(df)
 
         for minute in (minute_utc, minute_naive, minute_default_tz):
             rtrn = df.pt.convert_to_table_tz(minute)
-            assert (rtrn, rtrn.tz) == (minute_utc, pytz.UTC)
+            assert (rtrn, rtrn.tz) == (minute_utc, UTC)
 
         assert df.pt.freq is None
         assert df.pt.interval is None
@@ -939,7 +938,7 @@ class TestGetSubsetFromIndices:
         end = df.index[-2]
         assert_frame_equal(f(start, end), df[start:end])
         assert_frame_equal(
-            f(start.tz_localize(pytz.UTC), end.tz_localize(pytz.UTC)), df[start:end]
+            f(start.tz_localize(UTC), end.tz_localize(UTC)), df[start:end]
         )
 
         dates = pd.date_range(df.index[0], df.index[-1])
@@ -1255,8 +1254,8 @@ class TestPriceAt:
         f = df.pt.price_at
 
         # test timestamps that lie within an indice with no gaps either side
-        left = pd.Timestamp("2021-12-21 14:40:00", tz=pytz.UTC)
-        right = pd.Timestamp("2021-12-21 14:45:00", tz=pytz.UTC)
+        left = pd.Timestamp("2021-12-21 14:40:00", tz=UTC)
+        right = pd.Timestamp("2021-12-21 14:45:00", tz=UTC)
         i = df.index.left.get_loc(left)
 
         expected = self.get_expected(df, i, "open")
@@ -1280,10 +1279,10 @@ class TestPriceAt:
             assert_frame_equal(f(ts), expected)
 
         # assert that there is a gap here in the index
-        gap_left = pd.Timestamp("2021-12-23 23:00:00", tz=pytz.UTC)
+        gap_left = pd.Timestamp("2021-12-23 23:00:00", tz=UTC)
         assert gap_left in df.index.right
         assert not df.index.contains(gap_left).any()
-        gap_right = pd.Timestamp("2021-12-24 08:00:00", tz=pytz.UTC)
+        gap_right = pd.Timestamp("2021-12-24 08:00:00", tz=UTC)
         assert gap_right in df.index.left
         assert not df.index.contains(gap_right - one_sec).any()
 
@@ -1334,12 +1333,10 @@ class TestPriceAt:
             assert rtrn.index.tz is tz_default
 
         # tz to define return index only as ts is tz aware
-        assert_frame_equal(f(left_default_tz, tz=pytz.UTC), expected.tz_convert("UTC"))
+        assert_frame_equal(f(left_default_tz, tz=UTC), expected.tz_convert(UTC))
 
         # tz to define ts (tz-naive) and return index
-        assert_frame_equal(
-            f(left.tz_localize(None), tz=pytz.UTC), expected.tz_convert("UTC")
-        )
+        assert_frame_equal(f(left.tz_localize(None), tz=UTC), expected.tz_convert(UTC))
 
         # Test a session label raises expected error
         session = pd.Timestamp("2021-12-21 00:00")
@@ -1360,12 +1357,12 @@ class TestPriceAt:
         match = (
             "`time` cannot be earlier than the first time for which prices are"
             " available. First time for which prices are available is"
-            f" {left_bound.tz_convert(pytz.UTC)} although `time` received as "
+            f" {left_bound.tz_convert(UTC)} although `time` received as "
         )
         for ts in (left_bound - one_sec, left_bound - one_min):
             with pytest.raises(
                 errors.DatetimeTooEarlyError,
-                match=re.escape(match + f"{ts.tz_convert(pytz.UTC)}."),
+                match=re.escape(match + f"{ts.tz_convert(UTC)}."),
             ):
                 f(ts)
 
@@ -1376,12 +1373,12 @@ class TestPriceAt:
         match = (
             "`time` cannot be later than the most recent time for which prices are"
             f" available. Most recent time for which prices are available is"
-            f" {right_bound.tz_convert(pytz.UTC)} although `time` received as "
+            f" {right_bound.tz_convert(UTC)} although `time` received as "
         )
         for ts in (right_bound + one_sec, right_bound + one_min):
             with pytest.raises(
                 errors.DatetimeTooLateError,
-                match=re.escape(match + f"{ts.tz_convert(pytz.UTC)}."),
+                match=re.escape(match + f"{ts.tz_convert(UTC)}."),
             ):
                 f(ts)
 
@@ -1400,12 +1397,12 @@ class TestPriceAt:
         match = (
             "`time` cannot be earlier than the first time for which prices are"
             " available. First time for which prices are available is"
-            f" {left_bound.tz_convert(pytz.UTC)} although `time` received as "
+            f" {left_bound.tz_convert(UTC)} although `time` received as "
         )
         for ts in (left_bound - one_sec, left_bound - one_min):
             with pytest.raises(
                 errors.DatetimeTooEarlyError,
-                match=re.escape(match + f"{ts.tz_convert(pytz.UTC)}."),
+                match=re.escape(match + f"{ts.tz_convert(UTC)}."),
             ):
                 df.pt.price_at(ts)
 
@@ -1502,7 +1499,7 @@ class TestCloseAt:
         # test non-valid input
         match = "`date` must be tz-naive, although receieved as "
         for ts in (
-            session.tz_localize(pytz.UTC),
+            session.tz_localize(UTC),
             session.tz_localize(tz_default),
         ):
             with pytest.raises(ValueError, match=re.escape(match + f"{ts}.")):
@@ -1536,7 +1533,7 @@ class TestCloseAt:
         right_bound = df_dp.index[-1]
         assert_frame_equal(df.pt.close_at(right_bound), self.get_expected(df_dp, -1))
 
-        right_bound_utc = right_bound.tz_localize(pytz.UTC)
+        right_bound_utc = right_bound.tz_localize(UTC)
         indice = pd.Interval(right_bound_utc, right_bound_utc, "left")
         expected = df.loc[[indice]]
         expected.index = expected.index.left.tz_convert(None)
@@ -1737,7 +1734,7 @@ class TestOperate:
         df_test = self.df_na_start_end_rows(df)
 
         rtrn = df_test.pt.operate(
-            tz=pytz.UTC,
+            tz=UTC,
             data_for_all_start=True,
             fill="ffill",
             include=symbols[0],
@@ -1758,10 +1755,10 @@ class TestOperate:
 
         assert_frame_equal(rtrn, df_)
 
-    def assertions_tz_utc_naive(self, df: pd.DataFrame, other_tz: pytz.BaseTzInfo):
+    def assertions_tz_utc_naive(self, df: pd.DataFrame, other_tz: ZoneInfo):
         """Assert tz as naive and utc and that other tz raises error."""
         f = df.pt.operate
-        assert_frame_equal(f(tz=pytz.UTC), df.pt.utc)
+        assert_frame_equal(f(tz=UTC), df.pt.utc)
         assert_frame_equal(f(tz=None), df.pt.naive)
 
         match = re.escape(
@@ -1771,10 +1768,10 @@ class TestOperate:
         with pytest.raises(ValueError, match=match):
             f(tz=other_tz)
 
-    def assertions_tz(self, df: pd.DataFrame, other_tz: pytz.BaseTzInfo):
+    def assertions_tz(self, df: pd.DataFrame, other_tz: ZoneInfo):
         """Assert tz as naive, utc and `other_tz`."""
         f = df.pt.operate
-        assert_frame_equal(f(tz=pytz.UTC), df.pt.utc)
+        assert_frame_equal(f(tz=UTC), df.pt.utc)
         assert_frame_equal(f(tz=None), df.pt.naive)
         assert_frame_equal(f(tz=other_tz), df.pt.set_tz(other_tz))
 
@@ -3026,9 +3023,9 @@ class TestPTIntraday:
         f = df.pt.sessions
         calendars = list(calendars) + [cc]
         for cal in calendars:
-            opens_ = pd.DatetimeIndex(cal.opens.values, tz=pytz.UTC)
+            opens_ = pd.DatetimeIndex(cal.opens.values, tz=UTC)
             opens_arr = opens_.get_indexer(df.pt.utc.index.left, "ffill")
-            closes_ = pd.DatetimeIndex(cal.closes.values, tz=pytz.UTC)
+            closes_ = pd.DatetimeIndex(cal.closes.values, tz=UTC)
             closes_arr = closes_.get_indexer(df.pt.utc.index.left, "bfill")
             sessions = cal.sessions
             srs = pd.Series(pd.NaT, index=df.index, name="session")
