@@ -9,10 +9,10 @@ import pytest
 import pandas as pd
 from pandas.testing import assert_index_equal
 from pandas import Timestamp as T
-from pytz import UTC
 import exchange_calendars as xcals
 
 from market_prices import intervals, errors
+from market_prices.helpers import UTC
 from market_prices.utils import calendar_utils as calutils
 from market_prices.prices.base import PricesBase
 import market_prices.support.tutorial_helpers as m

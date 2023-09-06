@@ -17,20 +17,20 @@ from __future__ import annotations
 from collections import abc
 import datetime
 import itertools
-from typing import Literal
 import re
+from typing import Literal
+from zoneinfo import ZoneInfo
 
 import attr
 import exchange_calendars as xcals
 import pandas as pd
 from pandas.testing import assert_index_equal, assert_frame_equal
 import pytest
-import pytz
-from pytz import UTC
 import valimp
 
 import market_prices.prices.base as m
 from market_prices import errors, helpers, intervals, mptypes, pt
+from market_prices.helpers import UTC
 from market_prices.intervals import TDInterval, DOInterval
 from market_prices.mptypes import Anchor, OpenEnd, Priority
 from market_prices.support import tutorial_helpers as th
@@ -204,7 +204,7 @@ def res_us_only() -> abc.Iterator[ResourcePBT]:
     instance:
         PricesYahoo("MSFT")
     at:
-        Timestamp('2022-06-15 16:51:12', tz='UTC')
+        Timestamp('2022-06-15 16:51:12', tz=ZoneInfo("UTC"))
     """
     yield get_resource_pbt("us_only")
 
@@ -231,7 +231,7 @@ def res_hk_only() -> abc.Iterator[ResourcePBT]:
     instance:
         PricesYahoo("9988.HK")
     at:
-        Timestamp('2022-06-16 15:27:12', tz='UTC')
+        Timestamp('2022-06-16 15:27:12', tz=ZoneInfo("UTC"))
     """
     yield get_resource_pbt("hk_only")
 
@@ -260,7 +260,7 @@ def res_247_only() -> abc.Iterator[ResourcePBT]:
     instance:
         PricesYahoo("BTC-USD")
     at:
-        Timestamp('2022-06-17 13:26:44', tz='UTC')
+        Timestamp('2022-06-17 13:26:44', tz=ZoneInfo("UTC"))
 
     NOTE: following warnings were raised on creating resource:
     PricesMissingWarning: Prices from Yahoo are missing for 'BTC-USD' at
@@ -293,7 +293,7 @@ def res_us_lon() -> abc.Iterator[ResourcePBT]:
     instance:
         PricesYahoo("MSFT, AZN.L")
     at:
-        Timestamp('2022-06-16 09:29:12', tz='UTC')
+        Timestamp('2022-06-16 09:29:12', tz=ZoneInfo("UTC"))
     """
     yield get_resource_pbt("us_lon")
 
@@ -334,7 +334,7 @@ def res_hk_lon() -> abc.Iterator[ResourcePBT]:
     instance:
         PricesYahoo("9988.HK, AZN.L")
     at:
-        Timestamp('2022-06-17 12:10:12', tz='UTC')
+        Timestamp('2022-06-17 12:10:12', tz=ZoneInfo("UTC"))
     """
     yield get_resource_pbt("hk_lon")
 
@@ -361,7 +361,7 @@ def res_us_hk() -> abc.Iterator[ResourcePBT]:
     instance:
         PricesYahoo("MSFT, 9988.HK")
     at:
-        Timestamp('2022-06-17 22:04:55', tz='UTC')
+        Timestamp('2022-06-17 22:04:55', tz=ZoneInfo("UTC"))
     """
     yield get_resource_pbt("us_hk")
 
@@ -388,7 +388,7 @@ def res_brz_hk() -> abc.Iterator[ResourcePBT]:
     instance:
         PricesYahoo("PETR3.SA, 9988.HK")
     at:
-        Timestamp('2022-06-16 15:46:12', tz='UTC')
+        Timestamp('2022-06-16 15:46:12', tz=ZoneInfo("UTC"))
     """
     yield get_resource_pbt("brz_hk")
 
@@ -420,7 +420,7 @@ def res_lon_247() -> abc.Iterator[ResourcePBT]:
     instance:
         PricesYahoo("AZN.L, BTC-USD")
     at:
-        Timestamp('2022-06-17 13:17:32', tz='UTC')
+        Timestamp('2022-06-17 13:17:32', tz=ZoneInfo("UTC"))
 
     NOTE: following warnings were raised on creating resource:
     PricesMissingWarning: Prices from Yahoo are missing for 'BTC-USD' at
@@ -458,7 +458,7 @@ def res_247_245() -> abc.Iterator[ResourcePBT]:
     instance:
         PricesYahoo("BTC-USD, ES=F")
     at:
-        Timestamp('2022-06-17 22:41:25', tz='UTC')
+        Timestamp('2022-06-17 22:41:25', tz=ZoneInfo("UTC"))
 
     NOTE: following warnings were raised on creating resource:
     PricesMissingWarning: Prices from Yahoo are missing for 'BTC-USD' at
@@ -525,7 +525,7 @@ def res_us_lon_hk() -> abc.Iterator[ResourcePBT]:
     instance:
         PricesYahoo("MSFT, AZN.L, 9988.HK")
     at:
-        Timestamp('2022-06-17 15:57:09', tz='UTC')
+        Timestamp('2022-06-17 15:57:09', tz=ZoneInfo("UTC"))
     """
     yield get_resource_pbt("us_lon_hk")
 
@@ -2086,7 +2086,7 @@ class TestGetComposite:
         )
         last_daily_session = last_daily_sessions[-1]
         sessions = prices.cc.sessions_in_range(start, last_daily_session)
-        sessions = sessions.tz_localize(pytz.UTC)
+        sessions = sessions.tz_localize(UTC)
         assert_index_equal(daily_part.index.left, sessions)
         assert_index_equal(daily_part.index.right, sessions)
         # verify not missing anything inbetween
@@ -2767,7 +2767,7 @@ class TestGet:
 
         # Verify `tzin`
         symb_xnys = get_symbols_for_calendar(prices, "XNYS")
-        for tzin in ("America/New_York", pytz.timezone("America/New_York"), symb_xnys):
+        for tzin in ("America/New_York", ZoneInfo("America/New_York"), symb_xnys):
             df = prices.get("2H", start_utc, end_str, tzin=tzin)
             assert_frame_equal(df, df_base)
 
@@ -4297,7 +4297,7 @@ class TestGet:
         assert prices.get(**kwargs_daily).index.tz is None
         assert prices.get(**kwargs_daily, tzout=tzhkg).index.tz is None
         # unless tz is UTC
-        assert prices.get(**kwargs_daily, tzout="UTC").index.tz is UTC
+        assert prices.get(**kwargs_daily, tzout=UTC).index.tz is UTC
 
         # verify `tzout` defaults to timezone that `tzin` evaluates to
         kwargs_intraday = dict(end=session, days=2)
@@ -4420,7 +4420,7 @@ class TestPriceAt:
         df: pd.DataFrame,
         indice: pd.Timestamp,
         values: dict[str, tuple[pd.Timestamp, Literal["open", "close"]]],
-        tz: pytz.BaseTzInfo = UTC,
+        tz: ZoneInfo = UTC,
     ):
         self.assert_price_at_rtrn_format(table, df)
         assert df.index[0] == indice
@@ -4699,7 +4699,7 @@ class TestPriceAt:
         self.assertions(table, df, indice, values, xnys.tz)
 
         df = f(minute, tz="Europe/London")
-        self.assertions(table, df, indice, values, pytz.timezone("Europe/London"))
+        self.assertions(table, df, indice, values, ZoneInfo("Europe/London"))
 
         # verify tz also defines tz of a timezone naive minute
         minute = minute.astimezone(None) + xhkg.tz.utcoffset(session)
@@ -4802,7 +4802,7 @@ class TestPriceAt:
         close = xnys.session_close(session)
         open_next = xnys.session_open(xnys.next_session(session))
 
-        table = prices.get("1T", session_before, session, tzout=pytz.UTC)
+        table = prices.get("1T", session_before, session, tzout=UTC)
         tableD1 = prices.get("1D", session_before, session)
 
         delay = 20
@@ -5884,7 +5884,7 @@ def test_price_range(prices_us_lon_hk, one_day, monkeypatch):
     def assertions(
         rng: pd.DataFrame,
         table: pd.DataFrame,
-        tz: pytz.BaseTzInfo = prices.tz_default,
+        tz: ZoneInfo = prices.tz_default,
         to_now: bool = False,
     ):
         assert_prices_table_ii(rng, prices)
@@ -5945,11 +5945,11 @@ def test_price_range(prices_us_lon_hk, one_day, monkeypatch):
     assert_frame_equal(rng.pt.stacked, f(**kwargs, stack=True))
 
     # Sidetrack to verify `tzout`
-    tz = pytz.UTC
+    tz = UTC
     rng = f(**kwargs, tzout=tz)
     assertions(rng, table, tz)
 
-    tz = pytz.timezone("Australia/Perth")
+    tz = ZoneInfo("Australia/Perth")
     rng = f(**kwargs, tzout=tz)
     assertions(rng, table, tz)
 
@@ -5957,7 +5957,7 @@ def test_price_range(prices_us_lon_hk, one_day, monkeypatch):
     assertions(rng, table, xhkg.tz)
 
     # verify output in terms of `tzin` if tzout not otherwise passed.
-    tzin = pytz.timezone("Australia/Perth")
+    tzin = ZoneInfo("Australia/Perth")
     rng = f(**kwargs, tzin=tzin)
     assertions(rng, table, tzin)
 
@@ -5967,7 +5967,7 @@ def test_price_range(prices_us_lon_hk, one_day, monkeypatch):
     assertions(rng, table_, xhkg.tz)
 
     # but not if `tzout` passed
-    tzout = pytz.timezone("Europe/Rome")
+    tzout = ZoneInfo("Europe/Rome")
     rng = f(**kwargs, tzin=tzin, tzout=tzout)
     assertions(rng, table, tzout)
 
@@ -6017,7 +6017,7 @@ def test_price_range(prices_us_lon_hk, one_day, monkeypatch):
     assert rng.index.right <= helpers.now()
 
     # mock now to ensure same return for `price_range` and `get``
-    mock_now(monkeypatch, pd.Timestamp.now(tz=pytz.UTC) - pd.Timedelta(5, "D"))
+    mock_now(monkeypatch, pd.Timestamp.now(tz=UTC) - pd.Timedelta(5, "D"))
     # verify for passing `start` and for requesting to now
     kwargs = dict(start=minute)
     test_it(kwargs, to_now=True)

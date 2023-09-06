@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections import abc
 import os
+from zoneinfo import ZoneInfo
 
 from hypothesis import settings, HealthCheck
 import exchange_calendars as xcals
@@ -132,7 +133,7 @@ def one_sec() -> abc.Iterator[pd.Timedelta]:
     yield pd.Timedelta(1, "S")
 
 
-_now_utc = pd.Timestamp("2021-11-17 21:59", tz="UTC")
+_now_utc = pd.Timestamp("2021-11-17 21:59", tz=ZoneInfo("UTC"))
 
 
 @pytest.fixture(scope="session")

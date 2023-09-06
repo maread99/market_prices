@@ -19,7 +19,6 @@ import enum
 from typing import TypedDict, Union
 
 import pandas as pd
-import pytz
 from exchange_calendars import ExchangeCalendar
 
 
@@ -85,8 +84,6 @@ DateRange = tuple[pd.Timestamp, pd.Timestamp]
 tuple[0]: Range start date.
 tuple[1]: Range end date.
 """
-
-PytzUTC = type(pytz.UTC)
 
 DateTimestamp = Union[pd.Timestamp, str, datetime.datetime, int, float]
 """Type to annotate an input that takes a value representing a date.

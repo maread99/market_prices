@@ -18,11 +18,11 @@ import copy
 
 import exchange_calendars as xcals
 import pandas as pd
-import pytz
 from hypothesis import assume
 from hypothesis import strategies as st
 
 from market_prices import helpers
+from market_prices.helpers import UTC
 from market_prices.intervals import DOInterval, TDInterval
 
 from . import conftest
@@ -157,7 +157,7 @@ def calendar_start_end_sessions(
 
 def nano_to_min(nano: int) -> pd.Timestamp:
     """Convert a 'nano' to a utc pd.Timestamp."""
-    return pd.Timestamp(nano).tz_localize(pytz.UTC)
+    return pd.Timestamp(nano).tz_localize(UTC)
 
 
 @st.composite

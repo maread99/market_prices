@@ -7,12 +7,12 @@ from collections import abc
 import exchange_calendars as xcals
 import pandas as pd
 import pytest
-import pytz
 
 import market_prices.data as m
 from market_prices import helpers, intervals, errors
-from market_prices.utils import calendar_utils as calutils
+from market_prices.helpers import UTC
 from market_prices.intervals import TDInterval
+from market_prices.utils import calendar_utils as calutils
 
 # pylint: disable=missing-function-docstring, missing-type-doc
 # pylint: disable=missing-param-doc, missing-any-param-doc, redefined-outer-name
@@ -237,7 +237,7 @@ def test_pre_requests(
 
     if bi.is_intraday:
         pool = ans.first_minutes
-        r_edge = pd.Timestamp.now(tz=pytz.UTC) + bi
+        r_edge = pd.Timestamp.now(tz=UTC) + bi
     else:
         pool = ans.sessions
         r_edge = today
@@ -876,7 +876,7 @@ class TestRanges:
         if bi_daily:
             left_bound = today - left_limit
         else:
-            left_bound = pd.Timestamp.now(tz=pytz.UTC) - left_limit
+            left_bound = pd.Timestamp.now(tz=UTC) - left_limit
             left_bound += one_min  # one_min provided for processing
 
         data = get_data()

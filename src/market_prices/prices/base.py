@@ -16,16 +16,17 @@ import datetime
 import functools
 import warnings
 from typing import Any, Literal, Optional, Union, TYPE_CHECKING, Annotated
+from zoneinfo import ZoneInfo
 
 import exchange_calendars as xcals
 import numpy as np
 import pandas as pd
-import pytz
 from valimp import parse, Parser, Coerce
 
 from market_prices import data
 from market_prices import daterange as dr
 from market_prices import errors, helpers, intervals, mptypes, parsing, pt
+from market_prices.helpers import UTC
 from market_prices.mptypes import Anchor, OpenEnd, Alignment, Priority
 from market_prices.intervals import BI, TDInterval
 from market_prices.utils import calendar_utils as calutils
@@ -727,12 +728,12 @@ class PricesBase(metaclass=abc.ABCMeta):
         return self._calendars_delay(max)
 
     @functools.cached_property
-    def timezones(self) -> dict[str, pytz.BaseTzInfo]:
+    def timezones(self) -> dict[str, ZoneInfo]:
         """Timezones, by symbol. Evaluated from calendars."""
         return {k: c.tz for k, c in self.calendars.items()}
 
     @functools.cached_property
-    def tz_default(self) -> pytz.BaseTzInfo:
+    def tz_default(self) -> ZoneInfo:
         """Default timezone."""
         return self.timezones[self.lead_symbol_default]
 
@@ -1829,7 +1830,7 @@ class PricesBase(metaclass=abc.ABCMeta):
         df = df.groupby(target_indices).agg(agg_f)
         df.index = pd.IntervalIndex(df.index)  # convert from CategoricalIndex
         df = helpers.volume_to_na(df)
-        df.index = pdutils.interval_index_new_tz(df.index, pytz.UTC)
+        df.index = pdutils.interval_index_new_tz(df.index, UTC)
         if df.pt.interval is None:
             # Overlapping indices of a calendar-specific trading trading were curtailed.
             warnings.warn(errors.IntervalIrregularWarning())
@@ -2074,7 +2075,7 @@ class PricesBase(metaclass=abc.ABCMeta):
         table_daily = self._get_table_daily(force_ds_daily=True)
         # up to and exclusive of split_s
         table_daily = table_daily[: split_s - helpers.ONE_DAY]
-        table_daily = table_daily.tz_localize(pytz.UTC)
+        table_daily = table_daily.tz_localize(UTC)
         table_daily.index = pd.IntervalIndex.from_arrays(
             table_daily.index, table_daily.index, "left"
         )
@@ -2237,7 +2238,7 @@ class PricesBase(metaclass=abc.ABCMeta):
                 index = indices_to_stay.union(replacement_indices, sort=False)
                 index = index.sort_values()
 
-        index = pdutils.interval_index_new_tz(index, pytz.UTC)
+        index = pdutils.interval_index_new_tz(index, UTC)
         return index
 
     @staticmethod
@@ -2497,7 +2498,7 @@ class PricesBase(metaclass=abc.ABCMeta):
         add_a_row: bool = False,
         lead_symbol: Annotated[Optional[str], Parser(parsing.lead_symbol)] = None,
         tzin: Annotated[
-            Optional[Union[str, pytz.BaseTzInfo]],
+            Optional[Union[str, ZoneInfo]],
             Parser(parsing.to_prices_timezone, parse_none=False),
         ] = None,
         anchor: Literal["workback", "open"] = "open",
@@ -2507,7 +2508,7 @@ class PricesBase(metaclass=abc.ABCMeta):
         composite: bool = False,
         force: bool = False,
         tzout: Annotated[
-            Optional[Union[str, pytz.BaseTzInfo]],
+            Optional[Union[str, ZoneInfo]],
             Parser(parsing.to_prices_timezone, parse_none=False),
         ] = None,
         fill: Optional[Literal["ffill", "bfill", "both"]] = None,
@@ -2662,8 +2663,8 @@ class PricesBase(metaclass=abc.ABCMeta):
             minute (as opposed to a session).
 
             Can be passed as a timezone defined as a `str` that's valid
-            input to `pytz.timezone`, for example 'utc' or 'US/Eastern`,
-            or as an instance of `pytz.timezone`.
+            input to `zoneinfo.ZoneInfo`, for example 'UTC' or
+            'US/Eastern`, or as an instance of `zoneinfo.ZoneInfo`.
 
             Can alternatively be passed as any symbol of `self.symbols`
             to define as timezone associated with that symbol, for example
@@ -2977,15 +2978,15 @@ class PricesBase(metaclass=abc.ABCMeta):
 
             If interval daily or higher:
 
-                Can only accept "utc", pytz.UTC or (for tz-naive dates)
-                None.
+                Can only accept "utc", `zoneinfo.ZoneInfo("UTC")` or (for
+                tz-naive dates) None.
 
             If interval intraday:
 
                 Can be passed as a timezone defined as a `str` that's valid
-                input to `pytz.timezone`, for example 'utc' or
-                'US/Eastern`, or as an instance returned from
-                `pytz.timezone`.
+                input to `zoneinfo.ZoneInfo`, for example 'UTC' or
+                'US/Eastern`, or as an instance returned by
+                `zoneinfo.ZoneInfo`.
 
                 Can alternatively be passed as any symbol of `self.symbols`
                 to define as timezone associated with that symbol, for
@@ -3281,8 +3282,8 @@ class PricesBase(metaclass=abc.ABCMeta):
             assert start is None or isinstance(start, pd.Timestamp)
             assert end is None or isinstance(start, pd.Timestamp)
             assert isinstance(lead_symbol, str)
-            assert tzin is None or isinstance(tzin, pytz.BaseTzInfo)
-            assert tzout is None or isinstance(tzout, pytz.BaseTzInfo)
+            assert tzin is None or isinstance(tzin, ZoneInfo)
+            assert tzout is None or isinstance(tzout, ZoneInfo)
 
         anchor_ = Anchor.WORKBACK if anchor.lower() == "workback" else Anchor.OPEN
         openend_ = OpenEnd.SHORTEN if openend.lower() == "shorten" else OpenEnd.MAINTAIN
@@ -3410,8 +3411,8 @@ class PricesBase(metaclass=abc.ABCMeta):
             table.index = self._force_partial_indices(table)
 
         if table.pt.is_intraday:
-            tzout_: pytz.BaseTzInfo | Literal[False] = tzin if tzout is None else tzout
-        elif tzout is not pytz.UTC:
+            tzout_: ZoneInfo | Literal[False] = tzin if tzout is None else tzout
+        elif tzout is not UTC:
             # if tzout tz aware or None
             tzout_ = False  # output as default tz
         else:
@@ -3694,7 +3695,7 @@ class PricesBase(metaclass=abc.ABCMeta):
         return ma_tss
 
     def _price_at_from_daily(
-        self, minute: pd.Timestamp | None, tz: pytz.BaseTzInfo
+        self, minute: pd.Timestamp | None, tz: ZoneInfo
     ) -> pd.DataFrame:
         """Serve call for `_price_at` from daily prices table."""
         # pylint: disable=too-many-locals
@@ -3752,7 +3753,7 @@ class PricesBase(metaclass=abc.ABCMeta):
             Parser(parsing.verify_timetimestamp, parse_none=False),
         ] = None,
         tz: Annotated[
-            Optional[Union[str, pytz.BaseTzInfo]],
+            Optional[Union[str, ZoneInfo]],
             Parser(parsing.to_prices_timezone, parse_none=False),
         ] = None,
     ) -> pd.DataFrame:
@@ -3785,16 +3786,16 @@ class PricesBase(metaclass=abc.ABCMeta):
             request prices at a minute representing midnight pass as a
             timezone aware pd.Timestamp.
 
-        tz : str | pytz.BaseTzInfo | None, default: `default_tz`
+        tz : str | ZoneInfo | None, default: `default_tz`
             Timezone of `minute` (if `minute` otherwise timezone naive) and
             for returned index. Can be passed as:
 
-                pytz.BaseTzInfo:
-                    Any instance returned by pytz.timezone
+                ZoneInfo:
+                    Any instance returned by `zoneinfo.ZoneInfo`.
 
                 str:
-                    - valid input to `pytz.timezone`, for example "utc" or
-                    "US/Eastern".
+                    - valid input to `zoneinfo.ZoneInfo`, for example "UTC"
+                    or "US/Eastern".
                     - any symbol of `symbols`. For example, pass "GOOG" to
                     define timezone as timezone associated with that
                     symbol.
@@ -3815,7 +3816,7 @@ class PricesBase(metaclass=abc.ABCMeta):
         # pylint: disable=too-many-statements
         if TYPE_CHECKING:
             assert (minute is None) or isinstance(minute, pd.Timestamp)
-            assert tz is None or isinstance(tz, pytz.BaseTzInfo)
+            assert tz is None or isinstance(tz, ZoneInfo)
 
         if tz is None:
             tz = self.tz_default
@@ -3926,12 +3927,12 @@ class PricesBase(metaclass=abc.ABCMeta):
         years: int = 0,
         lead_symbol: Annotated[Optional[str], Parser(parsing.lead_symbol)] = None,
         tzin: Annotated[
-            Optional[Union[str, pytz.BaseTzInfo]],
+            Optional[Union[str, ZoneInfo]],
             Parser(parsing.to_prices_timezone, parse_none=False),
         ] = None,
         strict: bool = True,
         tzout: Annotated[
-            Optional[Union[str, pytz.BaseTzInfo]],
+            Optional[Union[str, ZoneInfo]],
             Parser(parsing.to_prices_timezone, parse_none=False),
         ] = None,
         include: Optional[mptypes.Symbols] = None,
@@ -4030,8 +4031,8 @@ class PricesBase(metaclass=abc.ABCMeta):
             assert start is None or isinstance(start, pd.Timestamp)
             assert end is None or isinstance(start, pd.Timestamp)
             assert isinstance(lead_symbol, str)
-            assert tzin is None or isinstance(tzin, pytz.BaseTzInfo)
-            assert tzout is None or isinstance(tzout, pytz.BaseTzInfo)
+            assert tzin is None or isinstance(tzin, ZoneInfo)
+            assert tzout is None or isinstance(tzout, ZoneInfo)
 
         interval = None
         add_a_row = False

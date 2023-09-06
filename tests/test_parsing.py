@@ -10,14 +10,17 @@ import itertools
 import re
 import typing
 from typing import Annotated, Union, TYPE_CHECKING
+import zoneinfo
+from zoneinfo import ZoneInfo
 
 import pandas as pd
 import pytest
-import pytz
 from valimp import parse, Parser, Coerce
 
 import market_prices.parsing as m
 from market_prices import errors, helpers, mptypes
+from market_prices.helpers import UTC
+
 from .utils import Answers
 
 # pylint: disable=missing-function-docstring, missing-type-doc
@@ -112,29 +115,29 @@ def test_verify_period_parameters():
 def test_parse_timestamp():
     f = m.parse_timestamp
 
-    tzin = pytz.timezone("US/Eastern")
+    tzin = ZoneInfo("US/Eastern")
 
     date = pd.Timestamp("2021-11-02")
     rtrn = f(date, tzin)
     assert rtrn == date  # date as tz-naive timestamp
     assert rtrn.tz is None
 
-    midnight = pd.Timestamp("2021-11-02", tz=pytz.UTC)
+    midnight = pd.Timestamp("2021-11-02", tz=UTC)
     rtrn = f(midnight, tzin)
     assert rtrn == midnight
-    assert rtrn.tz == pytz.UTC  # Does not change tz.
+    assert rtrn.tz == UTC  # Does not change tz.
 
     time = pd.Timestamp("2021-11-02 14:33")
     rtrn = f(time, tzin)
     assert rtrn == pd.Timestamp(time, tz=tzin)  # defines time in terms of tzin...
-    assert rtrn.tz == pytz.UTC  # ...although tz is UTC
-    assert rtrn != pd.Timestamp(time, tz=pytz.UTC)
-    assert rtrn == time.tz_localize(tzin).tz_convert(pytz.UTC)
+    assert rtrn.tz == UTC  # ...although tz is UTC
+    assert rtrn != pd.Timestamp(time, tz=UTC)
+    assert rtrn == time.tz_localize(tzin).tz_convert(UTC)
 
     time = pd.Timestamp("2021-11-02 14:33", tz=tzin)
-    rtrn = f(time, pytz.timezone("Japan"))  # time tz-aware, tzin should be ignored...
+    rtrn = f(time, ZoneInfo("Japan"))  # time tz-aware, tzin should be ignored...
     assert rtrn == time
-    assert rtrn.tz == pytz.UTC  # ...albeit converted to UTC
+    assert rtrn.tz == UTC  # ...albeit converted to UTC
 
 
 class TestParseStartEnd:
@@ -359,15 +362,15 @@ class TestParseStartEnd:
         session_first_minute = ans.first_minutes[session]
         session_close = ans.closes[session]
 
-        def mock_now_closed(*_, tz=pytz.UTC, **__) -> pd.Timestamp:
+        def mock_now_closed(*_, tz=UTC, **__) -> pd.Timestamp:
             now = ans.last_minutes[session] + (5 * one_min)
-            if tz is not pytz.UTC:
+            if tz is not UTC:
                 now = now.tz_convert(tz)
             return now
 
-        def mock_now_open(*_, tz=pytz.UTC, **__) -> pd.Timestamp:
+        def mock_now_open(*_, tz=UTC, **__) -> pd.Timestamp:
             now = session_close - (5 * one_min)
-            if tz is not pytz.UTC:
+            if tz is not UTC:
                 now = now.tz_convert(tz)
             return now
 
@@ -431,15 +434,15 @@ class TestParseStartEnd:
         oob_session = ans.last_session + one_day  # right of right calendar bound
         oob_minute = ans.last_minute + one_min  # right of right calendar bound
 
-        def mock_now_closed(*_, tz=pytz.UTC, **__) -> pd.Timestamp:
+        def mock_now_closed(*_, tz=UTC, **__) -> pd.Timestamp:
             now = ans.last_minutes[last_session] + (5 * one_min)
-            if tz is not pytz.UTC:
+            if tz is not UTC:
                 now = now.tz_convert(tz)
             return now
 
-        def mock_now_open(*_, tz=pytz.UTC, **__) -> pd.Timestamp:
+        def mock_now_open(*_, tz=UTC, **__) -> pd.Timestamp:
             now = ans.last_minutes[last_session] - (5 * one_min)
-            if tz is not pytz.UTC:
+            if tz is not UTC:
                 now = now.tz_convert(tz)
             return now
 
@@ -853,8 +856,8 @@ class TestParseStartEnd:
         assert f(start, today + one_day, True) == (start, None)
 
         # verify times pass to gregorian dates
-        start_time = (start - one_min).tz_localize(pytz.UTC)
-        end_time = (end + one_min).tz_localize(pytz.UTC)
+        start_time = (start - one_min).tz_localize(UTC)
+        end_time = (end + one_min).tz_localize(UTC)
         assert f(start_time, end_time, True) == (start, end)
 
         # verify when start/end None, evalute to None
@@ -912,7 +915,7 @@ def test_verify_time_not_oob(one_min):
             f" are available is {bound} although `time` received as {ts}."
         )
 
-    time = pd.Timestamp("2021-11-02 14:33", tz=pytz.UTC)
+    time = pd.Timestamp("2021-11-02 14:33", tz=UTC)
 
     assert f(time, time, time) is None
 
@@ -929,7 +932,7 @@ def test_verify_time_not_oob(one_min):
     ):
         f(time, time, r_bound)
 
-    midnight = pd.Timestamp("2021-11-02", tz=pytz.UTC)
+    midnight = pd.Timestamp("2021-11-02", tz=UTC)
     assert f(midnight, midnight, midnight) is None
 
     with pytest.raises(errors.DatetimeTooEarlyError):
@@ -939,30 +942,6 @@ def test_verify_time_not_oob(one_min):
 
 
 # ------------------ tests for valimp.Parser functions --------------------
-
-
-def test_verify_interval_datetime_index():
-    @parse
-    def mock_func(
-        arg: Annotated[pd.IntervalIndex, Parser(m.verify_interval_datetime_index)]
-    ) -> pd.IntervalIndex:
-        return arg
-
-    # verify valid input
-    dti = pd.date_range("2021", periods=3, freq="MS")
-    interval_index = pd.IntervalIndex.from_arrays(dti, dti)
-    assert mock_func(interval_index) is interval_index
-
-    # verify invalid input
-    int_index = pd.Index([1, 2, 3])
-    invalid_int_index = pd.IntervalIndex.from_arrays(int_index, int_index)
-    match = re.escape(
-        "'arg' can only take a pd.IntervalIndex that has each side"
-        " as type pd.DatetimeIndex, although received with left side"
-        " as type '<class 'pandas.core.indexes.base.Index'>'."
-    )
-    with pytest.raises(ValueError, match=match):
-        mock_func(invalid_int_index)
 
 
 def test_lead_symbol():
@@ -993,14 +972,14 @@ def test_lead_symbol():
 
 
 def assert_valid_timezone(func: Callable, field: str):
-    """Assert `func` arg takes input valid for pytz.timezone.
+    """Assert `func` arg takes input valid for ZoneInfo.
 
-    Asserts valid input returns as would be returned by pytz.timezone.
-    Verifies that invalid input for pytz.timezone raises an error.
+    Asserts valid input returns as would be returned by ZoneInfo.
+    Verifies that invalid input for ZoneInfo raises an error.
     """
     # verify valid input
-    assert func("UTC") == pytz.UTC
-    expected = pytz.timezone("Europe/London")
+    assert func("UTC") == UTC
+    expected = ZoneInfo("Europe/London")
     assert func("Europe/London") == expected
     assert func(expected) == expected
 
@@ -1008,16 +987,16 @@ def assert_valid_timezone(func: Callable, field: str):
 def test_to_timezone():
     @parse
     def mock_func(
-        arg: Annotated[Union[pytz.BaseTzInfo, str], Parser(m.to_timezone)]
-    ) -> pytz.BaseTzInfo:
-        assert isinstance(arg, pytz.BaseTzInfo)
+        arg: Annotated[Union[ZoneInfo, str], Parser(m.to_timezone)]
+    ) -> ZoneInfo:
+        assert isinstance(arg, ZoneInfo)
         return arg
 
     assert_valid_timezone(mock_func, "Timezone")
 
 
 def test_to_prices_timezone():
-    tz = pytz.timezone("US/Eastern")
+    tz = ZoneInfo("US/Eastern")
 
     class MockCls:
         """Mock class to test parsing.to_prices_timezone."""
@@ -1033,9 +1012,9 @@ def test_to_prices_timezone():
         @parse
         def mock_func(
             self,
-            arg: Annotated[Union[str, pytz.BaseTzInfo], Parser(m.to_prices_timezone)],
-        ) -> pytz.BaseTzInfo:
-            assert isinstance(arg, pytz.BaseTzInfo)
+            arg: Annotated[Union[str, ZoneInfo], Parser(m.to_prices_timezone)],
+        ) -> ZoneInfo:
+            assert isinstance(arg, ZoneInfo)
             return arg
 
     f = MockCls().mock_func
@@ -1046,7 +1025,7 @@ def test_to_prices_timezone():
     # verify can take a symbol
     assert f("MSFT") == tz
     # but not any symbol
-    with pytest.raises(pytz.UnknownTimeZoneError):
+    with pytest.raises(zoneinfo.ZoneInfoNotFoundError):
         f("HEY")
 
 
@@ -1074,7 +1053,7 @@ def test_to_datetimestamp():
 
     # verify input cannot be timezone aware
     expected = pd.Timestamp("2022-03-01")
-    ts = expected.tz_localize(pytz.UTC)
+    ts = expected.tz_localize(UTC)
     match = re.escape(f"`arg` must be tz-naive, although receieved as {ts}")
     with pytest.raises(ValueError, match=match):
         mock_func(ts)
@@ -1111,7 +1090,7 @@ def test_to_timetimestamp():
     assert mock_func(expected.value) == expected
 
     # verify input can be midnight if tz aware
-    ts = pd.Timestamp("2022-03-01 00:00", tz=pytz.UTC)
+    ts = pd.Timestamp("2022-03-01 00:00", tz=UTC)
     assert mock_func(ts) == ts
 
     # verify input can be timezone naive if not midnight

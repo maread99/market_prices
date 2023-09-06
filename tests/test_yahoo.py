@@ -13,11 +13,11 @@ import numpy as np
 import pandas as pd
 from pandas.testing import assert_frame_equal, assert_series_equal
 import pytest
-import pytz
 import yahooquery as yq
 
 import market_prices.prices.yahoo as m
 from market_prices import data, daterange, helpers, intervals, errors
+from market_prices.helpers import UTC
 from market_prices.support import tutorial_helpers as th
 from market_prices.utils import calendar_utils as calutils
 from .test_base_prices import (
@@ -44,12 +44,11 @@ from .test_base_prices import (
 
 # pylint: disable=too-many-lines
 
-UTC = pytz.UTC
-
 # NOTE See ../docs/developers/testing.md...
 # ...sessions that yahoo temporarily fails to return prices for if (seemingly)
 # send a high frequency of requests for prices from the same IP address.
 _flakylist = (
+    pd.Timestamp("2023-09-01"),
     pd.Timestamp("2023-07-17"),
     pd.Timestamp("2023-04-23"),
     pd.Timestamp("2023-01-18"),
@@ -545,7 +544,7 @@ def test__fill_reindexed():
             "2022-01-05 23:00",
             "2022-01-06 00:00",
         ],
-        tz=pytz.UTC,
+        tz=UTC,
     )
 
     assert (
@@ -708,7 +707,7 @@ def test__fill_reindexed():
             "2022-01-12 02:00",
             "2022-01-12 03:00",
         ],
-        tz=pytz.UTC,
+        tz=UTC,
     )
     df = pd.DataFrame(ohlcv, index=index, columns=columns)
     match_sessions = ["2022-01-05", "2022-01-07", "2022-01-10", "2022-01-12"]
@@ -1028,7 +1027,7 @@ class TestConstructor:
         interval, interval_yq = prices.bis.D1, "1d"
 
         # inputs for intraday interval
-        end_id = pd.Timestamp.now(tz=pytz.UTC).floor("D") - pd.Timedelta(14, "D")
+        end_id = pd.Timestamp.now(tz=UTC).floor("D") - pd.Timedelta(14, "D")
         start_id = end_id - pd.Timedelta(14, "D")
         interval_id, interval_yq_id = prices.bis.H1, "1h"
 
@@ -1698,9 +1697,9 @@ class TestRequestDataIntraday:
     def test_live_indice(self, pricess):
         """Verify return with live indice as expected."""
         prices = pricess["inc_247"]
-        start = pd.Timestamp.now(tz="UTC").floor("D") - pd.Timedelta(2, "D")
+        start = pd.Timestamp.now(tz=UTC).floor("D") - pd.Timedelta(2, "D")
         for interval in prices.BaseInterval[:-1]:
-            now = pd.Timestamp.now(tz="UTC").floor("T")
+            now = pd.Timestamp.now(tz=UTC).floor("T")
             end = now + interval
             df = prices._request_data(interval, start, end)
             num_rows = (now - start) / interval
@@ -1714,7 +1713,7 @@ class TestRequestDataIntraday:
         cal = prices.calendars[symbol]
         cc = calutils.CompositeCalendar([cal])
         delay = pd.Timedelta(delay_mins, "T")
-        start = pd.Timestamp.now(tz="UTC").floor("D") - pd.Timedelta(2, "D")
+        start = pd.Timestamp.now(tz=UTC).floor("D") - pd.Timedelta(2, "D")
         pp = {
             "minutes": 0,
             "hours": 0,
@@ -1732,7 +1731,7 @@ class TestRequestDataIntraday:
             )
             (_, end), _ = drg.daterange
             df = prices._request_data(interval, start, end)
-            now = pd.Timestamp.now(tz="UTC").floor("T")
+            now = pd.Timestamp.now(tz=UTC).floor("T")
             num_rows = (now - delay - start) / interval
             num_rows = np.ceil(num_rows) if num_rows % 1 else num_rows + 1
             expected_end = start + (num_rows * interval)
@@ -1747,7 +1746,7 @@ class TestRequestDataIntraday:
         prices = pricess["only_247"]
         interval = prices.BaseInterval.T1
         for days in [5, 6, 7, 11, 12, 13]:
-            end = pd.Timestamp.now(tz=pytz.UTC).ceil("T")
+            end = pd.Timestamp.now(tz=UTC).ceil("T")
             start = end - pd.Timedelta(days, "D")
             df = prices._request_data(interval, start, end)
             num_expected_rows = days * 24 * 60
@@ -1835,7 +1834,7 @@ class TestRequestDataIntraday:
         prices = pricess["us"]
         symbol = prices.symbols[0]
         cal = prices.calendars[symbol]
-        now = pd.Timestamp.now(pytz.UTC).floor("T")
+        now = pd.Timestamp.now(UTC).floor("T")
         session = cal.minute_to_past_session(now, 2)
         session = get_valid_session(session, cal, "previous")
         # extra 30T to cover unaligned end of 1H interval
@@ -1846,7 +1845,7 @@ class TestRequestDataIntraday:
         # Verify for lon prices
         prices = m.PricesYahoo(["AZN.L"])
         cal = prices.calendars["AZN.L"]
-        now = pd.Timestamp.now(pytz.UTC).floor("T")
+        now = pd.Timestamp.now(UTC).floor("T")
         session = cal.minute_to_past_session(now, 2)
         session = get_valid_session(session, cal, "previous")
         # extra 30T to cover unaligned end of 1H interval
@@ -1876,7 +1875,7 @@ def test_prices_for_symbols():
     # us and lon calendars overlap.
     cal_us = prices.calendars[symb_us]
     cal_lon = prices.calendars[symb_lon]
-    now = pd.Timestamp.now(tz=pytz.UTC)
+    now = pd.Timestamp.now(tz=UTC)
     end_session = cal_us.minute_to_past_session(now, 2)
     start_session = cal_us.minute_to_past_session(now, 12)
 
@@ -1894,11 +1893,11 @@ def test_prices_for_symbols():
             start = us_open - pd.Timedelta(2, "H")
             end = lon_close + pd.Timedelta(2, "H")
             # xcals 4.0 del clause
-            if start.tz is not pytz.UTC:
-                start = start.tz_localize(pytz.UTC)
-                end = end.tz_localize(pytz.UTC)
-                us_open = us_open.tz_localize(pytz.UTC)
-                lon_close = lon_close.tz_localize(pytz.UTC)
+            if start.tz is not UTC:
+                start = start.tz_localize(UTC)
+                end = end.tz_localize(UTC)
+                us_open = us_open.tz_localize(UTC)
+                lon_close = lon_close.tz_localize(UTC)
             break
 
     _ = prices.get("5T", start, us_open, lead_symbol="AZN.L")

@@ -3,15 +3,16 @@
 from __future__ import annotations
 
 from collections.abc import Iterator
+from zoneinfo import ZoneInfo
 
 import numpy as np
 import pytest
 import pandas as pd
 from pandas import Timestamp as T
 from pandas.testing import assert_index_equal, assert_series_equal, assert_frame_equal
-import pytz
 
 import market_prices.helpers as m
+from market_prices.helpers import UTC
 from market_prices import intervals
 from .utils import get_resource
 
@@ -35,6 +36,7 @@ from .utils import get_resource
 
 def test_constants():
     # Just to make sure they aren't inadvertently changed
+    assert m.UTC is ZoneInfo("UTC")
     assert m.ONE_DAY == pd.Timedelta(1, "D")
     assert m.ONE_MIN == pd.Timedelta(1, "T")
     assert m.ONE_SEC == pd.Timedelta(1, "S")
@@ -51,9 +53,9 @@ def test_is_date(one_min):
     assert not f(T("2021-11-02 12:00"))
 
     minutes = [
-        T("2021-11-02", tz=pytz.UTC),
-        T("2021-11-02", tz="US/Eastern"),
-        T("2021-11-02", tz=pytz.UTC).tz_convert("US/Eastern"),
+        T("2021-11-02", tz=UTC),
+        T("2021-11-02", tz=ZoneInfo("US/Eastern")),
+        T("2021-11-02", tz=UTC).tz_convert(ZoneInfo("US/Eastern")),
     ]
     for minute in minutes:
         assert not f(minute)
@@ -66,31 +68,31 @@ def test_fts():
     date = pd.Timestamp("2021-11-03")
     assert f(date) == "2021-11-03"
 
-    time = pd.Timestamp("2021-11-03 12:44", tz=pytz.UTC)
+    time = pd.Timestamp("2021-11-03 12:44", tz=UTC)
     assert f(time) == "2021-11-03 12:44 UTC"
 
-    midnight = pd.Timestamp("2021-11-03", tz=pytz.UTC)
+    midnight = pd.Timestamp("2021-11-03", tz=UTC)
     assert f(midnight) == "2021-11-03 00:00 UTC"
 
 
 def test_is_utc():
     f = m.to_utc
 
-    expected = T("2021-11-02", tz="UTC")
-    assert f(T("2021-11-02", tz="UTC")) == expected
+    expected = T("2021-11-02", tz=UTC)
+    assert f(T("2021-11-02", tz=UTC)) == expected
     assert f(T("2021-11-02")) == expected
 
-    expected = T("2021-11-02 13:33", tz="UTC")
+    expected = T("2021-11-02 13:33", tz=UTC)
     assert f(T("2021-11-02 13:33")) == expected
-    assert f(T("2021-11-02 09:33", tz="US/Eastern")) == expected
+    assert f(T("2021-11-02 09:33", tz=ZoneInfo("US/Eastern"))) == expected
 
 
 def test_is_tz_naive():
     f = m.to_tz_naive
     expected = T("2021-11-02 15:30")
     assert f(T("2021-11-02 15:30")) == expected
-    assert f(T("2021-11-02 15:30", tz="UTC")) == expected
-    assert f(T("2021-11-02 11:30", tz="US/Eastern")) == expected
+    assert f(T("2021-11-02 15:30", tz=UTC)) == expected
+    assert f(T("2021-11-02 11:30", tz=ZoneInfo("US/Eastern"))) == expected
 
 
 def mock_now(mpatch, now: pd.Timestamp):
@@ -114,22 +116,22 @@ def test_now(monkeypatch):
 
     # verify for intraday interval
 
-    expected_left = pd.Timestamp("2022-05-01 14:32", tz=pytz.UTC)
-    expected_right = pd.Timestamp("2022-05-01 14:33", tz=pytz.UTC)
+    expected_left = pd.Timestamp("2022-05-01 14:32", tz=UTC)
+    expected_right = pd.Timestamp("2022-05-01 14:33", tz=UTC)
 
-    time_now = pd.Timestamp("2022-05-01 14:32", tz=pytz.UTC)
+    time_now = pd.Timestamp("2022-05-01 14:32", tz=UTC)
     mock_now(monkeypatch, time_now)
     assert f(interval_intraday) == expected_left
     assert f(interval_intraday, "left") == expected_left
     assert f(interval_intraday, "right") == expected_left
 
-    time_now = pd.Timestamp("2022-05-01 14:32:01", tz=pytz.UTC)
+    time_now = pd.Timestamp("2022-05-01 14:32:01", tz=UTC)
     mock_now(monkeypatch, time_now)
     assert f(interval_intraday) == expected_left
     assert f(interval_intraday, "left") == expected_left
     assert f(interval_intraday, "right") == expected_right
 
-    time_now = pd.Timestamp("2022-05-01 14:32:59", tz=pytz.UTC)
+    time_now = pd.Timestamp("2022-05-01 14:32:59", tz=UTC)
     mock_now(monkeypatch, time_now)
     assert f(interval_intraday) == expected_left
     assert f(interval_intraday, "left") == expected_left
@@ -140,21 +142,21 @@ def test_now(monkeypatch):
     expected_left = pd.Timestamp("2022-05-01")
     expected_right = pd.Timestamp("2022-05-02")
 
-    time_now = pd.Timestamp("2022-05-01", tz=pytz.UTC)
+    time_now = pd.Timestamp("2022-05-01", tz=UTC)
     mock_now(monkeypatch, time_now)
     for interval in intervals_daily:
         assert f(interval) == expected_left
         assert f(interval, "left") == expected_left
         assert f(interval, "right") == expected_left
 
-    time_now = pd.Timestamp("2022-05-01 00:00:01", tz=pytz.UTC)
+    time_now = pd.Timestamp("2022-05-01 00:00:01", tz=UTC)
     mock_now(monkeypatch, time_now)
     for interval in intervals_daily:
         assert f(interval) == expected_left
         assert f(interval, "left") == expected_left
         assert f(interval, "right") == expected_right
 
-    time_now = pd.Timestamp("2022-05-01 23:59:59", tz=pytz.UTC)
+    time_now = pd.Timestamp("2022-05-01 23:59:59", tz=UTC)
     mock_now(monkeypatch, time_now)
     for interval in intervals_daily:
         assert f(interval) == expected_left
