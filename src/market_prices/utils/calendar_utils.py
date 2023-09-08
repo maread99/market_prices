@@ -379,12 +379,12 @@ class CompositeCalendar:
     @property
     def first_minute(self) -> pd.Timestamp:
         """First composite calendar minute."""
-        return self.first_minutes[0]
+        return self.first_minutes.iloc[0]
 
     @property
     def last_minute(self) -> pd.Timestamp:
         """Last composite calendar minute."""
-        return self.last_minutes[-1]
+        return self.last_minutes.iloc[-1]
 
     def _parse_session(self, session: Session) -> pd.Timestamp:
         """Parse client input representing a session."""
@@ -1149,7 +1149,7 @@ class _CompositeNonTradingIndex:
         except ValueError:
             last_close_ = last_close.dropna()
             # last value of last close is last calendar close (there is no next open)
-            if last_close_.iloc[-1] == self.cc.closes[-1].tz_convert(None):
+            if last_close_.iloc[-1] == self.cc.closes.iloc[-1].tz_convert(None):
                 index = pd.IntervalIndex.from_arrays(
                     last_close_.iloc[:-1], next_open.dropna(), "left"
                 )

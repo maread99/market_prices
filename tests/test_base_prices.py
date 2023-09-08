@@ -1710,8 +1710,8 @@ class TestTableIntraday:
                         assert subset_s.volume.sum() == row_s.volume
                         assert subset_s.high.max() == row_s.high
                         assert subset_s.low.min() == row_s.low
-                        assert subset_s.bfill().open[0] == row_s.open
-                        assert subset_s.ffill().close[-1] == row_s.close
+                        assert subset_s.bfill().open.iloc[0] == row_s.open
+                        assert subset_s.ffill().close.iloc[-1] == row_s.close
 
     def test__downsample_bi_table_lon_us(self, prices_lon_us, one_min):
         """Tests `_downsample_bi_table` for symbols on overlapping exchanges.
@@ -2227,7 +2227,9 @@ class TestGetComposite:
         _start_session, end_session = get_sessions_daterange_for_bi(
             prices, prices.bis.T2, length_end_session=length
         )
-        while not (prices.cc.sessions_length(end_session, end_session) == length)[0]:
+        while not (
+            prices.cc.sessions_length(end_session, end_session) == length
+        ).iloc[0]:
             end_session = prices.cc.previous_session(end_session)
             if end_session == _start_session:
                 raise ValueError(f"Unable to get a 'T2' session of length {length}.")
@@ -4426,7 +4428,7 @@ class TestPriceAt:
         assert df.index[0] == indice
         assert df.index.tz is tz
         for s, (session, col) in values.items():
-            assert df[s][0] == self.get_cell(table, s, session, col)
+            assert df[s].iloc[0] == self.get_cell(table, s, session, col)
 
     def test_oob(self, prices_us_lon_hk, one_min):
         """Test raises errors when minute out-of-bounds.

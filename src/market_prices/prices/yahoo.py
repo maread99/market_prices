@@ -673,7 +673,7 @@ class PricesYahoo(base.PricesBase):
             return df
 
         delay = self.delays[symbol]
-        if na_rows[-1] and helpers.now() <= cal.session_open(df.index[-1]) + delay:
+        if na_rows.iloc[-1] and helpers.now() <= cal.session_open(df.index[-1]) + delay:
             na_rows.iloc[-1] = False
             if not na_rows.any():
                 return df

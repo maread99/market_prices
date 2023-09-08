@@ -431,13 +431,13 @@ def test__adjust_high_low():
     """Verify staticmethod PricesYahoo._adjust_high_low."""
     columns = pd.Index(["open", "high", "low", "close", "volume"])
     ohlcv = (
-        [100, 103, 98, 103.4, 0],  # close higher than high
-        [104, 109, 104, 107, 0],
-        [106, 108, 104, 107, 0],
-        [106, 110, 107, 109, 0],  # open lower than low
-        [108, 112, 108, 112, 0],
-        [112, 114, 107, 106.4, 0],  # close lower than low
-        [112, 108, 104, 105, 0],  # open higher than high
+        [100.0, 103.0, 98.0, 103.4, 0],  # close higher than high
+        [104.0, 109.0, 104.0, 107.0, 0],
+        [106.0, 108.0, 104.0, 107.0, 0],
+        [106.0, 110.0, 107.0, 109.0, 0],  # open lower than low
+        [108.0, 112.0, 108.0, 112.0, 0],
+        [112.0, 114.0, 107.0, 106.4, 0],  # close lower than low
+        [112.0, 108.0, 104.0, 105.0, 0],  # open higher than high
     )
     index = pd.date_range(
         start=pd.Timestamp("2022-01-01"), freq="D", periods=len(ohlcv)
@@ -446,13 +446,13 @@ def test__adjust_high_low():
     rtrn = m.PricesYahoo._adjust_high_low(df)
 
     ohlcv_expected = (
-        [100, 103.4, 98, 103.4, 0],  # close was higher than high
-        [104, 109, 104, 107, 0],
-        [106, 108, 104, 107, 0],
-        [107, 110, 107, 109, 0],  # open was lower than low
-        [108, 112, 108, 112, 0],
-        [112, 114, 106.4, 106.4, 0],  # close was lower than low
-        [108, 108, 104, 105, 0],  # open was higher than high
+        [100.0, 103.4, 98, 103.4, 0],  # close was higher than high
+        [104.0, 109.0, 104.0, 107.0, 0],
+        [106.0, 108.0, 104.0, 107.0, 0],
+        [107.0, 110.0, 107.0, 109.0, 0],  # open was lower than low
+        [108.0, 112.0, 108.0, 112.0, 0],
+        [112.0, 114.0, 106.4, 106.4, 0],  # close was lower than low
+        [108.0, 108.0, 104.0, 105.0, 0],  # open was higher than high
     )
     expected = pd.DataFrame(ohlcv_expected, index=index, columns=columns)
     assert (expected.open >= expected.low).all()
@@ -1282,8 +1282,8 @@ def expected_table_structure_us(
     expected_num_rows = int(sessions_rows.sum())
     sessions_end = cc.opens[slc] + (interval.as_pdtd * sessions_rows)
 
-    start = cc.opens[slc][0]
-    end = sessions_end[-1]
+    start = cc.opens[slc].iloc[0]
+    end = sessions_end.iloc[-1]
     return (start, end), expected_num_rows, sessions_end
 
 
@@ -1446,8 +1446,8 @@ class TestRequestDataIntraday:
             sessions_last_indice = cc.opens[slc] + (
                 interval.as_pdtd * sessions_rows_gross
             )
-            start = cc.opens[slc][0]
-            end = sessions_last_indice[-1]
+            start = cc.opens[slc].iloc[0]
+            end = sessions_last_indice.iloc[-1]
             assertions_intraday(df, interval, prices, start, end, expected_num_rows)
 
             assert cc.opens[slc].isin(df.index.left).all()
@@ -1522,8 +1522,8 @@ class TestRequestDataIntraday:
             expected_num_rows = int(sessions_rows.sum())
             sessions_last_indice = cc.opens[slc] + (interval.as_pdtd * sessions_rows)
 
-            start = cc.opens[slc][0]
-            end = sessions_last_indice[-1]
+            start = cc.opens[slc].iloc[0]
+            end = sessions_last_indice.iloc[-1]
             assertions_intraday(df, interval, prices, start, end, expected_num_rows)
 
             assert cc.opens[slc].isin(df.index.left).all()
@@ -1556,8 +1556,8 @@ class TestRequestDataIntraday:
             expected_num_rows = int(sessions_rows.sum())
             sessions_last_indice = cc.opens[slc] + (interval.as_pdtd * sessions_rows)
 
-            start = cc.opens[slc][0]
-            end = sessions_last_indice[-1]
+            start = cc.opens[slc].iloc[0]
+            end = sessions_last_indice.iloc[-1]
             assertions_intraday(df, interval, prices, start, end, expected_num_rows)
 
             assert cc.opens[slc].isin(df.index.left).all()
@@ -1604,8 +1604,8 @@ class TestRequestDataIntraday:
         _, slc = get_data_bounds(prices, interval)
 
         delta = pd.Timedelta(20, "T")
-        start = cc.opens[slc][0] + delta
-        end = cc.closes[slc][-1] - delta
+        start = cc.opens[slc].iloc[0] + delta
+        end = cc.closes[slc].iloc[-1] - delta
 
         expected_num_rows, _ = self.get_expected_num_rows_us_lon(interval, cc, slc)
         expected_num_rows -= (delta // interval) * 2
@@ -1781,7 +1781,7 @@ class TestRequestDataIntraday:
                 indice = hist0.name
 
                 df = prices._request_data(interval, start, end)[symbol]
-                df0_vol = df[indice:indice].volume[0]
+                df0_vol = df[indice:indice].volume.iloc[0]
 
                 # verify glitch in hist not present in df
                 if prev_close is None:
@@ -1988,7 +1988,7 @@ def test__get_bi_table(pricess):
     to = pd.Timestamp.now()
     from_ = to - pd.Timedelta(21, "D")
     (start, _), slc = get_data_bounds(prices, interval, (from_, to))
-    end = prices.cc.closes[slc][-1]
+    end = prices.cc.closes[slc].iloc[-1]
     table = prices._get_bi_table(interval, (start, end))
 
     bounds, num_rows, sessions_end = expected_table_structure_us(prices, interval, slc)

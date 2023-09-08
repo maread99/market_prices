@@ -190,7 +190,7 @@ def start_minutes(
     l_limit, r_limit = limit
 
     if r_limit is None:
-        r_limit = calendar.last_minutes[-2]
+        r_limit = calendar.last_minutes.iloc[-2]
 
     if l_limit is None:
         if calendar_name in _24h_calendars:
@@ -240,14 +240,14 @@ def end_minutes(
     l_limit, r_limit = limit
 
     if r_limit is None:
-        r_limit = calendar.closes[-2]
+        r_limit = calendar.closes.iloc[-2]
 
     if l_limit is None:
         if calendar_name in _24h_calendars:
             offset = pd.DateOffset(months=6)
         else:
             offset = pd.DateOffset(years=2)
-        last_close = calendar.closes[0]
+        last_close = calendar.closes.iloc[0]
         alt_limit = r_limit - offset  # type: ignore[operator]  # is a valid operation
         l_limit = max(last_close, alt_limit)
 
@@ -441,7 +441,7 @@ def pp_days_start_minute(
     """
     pp = get_pp_default()
     calendar = get_calendar(calendar_name)
-    start = draw(start_minutes(calendar_name, (None, calendar.last_minutes[-3])))
+    start = draw(start_minutes(calendar_name, (None, calendar.last_minutes.iloc[-3])))
     start_session_i = calendar.sessions.get_loc(calendar.minute_to_session(start))
     max_days = len(calendar.sessions) - 2 - start_session_i
     pp["days"] = draw(st.integers(1, max_days))
@@ -578,10 +578,10 @@ def pp_caldur_start_minute(
         months=pp["months"],
         years=pp["years"],
     )
-    limit = (None, calendar.last_minutes[-2] - duration)
+    limit = (None, calendar.last_minutes.iloc[-2] - duration)
     start = draw(start_minutes(calendar_name, limit))
     # See `pp_caldur_end_session` for note on need for this assume guard
-    assume(start + duration <= calendar.last_minutes[-2])
+    assume(start + duration <= calendar.last_minutes.iloc[-2])
     pp["start"] = start
     return pp
 
@@ -641,7 +641,7 @@ def pp_intraday_start_minute(
     """
     pp = draw(pp_intraday())
     calendar = get_calendar(calendar_name)
-    i = calendar.minutes.get_loc(calendar.last_minutes[-2])
+    i = calendar.minutes.get_loc(calendar.last_minutes.iloc[-2])
     i -= pp["minutes"] + (pp["hours"] * 60)
     limit = (None, calendar.minutes[i])
     pp["start"] = draw(start_minutes(calendar_name, limit))

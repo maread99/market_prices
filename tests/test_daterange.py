@@ -1790,7 +1790,7 @@ class TestGetterIntraday:
     def test_get_end_ool(self, calendars_with_answers_extended, pp_default, one_min):
         """Test `get_end` with ool input."""
         cal, ans = calendars_with_answers_extended
-        limit = ans.opens[len(ans.sessions) // 2]
+        limit = ans.opens.iloc[len(ans.sessions) // 2]
         too_early = limit - one_min
         match = re.escape(
             f"Prices unavailable as end ({helpers.fts(too_early)}) is earlier"
@@ -1909,20 +1909,20 @@ class TestGetterIntraday:
 
             start_session = cal.minute_to_session(start, _parse=False)
             i = cal.sessions.get_loc(start_session)
-            if start >= cal.first_pm_minutes[i]:
-                session_start = cal.first_pm_minutes[i]
+            if start >= cal.first_pm_minutes.iloc[i]:
+                session_start = cal.first_pm_minutes.iloc[i]
             else:
-                session_start = cal.first_minutes[i]
+                session_start = cal.first_minutes.iloc[i]
 
             minutes_i = cal.minutes.get_loc(start)
             start_ = cal.minutes[minutes_i - interval.as_minutes]
             if start == session_start:
                 start_ = drg.get_start(start_)
-                if session_start == cal.first_pm_minutes[i]:
-                    prev_session_start = cal.first_minutes[i]
+                if session_start == cal.first_pm_minutes.iloc[i]:
+                    prev_session_start = cal.first_minutes.iloc[i]
                 else:
                     prev_session_start = max(
-                        cal.first_minutes[i - 1], cal.first_pm_minutes[i - 1]
+                        cal.first_minutes.iloc[i - 1], cal.first_pm_minutes.iloc[i - 1]
                     )
                 start_ = max(prev_session_start, start_)
             else:
@@ -1977,8 +1977,8 @@ class TestGetterIntraday:
 
         session = ans.sessions_sample[1]
         i = ans.sessions.get_loc(session)
-        session_open = ans.opens[i]
-        prev_session_close = ans.closes[i - 1]
+        session_open = ans.opens.iloc[i]
+        prev_session_close = ans.closes.iloc[i - 1]
 
         bi = TDInterval.T5
         dsi = TDInterval.T15
@@ -2507,10 +2507,10 @@ class TestGetterIntraday:
 
         drg_kwargs = dict(interval=bi)
 
-        start = ans.opens[0]
+        start = ans.opens.iloc[0]
         for i in range(3):
             pp["days"] = i + 1
-            pp["end"] = end = ans.closes[i]
+            pp["end"] = end = ans.closes.iloc[i]
 
             # on left bound
             for strict in [True, False]:
@@ -2533,13 +2533,13 @@ class TestGetterIntraday:
                 _ = drg.daterange
 
         limit_i = 30
-        limit = ans.opens[limit_i]
+        limit = ans.opens.iloc[limit_i]
 
         drg_kwargs["limit"] = limit
 
         for i in range(3):
             pp["days"] = i + 1
-            pp["end"] = end = ans.closes[limit_i + i]
+            pp["end"] = end = ans.closes.iloc[limit_i + i]
 
             for strict in [True, False]:  # on left limit
                 drg = self.get_drg(cal, pp, strict=strict, **drg_kwargs)
@@ -2576,7 +2576,7 @@ class TestGetterIntraday:
             if session > today:
                 continue
             i = ans.sessions.get_loc(session)
-            open_, close = ans.opens[i], ans.closes[i]
+            open_, close = ans.opens.iloc[i], ans.closes.iloc[i]
             length = close - open_
 
             if length > TDInterval.H22 or ans.session_has_break(session):
@@ -2820,8 +2820,8 @@ class TestGetterIntraday:
 
         # on limit, where intraday duration == final interval
         pp["minutes"] = base_interval.as_minutes
-        pp["start"] = start = ans.first_minutes[1]
-        end = ans.first_minutes[1] + base_interval
+        pp["start"] = start = ans.first_minutes.iloc[1]
+        end = ans.first_minutes.iloc[1] + base_interval
         drg = self.get_drg(cal, pp, **drg_kwargs)
         assert drg.daterange == ((start, end), end)
 

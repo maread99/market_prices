@@ -1141,7 +1141,7 @@ class PricesBase(metaclass=abc.ABCMeta):
         for bi in self.bis_intraday:
             start_session, end_session = self.limits_sessions[bi]
             sessions = self.cc.sessions_in_range(start_session, end_session)
-            status = pd.Series(True, index=sessions)
+            status = pd.Series(True, index=sessions, dtype="object")
 
             if bi.is_one_minute:
                 # shortcut, cannot have partial indices or conflicts at T1
@@ -1827,7 +1827,7 @@ class PricesBase(metaclass=abc.ABCMeta):
         target_indices = pd.cut(bi_index.to_list(), target_index)
         target_indices = target_indices.remove_unused_categories()
         agg_f = helpers.agg_funcs(df)
-        df = df.groupby(target_indices).agg(agg_f)
+        df = df.groupby(target_indices, observed=False).agg(agg_f)
         df.index = pd.IntervalIndex(df.index)  # convert from CategoricalIndex
         df = helpers.volume_to_na(df)
         df.index = pdutils.interval_index_new_tz(df.index, UTC)
@@ -2025,8 +2025,9 @@ class PricesBase(metaclass=abc.ABCMeta):
                     df.index = index
             else:  # downsample for monthly
                 pdfreq = ds_interval.as_pdfreq
-                df = helpers.resample(df_bi, pdfreq, origin="start")
-                df.index = pdutils.get_interval_index(df.index, pdfreq)
+                df = df_bi.pt.downsample(
+                    pdfreq, calendar, drop_incomplete_last_indice=False
+                )
                 if df.pt.first_ts < self.limits[intervals.BI_ONE_DAY][0]:
                     # This can happen if getting all data. As the Getter's .daterange
                     # can return start as None (at least as at April 22). Ideal would

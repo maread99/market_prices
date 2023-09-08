@@ -1312,7 +1312,7 @@ class TestPricesBaseSetup:
             prices: m.PricesBase, bi: intervals.BI, value: bool | float
         ):
             sessions = get_sessions(prices, bi)
-            expected = pd.Series(value, index=sessions)
+            expected = pd.Series(value, index=sessions, dtype="object")
             assert_series_equal(prices._indexes_status[bi], expected)
 
             drg = GetterMock(
@@ -1353,7 +1353,7 @@ class TestPricesBaseSetup:
         # ...1H conflict every day
         bi = prices.bis.H1
         sessions = get_sessions(prices, bi)
-        expected = pd.Series(np.nan, index=sessions)
+        expected = pd.Series(np.nan, index=sessions, dtype="object")
         # ...other than those sessions when xnys closed
         x247_sessions, xnys_sessions = get_calendars_sessions(prices, bi, [x247, xnys])
         expected[x247_sessions.difference(xnys_sessions)] = True
@@ -1366,7 +1366,7 @@ class TestPricesBaseSetup:
         bi = prices.bis.H1
         sessions = get_sessions(prices, bi)
         # on a normal day, no partial indices
-        expected = pd.Series(True, index=sessions)
+        expected = pd.Series(True, index=sessions, dtype="object")
         # although there are a couple of early closes that are not aligned with 1H
         dates = ["2021-12-24", "2021-12-31"]
         expected[dates] = False
@@ -1380,7 +1380,7 @@ class TestPricesBaseSetup:
         sessions = get_sessions(prices, bi)
         xasx_sessions, xlon_sessions = get_calendars_sessions(prices, bi, [xasx, xlon])
         # ...IH partial indices every session
-        expected = pd.Series(False, index=sessions)
+        expected = pd.Series(False, index=sessions, dtype="object")
         # ...save when xlon closed
         expected[xasx_sessions.difference(xlon_sessions)] = True
         assert_series_equal(prices._indexes_status[bi], expected)
@@ -1392,7 +1392,7 @@ class TestPricesBaseSetup:
         bi = prices.bis.H1
         sessions = get_sessions(prices, bi)
         # ...on a normal day, True (xasx enveloped by cmes and indices align)
-        expected = pd.Series(True, index=sessions)
+        expected = pd.Series(True, index=sessions, dtype="object")
         # ...except when axsx early close (unaligned with !H) coincides with CMES hol.
         expected["2021-12-24"] = False
         assert_series_equal(prices._indexes_status[bi], expected)
@@ -1405,7 +1405,7 @@ class TestPricesBaseSetup:
         sessions = get_sessions(prices, bi)
         xasx_sessions, xhkg_sessions = get_calendars_sessions(prices, bi, [xasx, xhkg])
         # ...on a normal day sessions will conflict
-        expected = pd.Series(np.NaN, index=sessions)
+        expected = pd.Series(np.NaN, index=sessions, dtype="object")
         # ...but if xasx open and xhkg closed, no partial indices
         expected[xasx_sessions.difference(xhkg_sessions)] = True
         # ...whilst if xhkg open and xasx closed, always partial indices

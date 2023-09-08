@@ -267,7 +267,7 @@ class TestParseStartEnd:
                 assert f(None, minute, as_times) == (None, ans.closes[session])
 
         # verify if start/end are not minute accurate then rounded up/down respectively
-        start, end = first_mins[0], last_mins[0]
+        start, end = first_mins.iloc[0], last_mins.iloc[0]
         assert f(start + one_sec, end - one_sec, True) == (
             start + one_min,
             end - one_min,
