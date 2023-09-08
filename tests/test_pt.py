@@ -787,7 +787,7 @@ class TestIndicesTradingStatus:
         bv = df[symbol].notna().all(axis=1)  # rows for which have prices
         # partial indices are the last indice of each session.
         bv_partial_trading = (bv + bv.shift(-1) == 1) & bv
-        bv_trading_status = bv.copy()
+        bv_trading_status = pd.Series(bv, dtype="object")
         bv_trading_status.loc[bv_partial_trading] = np.nan
         assert_series_equal(df.pt.indices_trading_status(cal), bv_trading_status)
         assert_index_equal(
@@ -814,7 +814,7 @@ class TestIndicesTradingStatus:
         bv = df[symbol].notna().all(axis=1)
         # normally, partial indices are first indice of each session...
         bv_partial_trading = (bv + bv.shift(1) == 1) & bv
-        bv_trading_status = bv.copy()
+        bv_trading_status = pd.Series(bv, dtype="object")
         bv_trading_status.loc[bv_partial_trading] = np.nan
 
         # ...but 2021-12-24 is irregular due to different exchange hours.
@@ -860,7 +860,7 @@ class TestIndicesTradingStatus:
         df = multiple_sessions_alldays_pt
         symbols, calendars = symbols_alldays, calendars_alldays
         for symbol, cal in zip(symbols, calendars):
-            indices_trading_status = pd.Series(np.nan, index=df.index)
+            indices_trading_status = pd.Series(np.nan, index=df.index, dtype="object")
             bv = df[symbol].notna().all(axis=1)
             indices_non_trading = df.index[~bv]
             indices_trading_status.loc[indices_non_trading] = False
@@ -1305,7 +1305,7 @@ class TestPriceAt:
         # but prices not available for MSFT and AZN.L, so...
         expected_ = self.get_expected(df.ffill(), i - 1, "close")
         for s in ["MSFT", "AZN.L"]:
-            expected[s] = expected_[s][0]
+            expected[s] = expected_[s].iloc[0]
         for ts in (gap_left - one_sec, gap_left - one_min):
             assert_frame_equal(f(ts), expected)
 
@@ -1316,7 +1316,7 @@ class TestPriceAt:
         # but prices not available for MSFT and ES=F, so...
         expected_ = self.get_expected(df.ffill(), i, "close")
         for s in ["MSFT", "ES=F"]:
-            expected[s] = expected_[s][0]
+            expected[s] = expected_[s].iloc[0]
         for ts in (gap_right, gap_right + one_sec, gap_right + one_min):
             assert_frame_equal(f(ts), expected)
 
@@ -1651,16 +1651,16 @@ class TestFillNa:
         df_test = df.iloc[i_start : i_end + 1].copy()
 
         rtrn_ff = df_test.pt.fillna("ffill")
-        assert rtrn_ff.isna().any(axis=1)[0]
+        assert rtrn_ff.isna().any(axis=1).iloc[0]
         rtrn_bf = df_test.pt.fillna("bfill")
-        assert rtrn_bf.isna().any(axis=1)[-1]
+        assert rtrn_bf.isna().any(axis=1).iloc[-1]
         rtrn_both = df_test.pt.fillna("both")
         assert rtrn_both.notna().all(axis=None)
 
         # for those symbols that have missing values in first row of df_test, make sure
         # that "both" is filling initial na rows backwards and everything else forwards.
         for s in symbols:
-            if df_test[s].notna().all(axis=1)[0]:
+            if df_test[s].notna().all(axis=1).iloc[0]:
                 continue
             df_notna = df_test[s][df_test.notna().all(axis=1)]
             start_label = df_notna.index[0]
@@ -1954,8 +1954,8 @@ def assert_aggregations(symbols, subset: pd.DataFrame, row: pd.Series):
         assert subset_s.volume.sum() == row_s.volume
         assert subset_s.high.max() == row_s.high
         assert subset_s.low.min() == row_s.low
-        assert subset_s.bfill().open[0] == row_s.open
-        assert subset_s.ffill().close[-1] == row_s.close
+        assert subset_s.bfill().open.iloc[0] == row_s.open
+        assert subset_s.ffill().close.iloc[-1] == row_s.close
 
 
 class TestDownsampleDaily:
@@ -3036,9 +3036,9 @@ class TestPTIntraday:
             # verify `direction` as default / "previous"
             rtrn = f(cal)
             srs_ = srs.copy()
-            if pd.isna(srs_[0]):
+            if pd.isna(srs_.iloc[0]):
                 srs_.iloc[0] = sessions[opens_arr[0]]
-            expected = srs_.fillna(method="ffill")
+            expected = srs_.ffill()
             assert_series_equal(rtrn, expected)
 
             rtrn_previous = f(cal, direction="previous")
@@ -3047,9 +3047,9 @@ class TestPTIntraday:
             # verify `direction` as "previous"
             rtrn_next = f(cal, direction="next")
             srs_ = srs.copy()
-            if pd.isna(srs_[-1]):
+            if pd.isna(srs_.iloc[-1]):
                 srs_.iloc[-1] = sessions[opens_arr[-1] + 1]
-            assert_series_equal(rtrn_next, srs_.fillna(method="bfill"))
+            assert_series_equal(rtrn_next, srs_.bfill())
 
             # verify `direction` as None
             rtrn_none = f(cal, direction=None)
@@ -3090,13 +3090,13 @@ class TestPTIntraday:
                 assert indice_mins in possible_indice_mins
 
             # create df_test where all indices have same number of trading minutes
-            indice_mins_change = expected[expected != expected[0]].index[0]
+            indice_mins_change = expected[expected != expected.iloc[0]].index[0]
             constant_trading_mins = expected[: indice_mins_change.left - one_sec]
             start = constant_trading_mins.index[0].left
             end = constant_trading_mins.index[-1].right - one_sec
             df_test = df[start:end]
             rtrn = df_test.pt.trading_minutes_interval(cal)
-            expected_interval = TDInterval(pd.Timedelta(minutes=expected[0]))
+            expected_interval = TDInterval(pd.Timedelta(minutes=expected.iloc[0]))
             assert rtrn == expected_interval
             assert df_test.pt.indices_have_regular_trading_minutes(cal)
 

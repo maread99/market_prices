@@ -460,12 +460,12 @@ class CompositeAnswers:
     @property
     def session_open(self) -> pd.Series:
         """Open time of `self.session`."""
-        return self.opens[self._session_idx]
+        return self.opens.iloc[self._session_idx]
 
     @property
     def session_close(self) -> pd.Series:
         """Close time of `self.session`."""
-        return self.closes[self._session_idx]
+        return self.closes.iloc[self._session_idx]
 
     @property
     def next_session(self) -> pd.Series:
@@ -881,8 +881,8 @@ class TestCompositeCalendar:
         cc, answers = composite_calendars_with_answers
         assert cc.first_session == answers.sessions[0]
         assert cc.last_session == answers.sessions[-1]
-        assert cc.first_minute == answers.first_minutes[0]
-        assert cc.last_minute == answers.last_minutes[-1]
+        assert cc.first_minute == answers.first_minutes.iloc[0]
+        assert cc.last_minute == answers.last_minutes.iloc[-1]
         assert cc.side == "left"
         assert len(cc.calendars) in (2, 3)
         i = 1 if len(cc.calendars) == 3 else 2
@@ -978,8 +978,8 @@ class TestCompositeCalendar:
         # test full index, with no arguments
         full_index = f()
         assert isinstance(full_index, pd.IntervalIndex)
-        assert cc.closes[0] in full_index[:6].left
-        assert cc.opens[-1] in full_index[-6:].right
+        assert cc.closes.iloc[0] in full_index[:6].left
+        assert cc.opens.iloc[-1] in full_index[-6:].right
 
         # test utc option
         args = ("2021-02", "2021-03")

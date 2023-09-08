@@ -235,16 +235,20 @@ def test_pre_requests(
     assert data.cc is cc
     assert data.bi == bi
 
+    pool: pd.Series | pd.DatetimeIndex
     if bi.is_intraday:
         pool = ans.first_minutes
         r_edge = pd.Timestamp.now(tz=UTC) + bi
+        l_edge = pool.iloc[0]
     else:
         pool = ans.sessions
         r_edge = today
+        l_edge = pool[0]
 
-    l_edge = pool[0]
-    delta = get_delta(pool[0])
+    def get_pool_value(idx: int) -> pd.Timestamp:
+        return pool.iloc[idx] if isinstance(pool, pd.Series) else pool[idx]
 
+    delta = get_delta(get_pool_value(0))
     assert data.ll is None
     assert data.rl == r_edge
 
@@ -252,7 +256,7 @@ def test_pre_requests(
     assert_ts_not_available(data, r_edge + delta)
 
     # define left_limit, right_limit as default
-    left_limit = pool[-30]
+    left_limit = get_pool_value(-30)
     data = get_data(delay, left_limit)
 
     assert_empty(data)
@@ -264,7 +268,7 @@ def test_pre_requests(
     assert_ts_not_available(data, [left_limit - delta, r_edge + delta])
 
     # define left_limit and right_limit
-    right_limit = pool[-5]
+    right_limit = get_pool_value(-5)
     data = get_data(delay, left_limit, right_limit)
 
     assert_empty(data)

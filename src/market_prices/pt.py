@@ -857,11 +857,11 @@ class _PT(metaclass=abc.ABCMeta):
             if closes_missing.all() or not closes_missing.any():
                 return
             if method != "bfill":
-                df.loc[:, close_key] = df[close_key].fillna(method="ffill")
+                df.loc[:, close_key] = df[close_key].ffill()
                 df.loc[bv, open_key] = df.loc[bv, close_key]
                 bv = df[close_key].isna()
             if method != "ffill":
-                df.loc[:, open_key] = df[open_key].fillna(method="bfill")
+                df.loc[:, open_key] = df[open_key].bfill()
                 df.loc[bv, close_key] = df.loc[bv, open_key]
 
             closes_still_missing = df[close_key].isna()
@@ -1350,7 +1350,7 @@ class PTDaily(_PT):
                 if not pre_table_sessions.empty:
                     start_ds = pd_offset.rollforward(start_table)
                     df = df[start_ds:]
-        resampled = helpers.resample(df, pdfreq, origin="start")
+        resampled = helpers.resample(df, pdfreq, origin="start", nominal_start=start_ds)
         resampled.index = pdutils.get_interval_index(resampled.index, pdfreq)
 
         if drop_incomplete_last_indice:

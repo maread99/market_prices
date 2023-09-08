@@ -571,12 +571,12 @@ class Answers:
     @property
     def first_session_open(self) -> pd.Timestamp:
         """Open time of first session covered by answers."""
-        return self.opens[0]
+        return self.opens.iloc[0]
 
     @property
     def last_session_close(self) -> pd.Timestamp:
         """Close time of last session covered by answers."""
-        return self.closes[-1]
+        return self.closes.iloc[-1]
 
     @property
     def first_minute(self) -> pd.Timestamp:
@@ -882,7 +882,7 @@ class Answers:
         if is_break_col:
             if column_.isna().all():
                 return [pd.DatetimeIndex([])] * 2
-            column_ = column_.fillna(method="ffill").fillna(method="bfill")
+            column_ = column_.ffill().bfill()
 
         diff = (column_.shift(-1) - column_)[:-1]
         remainder = diff % pd.Timedelta(24, "H")
