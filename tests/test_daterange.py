@@ -392,7 +392,9 @@ class TestGetterDaily:
         data=sthyp.data(),
         ds_interval=stmp.intervals_non_intraday(),
     )
-    @hyp.settings(deadline=500)
+    @hyp.settings(
+        deadline=500, suppress_health_check=[hyp.HealthCheck.differing_executors]
+    )
     def test_daterange_start_end(
         self, calendars_with_answers_extended, data, ds_interval
     ):
@@ -428,7 +430,9 @@ class TestGetterDaily:
         assert True
 
     @hyp.given(ds_interval=stmp.intervals_non_intraday())
-    @hyp.settings(deadline=500)
+    @hyp.settings(
+        deadline=500, suppress_health_check=[hyp.HealthCheck.differing_executors]
+    )
     @pytest.mark.parametrize("limit_idx", [0, 50])
     def test_daterange_add_a_row_errors(
         self,
@@ -504,7 +508,9 @@ class TestGetterDaily:
             _ = drg.daterange
 
     @hyp.given(data=sthyp.data(), ds_interval=stmp.intervals_non_intraday())
-    @hyp.settings(deadline=500)
+    @hyp.settings(
+        deadline=500, suppress_health_check=[hyp.HealthCheck.differing_executors]
+    )
     def test_daterange_start_only(
         self, calendars_with_answers_extended, data, ds_interval
     ):
@@ -532,7 +538,9 @@ class TestGetterDaily:
         data=sthyp.data(),
         ds_interval=stmp.intervals_non_intraday(),
     )
-    @hyp.settings(deadline=500)
+    @hyp.settings(
+        deadline=500, suppress_health_check=[hyp.HealthCheck.differing_executors]
+    )
     def test_daterange_end_only(
         self, calendars_with_answers_extended, data, ds_interval
     ):
@@ -569,7 +577,9 @@ class TestGetterDaily:
         data=sthyp.data(),
         ds_interval=stmp.intervals_non_intraday(),
     )
-    @hyp.settings(deadline=500)
+    @hyp.settings(
+        deadline=500, suppress_health_check=[hyp.HealthCheck.differing_executors]
+    )
     def test_daterange_duration_days_start(
         self, calendars_with_answers_extended, data, ds_interval
     ):
@@ -620,7 +630,9 @@ class TestGetterDaily:
         data=sthyp.data(),
         ds_interval=stmp.intervals_non_intraday(),
     )
-    @hyp.settings(deadline=500)
+    @hyp.settings(
+        deadline=500, suppress_health_check=[hyp.HealthCheck.differing_executors]
+    )
     def test_daterange_duration_days_end(
         self, calendars_with_answers_extended, data, ds_interval
     ):
@@ -720,7 +732,9 @@ class TestGetterDaily:
         data=sthyp.data(),
         ds_interval=stmp.intervals_non_intraday(),
     )
-    @hyp.settings(deadline=500)
+    @hyp.settings(
+        deadline=500, suppress_health_check=[hyp.HealthCheck.differing_executors]
+    )
     def test_daterange_duration_cal_start(
         self, calendars_with_answers_extended, data, ds_interval
     ):
@@ -778,6 +792,7 @@ class TestGetterDaily:
         data=sthyp.data(),
         ds_interval=stmp.intervals_non_intraday(),
     )
+    @hyp.settings(suppress_health_check=[hyp.HealthCheck.differing_executors])
     def test_daterange_duration_cal_end(
         self, calendars_with_answers_extended, data, ds_interval
     ):
@@ -1278,7 +1293,9 @@ class TestGetterIntraday:
     @hyp.example(conftest.base_ds_intervals_dict[TDInterval.T1][7])
     @hyp.example(conftest.base_ds_intervals_dict[TDInterval.T1][8])
     @hyp.example(conftest.base_ds_intervals_dict[TDInterval.T1][9])
-    @hyp.settings(deadline=None)
+    @hyp.settings(
+        deadline=None, suppress_health_check=[hyp.HealthCheck.differing_executors]
+    )
     def test_get_start_too_late(
         self, calendars_with_answers_extended, one_min, ds_interval
     ):
@@ -1877,7 +1894,9 @@ class TestGetterIntraday:
         data=sthyp.data(),
         base_ds_interval=stmp.base_ds_intervals(),
     )
-    @hyp.settings(deadline=None)
+    @hyp.settings(
+        deadline=None, suppress_health_check=[hyp.HealthCheck.differing_executors]
+    )
     def test_daterange_start_end(self, calendars_extended, data, base_ds_interval):
         """Test `daterange` for with period parameters as `pp_start_end_minutes`."""
         cal = calendars_extended
@@ -2132,7 +2151,9 @@ class TestGetterIntraday:
             _ = drg.daterange
 
     @hyp.given(base_ds_interval=stmp.base_ds_intervals())
-    @hyp.settings(deadline=None)
+    @hyp.settings(
+        deadline=None, suppress_health_check=[hyp.HealthCheck.differing_executors]
+    )
     @pytest.mark.parametrize("session_limit_idx", [0, 50])
     def test_daterange_add_a_row_errors(
         self,
@@ -2196,7 +2217,9 @@ class TestGetterIntraday:
         data=sthyp.data(),
         base_ds_interval=stmp.base_ds_intervals(),
     )
-    @hyp.settings(deadline=None)
+    @hyp.settings(
+        deadline=None, suppress_health_check=[hyp.HealthCheck.differing_executors]
+    )
     def test_daterange_start_only_end_None(
         self, calendars_extended, data, base_ds_interval
     ):
@@ -2214,7 +2237,9 @@ class TestGetterIntraday:
         data=sthyp.data(),
         base_ds_interval=stmp.base_ds_intervals(),
     )
-    @hyp.settings(deadline=None)
+    @hyp.settings(
+        deadline=None, suppress_health_check=[hyp.HealthCheck.differing_executors]
+    )
     def test_daterange_end_only_start_None(
         self, calendars_extended, base_ds_interval, data
     ):
@@ -2252,7 +2277,9 @@ class TestGetterIntraday:
             assert drg.daterange == ((exp_start, end_now), end_now_accuracy)
 
     @hyp.given(data=sthyp.data())
-    @hyp.settings(deadline=500)
+    @hyp.settings(
+        deadline=500, suppress_health_check=[hyp.HealthCheck.differing_executors]
+    )
     def test_daterange_duration_cal_start_minute(
         self, calendars_extended, data, one_min
     ):
@@ -2312,7 +2339,9 @@ class TestGetterIntraday:
         assert drg.daterange == ((start, now), now_accuracy)
 
     @hyp.given(data=sthyp.data())
-    @hyp.settings(deadline=None)
+    @hyp.settings(
+        deadline=None, suppress_health_check=[hyp.HealthCheck.differing_executors]
+    )
     def test_daterange_duration_cal_end_minute(self, calendars_extended, data):
         """Test `daterange` for with period parameters as `pp_caldur_end_minute`.
 
@@ -2377,7 +2406,9 @@ class TestGetterIntraday:
             _ = drg.daterange
 
     @hyp.given(data=sthyp.data())
-    @hyp.settings(deadline=None)
+    @hyp.settings(
+        deadline=None, suppress_health_check=[hyp.HealthCheck.differing_executors]
+    )
     def test_daterange_duration_days_start_minute(
         self, calendars_with_answers_extended, data
     ):
@@ -2450,7 +2481,9 @@ class TestGetterIntraday:
             assert drg.daterange == expected
 
     @hyp.given(data=sthyp.data())
-    @hyp.settings(deadline=500)
+    @hyp.settings(
+        deadline=500, suppress_health_check=[hyp.HealthCheck.differing_executors]
+    )
     def test_daterange_duration_days_end_minute(self, calendars_extended, data):
         """Test `daterange` for with period parameters as `pp_days_end_minute`.
 
@@ -2611,7 +2644,9 @@ class TestGetterIntraday:
                 _ = drg.daterange
 
     @hyp.given(data=sthyp.data())
-    @hyp.settings(deadline=500)
+    @hyp.settings(
+        deadline=500, suppress_health_check=[hyp.HealthCheck.differing_executors]
+    )
     def test_daterange_duration_intraday_start_minute(self, calendars_extended, data):
         """Test `daterange` for with period parameters as `pp_intraday_start_minute`."""
         cal = calendars_extended
@@ -2630,7 +2665,9 @@ class TestGetterIntraday:
         assert drg.daterange == ((start, end), end)
 
     @hyp.given(data=sthyp.data())
-    @hyp.settings(deadline=None)
+    @hyp.settings(
+        deadline=None, suppress_health_check=[hyp.HealthCheck.differing_executors]
+    )
     def test_daterange_duration_intraday_end_minute(self, calendars_extended, data):
         """Test `daterange` for with period parameters as `pp_intraday_end_minute`.
 
