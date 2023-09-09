@@ -2227,9 +2227,9 @@ class TestGetComposite:
         _start_session, end_session = get_sessions_daterange_for_bi(
             prices, prices.bis.T2, length_end_session=length
         )
-        while not (
-            prices.cc.sessions_length(end_session, end_session) == length
-        ).iloc[0]:
+        while not (prices.cc.sessions_length(end_session, end_session) == length).iloc[
+            0
+        ]:
             end_session = prices.cc.previous_session(end_session)
             if end_session == _start_session:
                 raise ValueError(f"Unable to get a 'T2' session of length {length}.")
