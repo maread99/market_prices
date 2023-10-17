@@ -6,7 +6,7 @@
 #
 attrs==23.1.0
     # via hypothesis
-black==23.9.1
+black==23.10.0
     # via market-prices (pyproject.toml)
 blosc2==2.2.9
     # via tables
