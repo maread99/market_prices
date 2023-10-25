@@ -426,7 +426,11 @@ class PricesYahoo(base.PricesBase):
             # elif self._ticker.quotes[s]["market"] == "us24_market":
             #     cal = "us_futures"
             else:
-                msg = f"Unable to ascertain calendar for symbol '{s}'."
+                msg = (
+                    f"Unable to ascertain calendar for symbol '{s}'. Consider passing"
+                    " the `calendars` parameter. (See help(PricesYahoo) for"
+                    " documentation on the `calendars` parameter.)"
+                )
                 raise errors.CalendarError(msg)
             calendars[s] = cal
         return calendars
