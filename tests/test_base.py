@@ -1051,16 +1051,17 @@ class TestPricesBaseSetup:
         assert set(prices.limits.keys()) == set(PricesMockDailyNoLimit.BaseInterval)
         assert len(prices.limits) == len(PricesMockDailyNoLimit.BaseInterval)
         bi_daily = PricesMockDailyNoLimit.BaseInterval.D1
-        assert prices.limits[bi_daily] == (None, today)
+        limit_daily = max(cal.first_session for cal in calendars)
+        assert prices.limits[bi_daily] == (limit_daily, today)
 
-        assert prices.limit_daily is None
+        assert prices.limit_daily == limit_daily
         for cal in calendars:
             expected_limit_intraday = cal.minute_to_trading_minute(limit_raw, "next")
             assert prices.limit_intraday(cal) == expected_limit_intraday
         assert prices.limit_intraday() == expected_latest_intraday_limit
         assert prices.limit_intraday(None) == expected_latest_intraday_limit
         assert len(prices.limits_sessions) == len(PricesMockDailyNoLimit.BaseInterval)
-        assert prices.limits_sessions[bi_daily] == (None, today)
+        assert prices.limits_sessions[bi_daily] == (limit_daily, today)
 
         prices = PricesMockNoDaily(symbols, calendars)
         # only test for differences to PricesMock

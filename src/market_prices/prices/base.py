@@ -493,7 +493,7 @@ class PricesBase(metaclass=abc.ABCMeta):
                     f" {value} for symbols {self.symbols}."
                 )
                 raise ValueError(msg)
-            d = value
+            d = value.copy()
         elif isinstance(value, list):
             if not len(value) == len(self.symbols):
                 msg = (
@@ -775,11 +775,14 @@ class PricesBase(metaclass=abc.ABCMeta):
         for bi in self.bis:
             delay = max_delay if bi.is_intraday else None
             ll = self.base_limits[bi]
-            if bi.is_daily and ll is not None:
-                # Consider any calendar limitations
-                if isinstance(ll, pd.Timedelta):
-                    ll = helpers.now(bi) - ll
-                ll = max(ll, self._calendars_latest_first_session)
+            if bi.is_daily:
+                if ll is not None:
+                    # Consider any calendar limitations
+                    if isinstance(ll, pd.Timedelta):
+                        ll = helpers.now(bi) - ll
+                    ll = max(ll, self._calendars_latest_first_session)
+                else:
+                    ll = self._calendars_latest_first_session
             d[bi] = data.Data(
                 request=self._request_data,
                 cc=self.cc,
@@ -1313,7 +1316,10 @@ class PricesBase(metaclass=abc.ABCMeta):
 
         Parameters as calutils.get_trading_index.
         """
-        ignore_breaks = self._ignore_breaks_cal(calendar, interval)
+        if interval.is_daily:
+            ignore_breaks = True
+        else:
+            ignore_breaks = self._ignore_breaks_cal(calendar, interval)
         return calutils.get_trading_index(
             calendar, interval, start, end, force, ignore_breaks
         )
