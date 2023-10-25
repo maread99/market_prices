@@ -917,37 +917,12 @@ class TestConstructor:
     def symbols(self) -> abc.Iterator[str]:
         yield (
             "GOOG IT4500.MI ^IBEX ^FTMC 9988.HK GBPEUR=X GC=F BTC-GBP CL=F"
-            " ES=F ZB=F HG=F GEN.L QAN.AX CA.PA BAS.DE FER.MC"
+            " ES=F ZB=F HG=F GEN.L QAN.AX CA.PA BAS.DE FER.MC SPY QQQ ARKQ"
         )
-
-    def test_invalid_symbol(self, symbols):
-        invalid_symbol = "INVALIDSYMB"
-        match = re.escape(
-            "The following symbols are not recognised by the yahoo API:"
-            f" {[invalid_symbol]}."
-        )
-        with pytest.raises(ValueError, match=match):
-            _ = m.PricesYahoo(invalid_symbol)
-        symbols_ = symbols.split()
-        symbols_ = symbols_[:4] + [invalid_symbol] + symbols_[4:]
-        with pytest.raises(ValueError, match=match):
-            _ = m.PricesYahoo(symbols_)
 
     @pytest.fixture(scope="class")
-    def prices(self, symbols) -> abc.Iterator[m.PricesYahoo]:
-        yield m.PricesYahoo(symbols)
-
-    def test_ticker(self, prices, symbols):
-        """Verify sets yq.Ticker."""
-        assert isinstance(prices._ticker, yq.Ticker)
-        assert set(prices._ticker.symbols) == set(helpers.symbols_to_list(symbols))
-
-    def test_daily_limit(self, prices):
-        """Verify constructor setting a daily base limit."""
-        assert isinstance(prices.base_limits[prices.BaseInterval.D1], pd.Timestamp)
-
-    def test_calendars(self, prices):
-        expected_calendars = {
+    def calendars(self) -> abc.Iterator[dict[str, str]]:
+        yield {
             "GOOG": "XNYS",
             "GEN.L": "XLON",
             "9988.HK": "XHKG",
@@ -970,12 +945,9 @@ class TestConstructor:
             "ARKQ": "XNYS",  # ETF, yahoo exchange name is 'BATS'
         }
 
-        for k, cal in prices.calendars.items():
-            assert isinstance(cal, xcals.ExchangeCalendar)
-            assert expected_calendars[k] == cal.name
-
-    def test_delays(self, prices):
-        expected_delays = {
+    @pytest.fixture(scope="class")
+    def delays(self) -> abc.Iterator[dict[str, int]]:
+        yield {
             "GOOG": 0,
             "GEN.L": 15,
             "9988.HK": 15,
@@ -993,8 +965,59 @@ class TestConstructor:
             "ES=F": 10,
             "ZB=F": 10,
             "HG=F": 10,
+            "SPY": 0,
+            "QQQ": 0,
+            "ARKQ": 0,
         }
 
+    def test_invalid_symbol(self, symbols):
+        invalid_symbol = "INVALIDSYMB"
+        match = re.escape(
+            "The following symbols are not recognised by the yahoo API:"
+            f" {[invalid_symbol]}."
+        )
+        with pytest.raises(ValueError, match=match):
+            _ = m.PricesYahoo(invalid_symbol)
+        symbols_ = symbols.split()
+        symbols_ = symbols_[:4] + [invalid_symbol] + symbols_[4:]
+        with pytest.raises(ValueError, match=match):
+            _ = m.PricesYahoo(symbols_)
+
+    @pytest.fixture(scope="class")
+    def prices(
+        self, symbols, calendars, delays
+    ) -> abc.Iterator[tuple[m.PricesYahoo, bool]]:
+        api_working = True
+        try:
+            prices = m.PricesYahoo(symbols)
+        except m.YahooAPIError:
+            prices = m.PricesYahoo(symbols, calendars=calendars, delays=delays)
+            api_working = False
+        yield prices, api_working
+
+    def test_ticker(self, prices, symbols):
+        """Verify sets yq.Ticker."""
+        prices, _ = prices
+        assert isinstance(prices._ticker, yq.Ticker)
+        assert set(prices._ticker.symbols) == set(helpers.symbols_to_list(symbols))
+
+    def test_daily_limit(self, prices):
+        """Verify constructor setting a daily base limit."""
+        prices, api_working = prices
+        if not api_working:
+            pytest.skip("Yahoo API not working")
+        assert isinstance(prices.base_limits[prices.BaseInterval.D1], pd.Timestamp)
+
+    def test_calendars(self, prices, calendars):
+        prices, _ = prices
+        expected_calendars = calendars
+        for k, cal in prices.calendars.items():
+            assert isinstance(cal, xcals.ExchangeCalendar)
+            assert expected_calendars[k] == cal.name
+
+    def test_delays(self, prices, delays):
+        prices, _ = prices
+        expected_delays = delays
         for k, delay in prices.delays.items():
             assert isinstance(delay, pd.Timedelta)
             assert delay == pd.Timedelta(expected_delays[k], "T")
@@ -1017,9 +1040,9 @@ class TestConstructor:
         repeated call (see 'Tests for `PricesYahoo`'
         section of docs/developers/testing).
         """
-        symbol = "MSFT"
-        prices = m.PricesYahoo(symbol)
-        prices_adj = m.PricesYahoo(symbol, adj_close=True)
+        symbol, cal_name = "MSFT", "XNYS"
+        prices = m.PricesYahoo(symbol, calendars=cal_name, delays=0)
+        prices_adj = m.PricesYahoo(symbol, calendars=cal_name, delays=0, adj_close=True)
 
         # inputs for daily interval
         start = pd.Timestamp("2021-01-01")
@@ -1072,6 +1095,29 @@ class TestConstructor:
         for col in df:
             assert_series_equal(df[col], df_adj[col])
 
+    def test_api_down(self, monkeypatch):
+        monkeypatch.setattr("yahooquery.Ticker.price", m.ERROR404)
+        monkeypatch.setattr("yahooquery.Ticker.quote_type", m.ERROR404)
+
+        msg = re.escape(
+            "It appears that the Yahoo API endpoint 'price' is not currently"
+            " available (via yahooquery). Pass the `calendars` parameter to manually"
+            " assign calendars. See help(PricesYahoo) for documentation on the"
+            " `calendars` parameter."
+        )
+        with pytest.raises(m.YahooAPIError, match=msg):
+            m.PricesYahoo("MSFT")
+
+        msg = re.escape(
+            "NOTE: the Yahoo API is not currently available (via yahooquery) to"
+            " determine the delay."
+        )
+        with pytest.raises(ValueError, match=msg):
+            m.PricesYahoo("MSFT", calendars="XNYS")
+
+        # verify loads
+        m.PricesYahoo("MSFT", calendars="XNYS", delays=0)
+
 
 @pytest.fixture
 def session_length_xnys() -> abc.Iterator[pd.Timedelta]:
@@ -1091,49 +1137,71 @@ def session_length_xlon() -> abc.Iterator[pd.Timedelta]:
 @pytest.fixture(scope="module")
 def pricess() -> abc.Iterator[dict[str, m.PricesYahoo]]:
     yield dict(
-        us=m.PricesYahoo(["MSFT"]),
-        with_break=m.PricesYahoo(["9988.HK"]),
-        us_lon=m.PricesYahoo(["MSFT", "AZN.L"]),
-        us_oz=m.PricesYahoo(["MSFT", "QAN.AX"]),
-        inc_245=m.PricesYahoo(["AZN.L", "GBPEUR=X"]),
-        inc_247=m.PricesYahoo(["AZN.L", "BTC-GBP"]),
-        only_247=m.PricesYahoo(["BTC-GBP"]),
+        us=m.PricesYahoo(["MSFT"], calendars="XNYS", delays=0),
+        with_break=m.PricesYahoo(["9988.HK"], calendars="XHKG", delays=0),
+        us_lon=m.PricesYahoo(
+            ["MSFT", "AZN.L"], calendars=["XNYS", "XLON"], delays=[0, 15]
+        ),
+        us_oz=m.PricesYahoo(
+            ["MSFT", "QAN.AX"], calendars=["XNYS", "XASX"], delays=[0, 20]
+        ),
+        inc_245=m.PricesYahoo(
+            ["AZN.L", "GBPEUR=X"], calendars=["XLON", "24/5"], delays=[15, 0]
+        ),
+        inc_247=m.PricesYahoo(
+            ["AZN.L", "BTC-GBP"], calendars=["XLON", "24/7"], delays=[15, 0]
+        ),
+        only_247=m.PricesYahoo(["BTC-GBP"], calendars="24/7", delays=0),
     )
 
 
 @pytest.fixture
 def prices_us(pricess) -> abc.Iterator[m.PricesYahoo]:
     """Yield's unique copy for each test."""
-    symbols = pricess["us"].symbols
-    yield m.PricesYahoo(symbols)
+    key = "us"
+    symbols = pricess[key].symbols
+    calendars = pricess[key].calendars
+    delays = pricess[key].delays
+    yield m.PricesYahoo(symbols, calendars=calendars, delays=delays)
 
 
 @pytest.fixture
 def prices_us_lon(pricess) -> abc.Iterator[m.PricesYahoo]:
     """Yield's unique copy for each test."""
-    symbols = pricess["us_lon"].symbols
-    yield m.PricesYahoo(symbols)
+    key = "us_lon"
+    symbols = pricess[key].symbols
+    calendars = pricess[key].calendars
+    delays = pricess[key].delays
+    yield m.PricesYahoo(symbols, calendars=calendars, delays=delays)
 
 
 @pytest.fixture
 def prices_us_lon_hkg() -> abc.Iterator[m.PricesYahoo]:
     """Yield's unique copy for each test."""
     symbols = "MSFT, AZN.L, 9988.HK"
-    yield m.PricesYahoo(symbols, lead_symbol="MSFT")
+    calendars = ["XNYS", "XLON", "XHKG"]
+    delays = [0, 15, 15]
+    yield m.PricesYahoo(symbols, lead_symbol="MSFT", calendars=calendars, delays=delays)
 
 
 @pytest.fixture
 def prices_with_break(pricess) -> abc.Iterator[m.PricesYahoo]:
     """Yield's unique copy for each test."""
-    symbols = pricess["with_break"].symbols
-    yield m.PricesYahoo(symbols)
+    key = "with_break"
+    symbols = pricess[key].symbols
+    calendars = pricess[key].calendars
+    delays = pricess[key].delays
+    yield m.PricesYahoo(symbols, calendars=calendars, delays=delays)
 
 
 @pytest.fixture
 def prices_only_247(pricess) -> abc.Iterator[m.PricesYahoo]:
     """Yield's unique copy for each test."""
-    symbols = pricess["only_247"].symbols
-    yield m.PricesYahoo(symbols)
+    key = "only_247"
+    symbols = pricess[key].symbols
+    calendars = pricess[key].calendars
+    delays = pricess[key].delays
+    yield m.PricesYahoo(symbols, calendars=calendars, delays=delays)
 
 
 class TestRequestDataDaily:
@@ -1168,7 +1236,9 @@ class TestRequestDataDaily:
         start = None
         end = pd.Timestamp("2021-12-31")
         rtrn = prices._request_data(interval, start, end)
-        assert rtrn.pt.first_ts == prices.base_limits[prices.BaseInterval.D1]
+        base_limit = prices.base_limits[prices.BaseInterval.D1]
+        if base_limit is not None:  # base_limit can be None if API not working
+            assert rtrn.pt.first_ts == base_limit
         assert rtrn.pt.last_ts == end
         # assertions not expected to hold for dataframe that includes dates prior
         # to first date that any of the symbols first traded.
@@ -1709,7 +1779,7 @@ class TestRequestDataIntraday:
 
         symbol = "BTC-GBP"
         delay_mins = 15
-        prices = m.PricesYahoo(symbol, delays=[delay_mins])
+        prices = m.PricesYahoo(symbol, calendars="24/7", delays=delay_mins)
         cal = prices.calendars[symbol]
         cc = calutils.CompositeCalendar([cal])
         delay = pd.Timedelta(delay_mins, "T")
@@ -1843,7 +1913,7 @@ class TestRequestDataIntraday:
         assertions(prices, start, end)
 
         # Verify for lon prices
-        prices = m.PricesYahoo(["AZN.L"])
+        prices = m.PricesYahoo("AZN.L", calendars="XLON", delays=15)
         cal = prices.calendars["AZN.L"]
         now = pd.Timestamp.now(UTC).floor("T")
         session = cal.minute_to_past_session(now, 2)
@@ -1866,7 +1936,8 @@ def test_prices_for_symbols():
     symb_us = "MSFT"
     symb_lon = "AZN.L"
     symbols = [symb_us, symb_lon]
-    prices = m.PricesYahoo([symb_us, symb_lon])
+    calendars, delays = ["XNYS", "XLON"], [0, 15]
+    prices = m.PricesYahoo([symb_us, symb_lon], calendars=calendars, delays=delays)
     f = prices.prices_for_symbols
 
     _ = prices.get("1d", start="2021-12-31", end="2022-01-05")

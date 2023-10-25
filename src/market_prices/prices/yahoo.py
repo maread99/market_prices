@@ -22,6 +22,27 @@ from ..mptypes import Calendar, Symbols
 from .config import config_yahoo
 
 
+ERROR404 = {"error": "HTTP 404 Not Found.  Please try again"}
+
+
+class YahooAPIError(errors.APIError):
+    """A Yahoo API endpoint is not available."""
+
+    def __init__(
+        self,
+        endpoint: str,
+        extra_info: str = "",
+    ):
+        self.endpoint = endpoint
+        msg = (
+            f"It appears that the Yahoo API endpoint '{endpoint}' is not"
+            " currently available (via yahooquery)."
+        )
+        if extra_info:
+            msg += " " + extra_info
+        self._msg = msg
+
+
 class PricesYahoo(base.PricesBase):
     """Retrieve and serve price data sourced via yahooquery.
 
@@ -83,8 +104,9 @@ class PricesYahoo(base.PricesBase):
                 value: mptypes.Calendar (i.e. as for a single calendar)
                     Calendar corresponding with symbol.
 
-        All calendars should have a first session no later than
-        `base_limits` for the daily interval.
+        Each Calendar should have a first session no later than the first
+        session from which prices are available for any symbol
+        corresponding with that calendar.
 
     lead_symbol
         Symbol with calendar that should be used as the default
@@ -364,6 +386,8 @@ class PricesYahoo(base.PricesBase):
 
     @functools.cached_property
     def _yahoo_exchange_name(self) -> dict[str, str]:
+        if self._ticker.price == ERROR404:
+            raise YahooAPIError("price")
         d = {}
         for s in self._ticker.symbols:
             d[s] = self._ticker.price[s]["exchangeName"]
@@ -386,7 +410,14 @@ class PricesYahoo(base.PricesBase):
         for s in self._ticker.symbols:
             if s in calendars:
                 continue
-            exchange = self._yahoo_exchange_name[s]
+            try:
+                exchange = self._yahoo_exchange_name[s]
+            except YahooAPIError as err:
+                msg = (
+                    "Pass the `calendars` parameter to manually assign calendars. See"
+                    " help(PricesYahoo) for documentation on the `calendars` parameter."
+                )
+                raise YahooAPIError(endpoint=err.endpoint, extra_info=msg) from None
             if exchange in all_names:
                 cal = exchange
             elif exchange in self.YAHOO_EXCHANGE_TO_CALENDAR:
@@ -426,6 +457,8 @@ class PricesYahoo(base.PricesBase):
         """Return dictionary indicating if symbols have real time pricing."""
         d = {}
         price = self._ticker.price
+        if price == ERROR404:
+            raise YahooAPIError("price")
         for s in self._ticker.symbols:
             info = price[s]
             d[s] = info["regularMarketSource"] == "FREE_REALTIME"
@@ -438,29 +471,50 @@ class PricesYahoo(base.PricesBase):
 
         All items of `delays` will be included to return.
         """
+
+        def get_delay(s: str) -> int:
+            delay_mapping = self._delay_mapping(s)
+            if delay_mapping is not None:
+                return delay_mapping
+
+            try:
+                real_time = self._real_time[s]
+            except YahooAPIError:
+                pass
+            else:
+                if real_time:
+                    return 0
+
+            if "=F" in s:
+                return 10
+
+            api_working = True
+            try:
+                exchange_name = self._yahoo_exchange_name[s]
+            except YahooAPIError:
+                api_working = False
+            else:
+                if exchange_name in ["CCC", "CCY"]:
+                    return 0
+
+            msg = (
+                f"Unable to evaluate price delay for symbol {s}."
+                " Pass `delays` to constructor as a dict including at"
+                f" least item {s}: int where int represents price delay"
+                f" for {s} in minutes, for example {{{s}: 15}}."
+            )
+            if not api_working:
+                msg += (
+                    " NOTE: the Yahoo API is not currently available (via"
+                    " yahooquery) to determine the delay."
+                )
+            raise ValueError(msg)
+
         d = delays if delays is not None else {}
         for s in self._ticker.symbols:
             if s in d:
                 continue
-            delay = None
-            delay_mapping = self._delay_mapping(s)
-            if delay_mapping is not None:
-                delay = delay_mapping
-            elif self._real_time[s]:
-                delay = 0
-            elif "=F" in s:
-                delay = 10
-            elif self._yahoo_exchange_name[s] in ["CCC", "CCY"]:
-                delay = 0
-            else:
-                msg = (
-                    f"Unable to evaluate price delay for symbol {s}."
-                    " Pass `delays` to constructor as a dict including at"
-                    f" least item {s}: int  where int represents price delay"
-                    f" for {s} in minutes, for example {{{s}: 15}}."
-                )
-                raise ValueError(msg)
-            d[s] = delay
+            d[s] = get_delay(s)
         return d
 
     @functools.cached_property
@@ -468,7 +522,10 @@ class PricesYahoo(base.PricesBase):
         quote_type = self._ticker.quote_type
         first_trade_dates: dict[str, pd.Timestamp | None] = {}
         for s in self._ticker.symbols:
-            first_trade_str = quote_type[s]["firstTradeDateEpochUtc"]
+            if quote_type == ERROR404:
+                first_trade_str = None
+            else:
+                first_trade_str = quote_type[s]["firstTradeDateEpochUtc"]
             if first_trade_str is None:
                 first_trade_dates[s] = None
             else:
@@ -564,6 +621,9 @@ class PricesYahoo(base.PricesBase):
 
         else:
             start_ = start
+
+        if start_ is None and interval.is_daily:
+            start_ = self.earliest_requestable_session
 
         # "ytd" is default, ignored if start and end both passed
         period = "max" if start_ is None else "ytd"
@@ -668,7 +728,11 @@ class PricesYahoo(base.PricesBase):
         symbol: str,
     ) -> pd.DataFrame:
         """Fill, for a single `symbol`, rows with missing data."""
-        na_rows = df.close.isna() & (df.index > self._first_trade_dates[symbol])
+        if self._first_trade_dates[symbol] is not None:
+            min_date = self._first_trade_dates[symbol]
+        else:
+            min_date = cal.first_session
+        na_rows = df.close.isna() & (df.index > min_date)
         if not na_rows.any():
             return df
 
@@ -976,7 +1040,8 @@ class PricesYahoo(base.PricesBase):
             raise ValueError(msg)
 
         cals_all = {s: self.calendars[s] for s in symbols}
-        prices_obj = type(self)(symbols=symbols, calendars=cals_all)
+        delays_all = {s: self.delays[s].components.minutes for s in symbols}
+        prices_obj = type(self)(symbols=symbols, calendars=cals_all, delays=delays_all)
 
         cals = list(prices_obj.calendars_unique)
         fewer_cals = len(cals) < len(self.calendars_unique)

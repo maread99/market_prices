@@ -35,6 +35,10 @@ class MarketPricesError(Exception):
         return self.__str__()
 
 
+class APIError(MarketPricesError):
+    """Error when accessing an API endpoint."""
+
+
 class NoGetPricesParams(MarketPricesError):
     """Instance of `PricesBase.GetPricesParams` is not yet available."""
 
