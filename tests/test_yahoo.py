@@ -48,6 +48,7 @@ from .test_base_prices import (
 # ...sessions that yahoo temporarily fails to return prices for if (seemingly)
 # send a high frequency of requests for prices from the same IP address.
 _flakylist = (
+    pd.Timestamp("2023-09-08"),
     pd.Timestamp("2023-09-01"),
     pd.Timestamp("2023-07-17"),
     pd.Timestamp("2023-04-23"),

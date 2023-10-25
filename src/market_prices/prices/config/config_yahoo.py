@@ -42,6 +42,7 @@ EXCHANGE_TO_CALENDAR: dict = {
     "NYSEArca": "XNYS",
     "NY Mercantile": "us_futures",
     "BATS": "XNYS",
+    "Cboe US": "XNYS",
     "DJI": "XNYS",
     "SNP": "XNYS",
     "Lisbon": "XLIS",

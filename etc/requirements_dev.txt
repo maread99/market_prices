@@ -4,11 +4,11 @@
 #
 #    pip-compile --extra=dev --output-file=etc/requirements_dev.txt pyproject.toml
 #
-astroid==3.0.0
+astroid==3.0.1
     # via pylint
 attrs==23.1.0
     # via hypothesis
-black==23.9.1
+black==23.10.1
     # via market-prices (pyproject.toml)
 blosc2==2.2.9
     # via tables
@@ -18,7 +18,7 @@ certifi==2023.7.22
     # via requests
 cfgv==3.4.0
     # via pre-commit
-charset-normalizer==3.3.0
+charset-normalizer==3.3.1
     # via requests
 click==8.1.7
     # via
@@ -49,7 +49,7 @@ flake8==6.1.0
     #   market-prices (pyproject.toml)
 flake8-docstrings==1.7.0
     # via market-prices (pyproject.toml)
-hypothesis==6.87.4
+hypothesis==6.88.1
     # via market-prices (pyproject.toml)
 identify==2.5.30
     # via pre-commit
@@ -71,7 +71,7 @@ mccabe==0.7.0
     #   pylint
 msgpack==1.0.7
     # via blosc2
-mypy==1.6.0
+mypy==1.6.1
     # via market-prices (pyproject.toml)
 mypy-extensions==1.0.0
     # via
@@ -129,17 +129,17 @@ pydocstyle==6.3.0
     # via flake8-docstrings
 pyflakes==3.1.0
     # via flake8
-pylint==3.0.1
+pylint==3.0.2
     # via market-prices (pyproject.toml)
 pyluach==2.2.0
     # via exchange-calendars
 pyproject-hooks==1.0.0
     # via build
-pytest==7.4.2
+pytest==7.4.3
     # via
     #   market-prices (pyproject.toml)
     #   pytest-mock
-pytest-mock==3.11.1
+pytest-mock==3.12.0
     # via market-prices (pyproject.toml)
 python-dateutil==2.8.2
     # via
@@ -189,11 +189,11 @@ tzdata==2023.3
     #   exchange-calendars
     #   market-prices (pyproject.toml)
     #   pandas
-urllib3==2.0.6
+urllib3==2.0.7
     # via requests
 valimp==0.1
     # via market-prices (pyproject.toml)
-virtualenv==20.24.5
+virtualenv==20.24.6
     # via pre-commit
 wheel==0.41.2
     # via pip-tools
