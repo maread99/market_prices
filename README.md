@@ -26,6 +26,8 @@ $ pip install market-prices
 ```python
 >>> from market_prices import PricesYahoo
 >>> prices = PricesYahoo("MSFT")  # prices for a single instrument, Microsoft
+>>> # OR if Yahoo API endpoints are not all currently available in your region...
+>>> prices = PricesYahoo("MSFT", calendars="XNYS", delays=0)
 >>> prices.get("5min", minutes=40)  # last 40 minutes of prices at 5 minute intervals
 ```
 ```
@@ -100,6 +102,10 @@ Although some indices are longer than three calendar days, they all comprise of 
 ```python
 >>> # Get a prices instance for Microsoft in New York, Alibaba in Hong Kong and 24/7 Bitcoin
 >>> prices_mult = PricesYahoo("MSFT, 9988.HK, BTC-USD")
+>>> # OR if Yahoo API endpoints are not all currently available in your region...
+>>> prices_mult = PricesYahoo(
+    "MSFT, 9988.HK, BTC-USD", calendars=["XNYS", "XHKG", "24/7"], delays=[0, 15, 0]
+)
 >>> # lead_symbol determines the exchange against which the period will be evaluated and
 >>> # the default output time zone (which for Bitcoin is UTC).
 >>> prices_mult.get("90T", hours=9, lead_symbol="BTC-USD")

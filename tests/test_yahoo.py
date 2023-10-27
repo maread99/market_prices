@@ -991,7 +991,7 @@ class TestConstructor:
         api_working = True
         try:
             prices = m.PricesYahoo(symbols)
-        except m.YahooAPIError:
+        except (m.YahooAPIError, ValueError):
             prices = m.PricesYahoo(symbols, calendars=calendars, delays=delays)
             api_working = False
         yield prices, api_working
