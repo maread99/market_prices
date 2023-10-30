@@ -132,5 +132,5 @@ urllib3==2.0.7
     # via requests
 valimp==0.1
     # via market-prices (pyproject.toml)
-yahooquery==2.3.2
+yahooquery==2.3.3
     # via market-prices (pyproject.toml)
