@@ -12,7 +12,7 @@ blosc2==2.2.9
     # via tables
 certifi==2023.7.22
     # via requests
-charset-normalizer==3.3.1
+charset-normalizer==3.3.2
     # via requests
 click==8.1.7
     # via black
