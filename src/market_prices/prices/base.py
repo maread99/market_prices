@@ -140,10 +140,10 @@ class PricesBase(metaclass=abc.ABCMeta):
             value : pd.Timedelta | pd.Timestamp, optional
                 Limit of availability of historal data for the base
                 interval, as either timedelta to now or absolute timestamp
-                (utc). If interval is daily or higher then timedelta /
-                timestamp should be day accurate (no time component) or
-                None if limit is unknown. Note: A limit must be defined for
-                all intraday base intervals.
+                (utc). If interval is daily then timedelta / timestamp
+                should be day accurate (no time component) or None if limit
+                is unknown. Note: A limit must be defined for all intraday
+                base intervals.
 
             Example, if only 60 days of data are available for data at the
                 5 minute base interval, although there is no limit on daily
@@ -152,13 +152,13 @@ class PricesBase(metaclass=abc.ABCMeta):
                      BaseInterval.D1: None}
 
             Note: Instance specific base limits are exposed via the
-            `base_limits`. By default `base_limits` returns a copy of
-            BASE_LIMITS. Subclass instances can use `_update_base_limits`
-            to define instance-specific limits, for example if for a
-            particular interval data availability differs for specific
-            symbols. `_update_base_limits` should be called from the
-            extended constructor before executing the constructor as
-            defined on the base class.
+            `base_limits` property. By default the `base_limits` property
+            returns a copy of BASE_LIMITS. Subclass instances can use
+            `_update_base_limits` to define instance-specific limits, for
+            example if for a particular interval data availability differs
+            for specific symbols. `_update_base_limits` should be called
+            from the subclass constructor before executing the constructor
+            as defined on the base class.
 
         - Abstract Methods -
 
@@ -217,10 +217,11 @@ class PricesBase(metaclass=abc.ABCMeta):
     intervals, with requests for prices at 15 minute intervals served from
     resampled 5 minute data.
 
-    Base intervals can represent an intraday frequencies, for example
-    1 minute, 5 minutes etc, or a 'day' in which case the interval
-    represents a full trading day. `market_prices` does not support base
-    intervals higher than one day.
+    Base intervals can represent any intraday frequency, for example 1
+    minute, 5 minutes etc, or a 'day' in which case the interval represents
+    a full trading day. `market_prices` does not support base intervals
+    higher than one day (all requests for prices at intervals longer than
+    daily are met from resampled daily data).
 
     All data requested from source is stored locally. Client calls will be
     served from stored data whenever the call can be fully met from stored
@@ -252,9 +253,9 @@ class PricesBase(metaclass=abc.ABCMeta):
         for which stored data covers the required period or, if there is no
         such stored data, the highest. NB In certain circumstances where
         consistency of return would be otherwise affected (e.g. where a
-        request does not define the required interval) the stored data is
-        ignored and the highest of the 'most accurate' base intervals is
-        used regardless.
+        request does not define the required interval) no consideration is
+        given as to any data that may be stored and the highest of the
+        'most accurate' base intervals is used regardless.
 
         If there is no base interval for which data is available over the
         full required period and which can represent the period end as
@@ -322,11 +323,11 @@ class PricesBase(metaclass=abc.ABCMeta):
                 Query if all indices are aligned over the daterange
                 evalauted by a given 'Getter' instance.
 
-    When data is anchored 'workback' a base interval will be
-    unavailable for any period that includes an indice that partially
-    covers a period during which no symbol traded (i.e. during the last
-    indice of a calendar's session which is unaligned with that session's
-    close). This avoids introducing non-trading periods into the indices.
+    When data is anchored 'workback' a base interval will be unavailable
+    for any period that includes an indice that partially covers a period
+    during which no symbol traded (i.e. during the last indice of a
+    calendar's session which is unaligned with that session's close). This
+    avoids introducing non-trading periods into the indices.
 
         It is more likely for higher base intervals to be unavailable due
         to the greater likelyhood that indices will be unaligned with the
@@ -334,7 +335,7 @@ class PricesBase(metaclass=abc.ABCMeta):
         have longer periods of data available to them. Consequently
         anchoring 'workback' can return price data for a significantly
         lesser period than anchoring 'open' (when strict=False). See the
-        `data_availability.ipynb` tutorial for an example
+        `data_availability.ipynb` tutorial for an example.
 
     - All or nothing -
 
