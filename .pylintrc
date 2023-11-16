@@ -23,7 +23,7 @@
 # usually to register additional checkers.
 load-plugins=pylint.extensions.broad_try_clause,
              pylint.extensions.confusing_elif,
-             pylint.extensions.comparetozero,
+        ;      pylint.extensions.comparetozero,  ; not loading as of Nov 23, no doc to suggest removed?
              pylint.extensions.bad_builtin,
              pylint.extensions.mccabe,
              pylint.extensions.docstyle,

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections import abc
 import os
+from pathlib import Path
 from zoneinfo import ZoneInfo
 
 from hypothesis import settings, HealthCheck
@@ -12,7 +13,7 @@ import pandas as pd
 import pytest
 
 from market_prices.intervals import TDInterval
-from .utils import Answers
+from .utils import Answers, clean_temp_test_dir, TEMP_DIR
 
 # pylint: disable=missing-any-param-doc,redefined-outer-name,
 # pylint: disable=unused-argument  # `mock_now` has effect in background
@@ -29,6 +30,17 @@ base_intervals_sample = [
     TDInterval.H1,
 ]
 # pylint: enable=no-member
+
+
+@pytest.fixture
+def temp_dir() -> abc.Iterator[Path]:
+    """Clean temporary test directory.
+
+    Directory cleaned before and after test.
+    """
+    clean_temp_test_dir()
+    yield TEMP_DIR
+    clean_temp_test_dir()
 
 
 @pytest.fixture(scope="session")

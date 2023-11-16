@@ -3,29 +3,31 @@
 from __future__ import annotations
 
 import functools
-import pathlib
-from collections import abc
-from typing import Literal, TYPE_CHECKING
+import os
 import shelve
+from collections import abc
+from pathlib import Path
+from typing import TYPE_CHECKING, Literal
 
 import exchange_calendars as xcals
-from exchange_calendars.utils import pandas_utils as xcals_pdutils
 import numpy as np
 import pandas as pd
+from exchange_calendars.utils import pandas_utils as xcals_pdutils
 
 from market_prices import intervals
 from market_prices.helpers import UTC
-from market_prices.utils import pandas_utils as pdutils
 from market_prices.prices.base import PricesBase
+from market_prices.utils import pandas_utils as pdutils
 
 # pylint: disable=missing-function-docstring, missing-param-doc, too-many-lines
 
 ONE_DAY = pd.Timedelta(1, "D")
 
-_RESOURCES_PATH = pathlib.Path(__file__).parent.joinpath("resources")
-STORE_PATH = _RESOURCES_PATH.joinpath("store.h5")
-STORE_PBT_PATH = _RESOURCES_PATH.joinpath("store_pbt.h5")
-SHELF_PATH = _RESOURCES_PATH.joinpath("pbt")
+TEST_ROOT = Path(__file__).parent
+_RESOURCES_PATH = TEST_ROOT / "resources"
+STORE_PATH = _RESOURCES_PATH / "store.h5"
+STORE_PBT_PATH = _RESOURCES_PATH / "store_pbt.h5"
+SHELF_PATH = _RESOURCES_PATH / "pbt"
 _INDEXES_SUFFIX = "_indexes"
 BI_STR = ["T1", "T2", "T5", "H1", "D1"]
 
@@ -64,7 +66,7 @@ def get_shelf() -> shelve.DbfilenameShelf:
     return shelve.open(SHELF_PATH.as_posix())
 
 
-def is_key(key: str, store_path: pathlib.Path = STORE_PATH) -> bool:
+def is_key(key: str, store_path: Path = STORE_PATH) -> bool:
     """Query if a given key is an existing key of a resources store.
 
     Parameters
@@ -84,7 +86,7 @@ def save_resource(
     resource: pd.DataFrame | pd.Series,
     key: str,
     overwrite: bool = False,
-    store_path: pathlib.Path = STORE_PATH,
+    store_path: Path = STORE_PATH,
 ):
     """Save a resource to a store.
 
@@ -195,16 +197,16 @@ def save_resource_pbt(
         shelf[key] = now
 
 
-def _has_interval_index(key: str, store_path: pathlib.Path) -> bool:
+def _has_interval_index(key: str, store_path: Path) -> bool:
     return is_key(key + _INDEXES_SUFFIX, store_path)
 
 
-def _regenerate_interval_index(key: str, store_path: pathlib.Path) -> pd.IntervalIndex:
+def _regenerate_interval_index(key: str, store_path: Path) -> pd.IntervalIndex:
     df = pd.read_hdf(store_path, key + _INDEXES_SUFFIX)
     return pd.IntervalIndex.from_arrays(df.left, df.right, closed="left")
 
 
-def get_resource(key: str, store_path: pathlib.Path = STORE_PATH) -> pd.DataFrame:
+def get_resource(key: str, store_path: Path = STORE_PATH) -> pd.DataFrame:
     """Get a resource from the store.
 
     Parameters
@@ -254,6 +256,41 @@ def get_resource_pbt(key: str) -> tuple[dict[str, pd.DataFrame], pd.Timstamp]:
             assert BI == "H1"
             continue
     return d, now
+
+
+# functions to administer _temp folder
+
+TEMP_DIR = TEST_ROOT / r"./_temp"
+assert TEMP_DIR.is_dir()
+ENCODING = "utf-8"
+
+
+def clean_temp_test_dir():
+    """Remove all files and directories from the test directory"""
+    # when min version goes to py 3.12 can simplify using walk method on Path
+    for dir_, subdirs, filenames in os.walk(TEMP_DIR):
+        for filename in filenames:
+            path = Path(dir_) / filename
+            os.remove(path)
+        if dir_ != str(TEMP_DIR):
+            os.rmdir(dir_)
+
+
+def create_temp_subdir(name: str) -> Path:
+    """Create a subdirectory in the temporary test directory.
+
+    Returns Path to temporary directory.
+    """
+    path = TEMP_DIR / name
+    path.mkdir()
+    return path
+
+
+def create_temp_file(filename: str, dir_: Path = TEMP_DIR):
+    """Create a file, by default in the temporary test directory."""
+    assert dir_ is TEMP_DIR or (dir_.is_dir() and str(dir_).startswith(str(TEMP_DIR)))
+    path = dir_ / filename
+    path.write_text("", encoding=ENCODING)
 
 
 class Answers:
