@@ -662,150 +662,6 @@ class PricesYahoo(base.PricesBase):
     # Methods to tidy data returned by yahooquery
 
     @staticmethod
-    def _fill_reindexed(
-        df: pd.DataFrame,
-        calendar: xcals.ExchangeCalendar,
-        bi: intervals.BI,
-        symbol: str,
-    ) -> pd.DataFrame:
-        """Fill, for a single `symbol`, rows with missing data."""
-        # fill index grouped by day or session to avoid filling a session's
-        # initial values with prior session's close value.
-        # pylint: disable=too-many-locals
-        na_rows = df.close.isna()
-        if not na_rows.any():
-            return df
-
-        first_session = calendar.minute_to_session(df.index[0], "next")
-        last_session = calendar.minute_to_session(df.index[-1], "previous")
-        opens = calendar.opens.loc[first_session:last_session]
-        closes = calendar.closes.loc[first_session:last_session]
-
-        grouper: pd.Series | pd.Grouper
-        if (opens.dt.day != closes.dt.day).any():
-            grouper = pd.Series(index=df.index, dtype="int32")
-            for i, (open_, close) in enumerate(zip(opens, closes)):
-                grouper[(grouper.index >= open_) & (grouper.index < close)] = i
-        else:
-            # shortcut
-            grouper = pd.Grouper(freq="D")
-
-        close_groupby = df["close"].groupby(by=grouper)
-        adj_close = close_groupby.ffill()
-        bv = adj_close.isna()
-        if bv.any():
-            open_groupby = df["open"].groupby(by=grouper)
-            # bfill open to fill any missing initial rows for a session with
-            # session's first registered price
-            adj_close[bv] = open_groupby.bfill()[bv]
-
-        if adj_close.isna().any():
-            # at least one whole session missing prices
-            bv = adj_close.isna()
-            missing_sessions_groupby = adj_close[bv].groupby(by=grouper)
-            # assert all values for missing sessions are missing
-            assert missing_sessions_groupby.value_counts().empty
-            group_sizes = missing_sessions_groupby.size()
-            bv_sizes = group_sizes != 0  # pylint: disable=compare-to-zero
-            sessions = group_sizes[bv_sizes].index
-            if isinstance(sessions[0], (float, int)):
-                sessions = pd.DatetimeIndex([opens.index[int(i)] for i in sessions])
-            # fill forwards in first instance
-            adj_close = adj_close.ffill()
-            if adj_close.isna().any():
-                # Values missing for at least one session at start of df, fill backwards
-                bv = adj_close.isna()
-                adj_close[bv] = df.open.bfill()[bv]
-            warnings.warn(errors.PricesMissingWarning(symbol, bi, sessions, "Yahoo"))
-
-        df.loc[:, "close"] = adj_close
-        for col in ["open", "high", "low"]:
-            df.loc[na_rows, [col]] = adj_close[na_rows]
-
-        df["volume"] = df["volume"].fillna(value=0)
-        return df
-
-    def _fill_reindexed_daily(
-        self,
-        df: pd.DataFrame,
-        cal: xcals.ExchangeCalendar,
-        symbol: str,
-    ) -> pd.DataFrame:
-        """Fill, for a single `symbol`, rows with missing data."""
-        if self._first_trade_dates[symbol] is not None:
-            min_date = self._first_trade_dates[symbol]
-        else:
-            min_date = cal.first_session
-        na_rows = df.close.isna() & (df.index > min_date)
-        if not na_rows.any():
-            return df
-
-        delay = self.delays[symbol]
-        if na_rows.iloc[-1] and helpers.now() <= cal.session_open(df.index[-1]) + delay:
-            na_rows.iloc[-1] = False
-            if not na_rows.any():
-                return df
-
-        # fill
-        adj_close = df["close"].ffill()
-        bv = adj_close.isna()
-        if bv.any():
-            # bfill open to fill any missing initial rows with next available
-            # session's open
-            adj_close[bv] = df["open"].bfill()[bv]
-
-        df.loc[na_rows, ["open", "high", "low", "close"]] = adj_close[na_rows]
-        df.loc[na_rows, "volume"] = 0
-        warnings.warn(
-            errors.PricesMissingWarning(
-                symbol, self.bis.D1, na_rows.index[na_rows], "Yahoo"
-            )
-        )
-        return df
-
-    @staticmethod
-    def _adjust_high_low(df) -> pd.DataFrame:
-        """Adjust data so that ohlc values are congruent.
-
-        Assumes close values over incongruent high or low.
-        Assumes high or low values over incongruent open.
-
-        For any row:
-            If 'close' higher than 'high', sets 'high' to 'close'.
-            If 'close' lower than 'low', sets 'low' to 'close'.
-            If 'open' higher than 'high', sets 'open' to 'high'.
-            If 'open' lower than 'low', sets 'open' to 'low'.
-
-        Notes
-        -----
-        Yahoo API has a nasty bug where occassionally the open price of the
-        most recent day takes the same value as the prior day (as of
-        06/11/20 only noticed issue on daily data). However, the high
-        and low values will register the actual high or low of the day.
-        Consequently it's possible for the day high to otherwise be lower
-        than the open (observed) or the day low to be higher than the open
-        (assumed). This in turn causes bqplot OHLC plots to fail (as the
-        corresponding bar can not be created.)
-        """
-        bv = df.open > df.high
-        if bv.any():
-            df.loc[bv, "open"] = df.loc[bv, "high"]
-
-        bv = df.open < df.low
-        if bv.any():
-            df.loc[bv, "open"] = df.loc[bv, "low"]
-
-        bv = df.close > df.high
-        if bv.any():
-            df.loc[bv, "high"] = df.loc[bv, "close"]
-
-        bv = df.close < df.low
-        if bv.any():
-            df.loc[bv, "low"] = df.loc[bv, "close"]
-
-        return df
-
-    @staticmethod
     def _remove_yahoo_duplicates(df: DataFrame, symbol: str) -> pd.DataFrame:
         if df.index.has_duplicates:
             bv = df.index.duplicated(keep="first")
@@ -877,20 +733,14 @@ class PricesYahoo(base.PricesBase):
         groupby = df.groupby(level="symbol")
         sdfs, empty_sdfs = [], []
         for symbol in self.symbols:
-
-            def get_columns_index(index: pd.Index | None = None) -> pd.MultiIndex:
-                if index is None:
-                    index = pd.Index(helpers.AGG_FUNCS.keys())
-                parts = [[symbol], index]  # pylint: disable=cell-var-from-loop
-                return pd.MultiIndex.from_product(parts, names=["symbol", ""])
-
             # take copy of group to avoid later setting to a slice of a DataFrame.
             try:
                 sdf = groupby.get_group(symbol).copy()
             except KeyError:
                 if not self.has_single_calendar:
                     # no prices for symbol over requested dr
-                    empty_sdfs.append(pd.DataFrame(columns=get_columns_index()))
+                    columns = base.get_columns_multiindex(symbol)
+                    empty_sdfs.append(pd.DataFrame(columns=columns))
                     continue
                 raise
 
@@ -902,23 +752,35 @@ class PricesYahoo(base.PricesBase):
                 # seemingly rare) temporarily fail to return prices for a specific day.
                 # If prices requested for only that day or a period of then will have
                 # reached here will live indice only.
-                empty_sdfs.append(pd.DataFrame(columns=get_columns_index()))
-                continue
+                columns = base.get_columns_multiindex(symbol)
+                empty_sdfs.append(pd.DataFrame(columns=columns))
             if interval.is_daily:
                 sdf.index = pd.DatetimeIndex(sdf.index)
-                sdf = self._adjust_high_low(sdf)
+                sdf = base.adjust_high_low(sdf)
             sdf = self._remove_yahoo_duplicates(sdf, symbol)
             start = start if start is not None else sdf.index[0]
             calendar = self.calendars[symbol]
             index = self._get_trading_index(calendar, interval, start, end)
             reindex_index = index if interval.is_daily else index.left
             sdf = sdf.reindex(reindex_index)
+
             if interval.is_intraday:
-                sdf = self._fill_reindexed(sdf, calendar, interval, symbol)
+                sdf, warnings_ = base.fill_reindexed(
+                    sdf, calendar, interval, symbol, "Yahoo"
+                )
+                sdf.index = index  # override reindexed index with interval index
             else:
-                sdf = self._fill_reindexed_daily(sdf, calendar, symbol)
-            sdf.index = index
-            sdf.columns = get_columns_index(sdf.columns)
+                if self._first_trade_dates[symbol] is not None:
+                    mindate = self._first_trade_dates[symbol]
+                else:
+                    mindate = calendar.first_session
+                sdf, warnings_ = base.fill_reindexed_daily(
+                    sdf, calendar, mindate, self.delays[symbol], symbol, "Yahoo"
+                )
+            for warning_ in warnings_:  # raise any missing prices warnings
+                warnings.warn(warning_)
+
+            sdf.columns = base.get_columns_multiindex(symbol, sdf.columns)
             if sdf.empty:
                 empty_sdfs.append(sdf)
             else:

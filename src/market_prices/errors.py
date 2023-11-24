@@ -708,9 +708,7 @@ class TutorialDataUnavailableError(MarketPricesError):
 class PricesWarning(UserWarning):
     """User warning to advise of operations undertaken to price data."""
 
-    def __init__(self, *_, **__):
-        # subclass should override
-        self._msg = "Prices Warning"
+    _msg = "Prices Warning"  # subclass should override
 
     def __str__(self) -> str:
         return self._msg

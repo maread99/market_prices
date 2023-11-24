@@ -233,6 +233,31 @@ class TestBaseInterval:
         assert m.TDInterval.D1 in BaseInterval
 
 
+def test_create_base_intervals_enum():
+    input_intervals = [
+        m.TDInterval.T1,
+        m.TDInterval.T5,
+        m.TDInterval.T15,
+        m.TDInterval.H2,
+        m.TDInterval.D1,
+    ]
+
+    bis_enum = m.create_base_intervals_enum(input_intervals)
+
+    assert len(bis_enum) == 5
+    for intrvl in input_intervals:
+        assert intrvl in bis_enum
+
+    # assert raises if includes interval > 1D
+    input_intervals.extend([m.TDInterval.D2])
+    match = (
+        "Base Intervals cannot be greater than 1 day although `intervals`"
+        " included '2 days, 0:00:00'."
+    )
+    with pytest.raises(ValueError, match=match):
+        bis_enum = m.create_base_intervals_enum(input_intervals)
+
+
 class TestToPTInterval:
     """Test `m.to_ptinterval`."""
 

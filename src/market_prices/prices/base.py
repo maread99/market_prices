@@ -28,12 +28,245 @@ from market_prices import daterange as dr
 from market_prices import errors, helpers, intervals, mptypes, parsing, pt
 from market_prices.helpers import UTC
 from market_prices.mptypes import Anchor, OpenEnd, Alignment, Priority
-from market_prices.intervals import BI, TDInterval
+from market_prices.intervals import BI, TDInterval, _BaseIntervalMeta
 from market_prices.utils import calendar_utils as calutils
 from market_prices.utils import pandas_utils as pdutils
 
 
 # pylint: disable=too-many-lines
+
+# Helper functions available to subclasses
+
+
+def fill_reindexed(
+    df: pd.DataFrame,
+    calendar: xcals.ExchangeCalendar,
+    bi: intervals.BI,
+    symbol: str,
+    source: str,
+) -> tuple[pd.DataFrame, list[errors.PricesMissingWarning]]:
+    """Fill missing intraday prices in reindexed data for a single symbol.
+
+    Parameters
+    ----------
+    df
+        Prices to be filled.
+
+    calendar
+        Calendar against which prices were reindexed.
+
+    bi
+        Intraday interval represented by each indice.
+
+    symbol
+        Symbol corresponding to price data. Will by included to any
+        warning advising of missing price data.
+
+    source
+        Source of price data. Value be included to any warning advising
+        of missing price data.
+
+    Returns
+    -------
+    tuple[pd.DataFrame, list[errors.PricesMissingWarning]]
+        [0] Reindexed price data
+        [1] List of any missing prices warnings.
+    """
+    warnings = []
+    # fill index grouped by day or session to avoid filling a session's
+    # initial values with prior session's close value.
+    # pylint: disable=too-many-locals
+    na_rows = df.close.isna()
+    if not na_rows.any():
+        return df, warnings
+
+    first_session = calendar.minute_to_session(df.index[0], "next")
+    last_session = calendar.minute_to_session(df.index[-1], "previous")
+    opens = calendar.opens.loc[first_session:last_session]
+    closes = calendar.closes.loc[first_session:last_session]
+
+    grouper: pd.Series | pd.Grouper
+    if (opens.dt.day != closes.dt.day).any():
+        grouper = pd.Series(index=df.index, dtype="int32")
+        for i, (open_, close) in enumerate(zip(opens, closes)):
+            grouper[(grouper.index >= open_) & (grouper.index < close)] = i
+    else:
+        # shortcut
+        grouper = pd.Grouper(freq="D")
+
+    close_groupby = df["close"].groupby(by=grouper)
+    adj_close = close_groupby.ffill()
+    bv = adj_close.isna()
+    if bv.any():
+        open_groupby = df["open"].groupby(by=grouper)
+        # bfill open to fill any missing initial rows for a session with
+        # session's first registered price
+        adj_close[bv] = open_groupby.bfill()[bv]
+
+    if adj_close.isna().any():
+        # at least one whole session missing prices
+        bv = adj_close.isna()
+        missing_sessions_groupby = adj_close[bv].groupby(by=grouper)
+        # assert all values for missing sessions are missing
+        assert missing_sessions_groupby.value_counts().empty
+        group_sizes = missing_sessions_groupby.size()
+        bv_sizes = group_sizes != 0  # pylint: disable=compare-to-zero
+        sessions = group_sizes[bv_sizes].index
+        if isinstance(sessions[0], (float, int)):
+            sessions = pd.DatetimeIndex([opens.index[int(i)] for i in sessions])
+        # fill forwards in first instance
+        adj_close = adj_close.ffill()
+        if adj_close.isna().any():
+            # Values missing for at least one session at start of df, fill backwards
+            bv = adj_close.isna()
+            adj_close[bv] = df.open.bfill()[bv]
+        warnings.append(errors.PricesMissingWarning(symbol, bi, sessions, source))
+
+    df.loc[:, "close"] = adj_close
+    for col in ["open", "high", "low"]:
+        df.loc[na_rows, [col]] = adj_close[na_rows]
+
+    df["volume"] = df["volume"].fillna(value=0)
+    return df, warnings
+
+
+def fill_reindexed_daily(
+    df: pd.DataFrame,
+    cal: xcals.ExchangeCalendar,
+    mindate: pd.Timestamp,
+    delay: pd.Timedelta,
+    symbol: str,
+    source: str,
+) -> tuple[pd.DataFrame, list[errors.PricesMissingWarning]]:
+    """Fill missing daily prices in reindexed data for a single symbol.
+
+    Parameters
+    ----------
+    df
+        Prices to be filled.
+
+    calendar
+        Calendar against which prices were reindexed.
+
+    mindate
+        Earliest session for which prices must be included
+
+    delay
+        Real time delay for symbol (used to ascertain whether prices are
+        missing for any currently live session).
+
+    symbol
+        Symbol corresponding to price data. Will by included to any
+        warning advising of missing price data.
+
+    source
+        Source of price data. Value be included to any warning advising
+        of missing price data.
+
+    Returns
+    -------
+    tuple[pd.DataFrame, list[errors.PricesMissingWarning]]
+        [0] Reindexed price data
+        [1] List of any missing prices warnings.
+    """
+    warnings = []
+    na_rows = df.close.isna() & (df.index > mindate)
+    if not na_rows.any():
+        return df, warnings
+
+    if na_rows.iloc[-1] and helpers.now() <= cal.session_open(df.index[-1]) + delay:
+        na_rows.iloc[-1] = False
+        if not na_rows.any():
+            return df, warnings
+
+    # fill
+    adj_close = df["close"].ffill()
+    bv = adj_close.isna()
+    if bv.any():
+        # bfill open to fill any missing initial rows with next available
+        # session's open
+        adj_close[bv] = df["open"].bfill()[bv]
+
+    df.loc[na_rows, ["open", "high", "low", "close"]] = adj_close[na_rows]
+    df.loc[na_rows, "volume"] = 0
+    warnings.append(
+        errors.PricesMissingWarning(
+            symbol, TDInterval.D1, na_rows.index[na_rows], source
+        )
+    )
+    return df, warnings
+
+
+def adjust_high_low(df) -> pd.DataFrame:
+    """Adjust data so that ohlc values are congruent.
+
+    Assumes close values over incongruent high or low.
+    Assumes high or low values over incongruent open.
+
+    For any row:
+        If 'close' higher than 'high', sets 'high' to 'close'.
+        If 'close' lower than 'low', sets 'low' to 'close'.
+        If 'open' higher than 'high', sets 'open' to 'high'.
+        If 'open' lower than 'low', sets 'open' to 'low'.
+
+    Notes
+    -----
+    Yahoo API has a nasty bug where occassionally the open price of the
+    most recent day takes the same value as the prior day (as of
+    06/11/20 only noticed issue on daily data). However, the high
+    and low values will register the actual high or low of the day.
+    Consequently it's possible for the day high to otherwise be lower
+    than the open (observed) or the day low to be higher than the open
+    (assumed). This in turn causes bqplot OHLC plots to fail (as the
+    corresponding bar can not be created.)
+    """
+    bv = df.open > df.high
+    if bv.any():
+        df.loc[bv, "open"] = df.loc[bv, "high"]
+
+    bv = df.open < df.low
+    if bv.any():
+        df.loc[bv, "open"] = df.loc[bv, "low"]
+
+    bv = df.close > df.high
+    if bv.any():
+        df.loc[bv, "high"] = df.loc[bv, "close"]
+
+    bv = df.close < df.low
+    if bv.any():
+        df.loc[bv, "low"] = df.loc[bv, "close"]
+
+    return df
+
+
+def get_columns_multiindex(
+    symbol: str, columns: pd.Index | None = None
+) -> pd.MultiIndex:
+    """Get Multiindex to represent columns for a single symbol.
+
+    Parameters
+    ----------
+    symbol
+        Symbol to be represented in multiindex.
+
+    index
+        Any existing columns index
+
+    Returns
+    -------
+    multiindex
+        Multiindex with level 0 as `pd.Index` representing 'symbol' and
+        level 1 as any existing `index`. If `index` not passed then level 1
+        will be populated by a `pd.Index` representing default ordered
+        columns.
+    """
+    if columns is None:
+        columns = pd.Index(helpers.AGG_FUNCS.keys())
+    parts = [[symbol], columns]
+    return pd.MultiIndex.from_product(parts, names=["symbol", ""])
+
+
+# Functions employed by PricesBase
 
 
 def create_composite(
@@ -170,7 +403,13 @@ class PricesBase(metaclass=abc.ABCMeta):
 
             Return should include all indices between start and end for
             which any symbol could have traded (regardless of whether a
-            trade was placed or not).
+            trade was placed or not). DataFrame should have columns as
+            "open", "high", "low" and "close", all of dtype "np.float64".
+            DataFrame should have index as:
+                `pd.DatetimeIndex` for daily data
+                `pd.IntervalIndex` for intraday data, with both left and
+                right sides as `pd.DatetimeIndex` of dtype
+                'datetime64[ns, UTC]'.
 
             Parameters as abstract method doc.
 
@@ -347,12 +586,16 @@ class PricesBase(metaclass=abc.ABCMeta):
     For each base interval a DataFrame is used to store requested data.
     Each of these include all symbols.
     """
+    # TODO REVISE for changes to including:
+    #   accommodating dynamic setting of base intervals
+    #   accommodating setting both left and right limits
 
     # pylint: disable=too-many-instance-attributes, too-many-public-methods
 
     # See class documentation for implementation of abstract class attributes
-    BaseInterval: BI
+    BaseInterval: _BaseIntervalMeta
     BASE_LIMITS: dict[BI, pd.Timedelta | pd.Timestamp | None]
+    BASE_LIMITS_RIGHT: dict[BI, pd.Timestamp | None]
 
     PM_SUBSESSION_ORIGIN: Literal["open", "break_end"] = "open"
 
@@ -427,9 +670,13 @@ class PricesBase(metaclass=abc.ABCMeta):
                     value: int
                         Delay corresponding with symbol.
         """
+        self._symbols = helpers.symbols_to_list(symbols)
+        self._base_intervals: _BaseIntervalMeta
         self._base_limits: dict[BI, pd.Timedelta | pd.Timestamp | None]
         self._verify_base_limits()
-        self._symbols = helpers.symbols_to_list(symbols)
+        self._base_limits_right: dict[BI, pd.Timestamp | None]
+        self._set_dflt_base_limits_right()
+        self._verify_base_limits_right()
         self._verify_lead_symbol(lead_symbol)
         self._calendars: dict[str, xcals.ExchangeCalendar]
         self._set_calendars(calendars)
@@ -506,6 +753,45 @@ class PricesBase(metaclass=abc.ABCMeta):
             d = dict(zip(self.symbols, value))
         return d
 
+    @parse
+    def _define_base_intervals(self, update: _BaseIntervalMeta):
+        """Define base intervals.
+
+        Parameters
+        ----------
+        update
+            `intervals._BaseInterval` definition with which to define the
+            class `BaseInterval` attribute.
+
+        Notes
+        -----
+        `_define_base_intervals` should only be called from a subclass
+        constructor and only before executing the constructor as defined
+        on the base class.
+        """
+        self._base_intervals = update
+
+    @property
+    def bis(self) -> _BaseIntervalMeta:
+        """Base intervals."""
+        try:
+            return self._base_intervals
+        except AttributeError:
+            return self.BaseInterval
+
+    @property
+    def base_limits(self) -> dict[BI, pd.Timedelta | pd.Timestamp | None]:
+        """Return availabilty of earliest data by base interval."""
+        try:
+            return self._base_limits
+        except AttributeError:
+            return self.BASE_LIMITS
+
+    @property
+    def base_limits_right(self) -> dict[BI, pd.Timestamp | None]:
+        """Return availabilty of most recent data by base interval."""
+        return self._base_limits_right
+
     # Parsing methods
 
     def _verify_lead_symbol(self, symbol: str | None):
@@ -553,14 +839,36 @@ class PricesBase(metaclass=abc.ABCMeta):
                 f" {base_limits_keys}."
             )
 
-    @property
-    def base_limits(self) -> dict[BI, pd.Timedelta | pd.Timestamp | None]:
-        """Return data availabilty by base interval."""
-        try:
-            d = self._base_limits
-        except AttributeError:
-            d = self.BASE_LIMITS
-        return d
+    def _set_dflt_base_limits_right(self):
+        """Set default `_base_limits_right` if not otherwise defined."""
+        if getattr(self, "_base_limits_right", None) is not None:
+            return
+        self._base_limits_right = {bi: None for bi in self.bis}
+
+    def _verify_base_limits_right(self):
+        """Verify type of right base limits values."""
+        for bi, limit in self.base_limits_right.items():
+            if limit is None:
+                continue
+            if not isinstance(limit, pd.Timestamp):
+                raise ValueError(
+                    "Base interval right limits must be None or of type pd.Timestamp,"
+                    f" although right limit for {bi} would be defined as {limit}."
+                )
+            if bi.is_daily and not helpers.is_date(limit):
+                raise ValueError(
+                    "If right limit of daily base interval is defined then timestamp"
+                    f" must represent a date, although would be defined as {limit}."
+                )
+
+        base_limits_keys = self.base_limits_right.keys()
+        all_keys_valid = all(key in self.bis for key in base_limits_keys)
+        if not all_keys_valid or len(base_limits_keys) != len(self.bis):
+            raise ValueError(
+                "Base right limits do not accurately represent base intervals. Base"
+                f" intervals are {self.bis.__members__} although base limit keys would"
+                f" be {base_limits_keys}."
+            )
 
     def _update_base_limits(self, update: dict[BI, pd.Timedelta | pd.Timestamp | None]):
         """Update data availability for one or more base intervals.
@@ -584,6 +892,30 @@ class PricesBase(metaclass=abc.ABCMeta):
             self._verify_base_limits()
         except ValueError:
             self._base_limits = prev_limits
+            raise
+
+    def _update_base_limits_right(self, update: dict[BI, pd.Timestamp | None]):
+        """Update data availability for one or more base intervals.
+
+        Parameters
+        ----------
+        update
+            Dictionary with which to update existing `base_limits`.
+
+        Notes
+        -----
+        `_update_base_limits` should only be called from a subclass
+        constructor and only before executing the constructor as defined
+        on the base class.
+        """
+        if getattr(self, "_base_limits_right", None) is None:
+            self._set_dflt_base_limits_right()
+        prev_limits = self._base_limits_right.copy()
+        self._base_limits_right.update(update)
+        try:
+            self._verify_base_limits_right()
+        except ValueError:
+            self._base_limits_right = prev_limits
             raise
 
     # Calendars
@@ -750,11 +1082,6 @@ class PricesBase(metaclass=abc.ABCMeta):
 
     # Base intervals
     @property
-    def bis(self) -> BI:
-        """Alias for BaseInterval."""
-        return self.BaseInterval
-
-    @property
     def bi_daily(self) -> BI | None:
         """Daily base interval, or None if all base intervals intraday."""
         return self.bis.daily_bi()
@@ -790,6 +1117,7 @@ class PricesBase(metaclass=abc.ABCMeta):
                 bi=bi,
                 delay=delay,
                 left_limit=ll,
+                right_limit=self.base_limits_right[bi],
             )
         self._pdata = d
 

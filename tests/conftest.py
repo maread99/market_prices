@@ -31,6 +31,14 @@ base_intervals_sample = [
 ]
 # pylint: enable=no-member
 
+UTC = ZoneInfo("UTC")
+
+
+@pytest.fixture
+def utc() -> abc.Iterator[ZoneInfo]:
+    """UTC zoneinfo."""
+    yield UTC
+
 
 @pytest.fixture
 def temp_dir() -> abc.Iterator[Path]:
@@ -145,7 +153,7 @@ def one_sec() -> abc.Iterator[pd.Timedelta]:
     yield pd.Timedelta(1, "S")
 
 
-_now_utc = pd.Timestamp("2021-11-17 21:59", tz=ZoneInfo("UTC"))
+_now_utc = pd.Timestamp("2021-11-17 21:59", tz=UTC)
 
 
 @pytest.fixture(scope="session")
