@@ -15,6 +15,7 @@ import dataclasses
 import itertools
 import re
 import typing
+import warnings
 
 import exchange_calendars as xcals
 import numpy as np
@@ -80,6 +81,529 @@ def t5_us_lon() -> abc.Iterator[pd.DataFrame]:
     )
     """
     yield get_resource("t5_us_lon")
+
+
+def test_fill_reindexed():
+    columns = pd.Index(["open", "high", "low", "close", "volume"])
+    mock_bi = intervals.BI_ONE_MIN
+    mock_symbol = "SYMB"
+
+    def f(
+        df: pd.DataFrame, cal: xcals.ExchangeCalendar
+    ) -> tuple[pd.DataFrame, list[errors.PricesMissingWarning]]:
+        return m.fill_reindexed(df, cal, mock_bi, mock_symbol, "Yahoo")
+
+    ohlcv = (
+        [np.NaN, np.NaN, np.NaN, np.NaN, np.NaN],
+        [1.4, 1.8, 1.2, 1.6, 11],
+        [2.4, 2.8, 2.2, 2.6, 22],
+        [3.4, 3.8, 3.2, 3.6, 33],
+        [np.NaN, np.NaN, np.NaN, np.NaN, np.NaN],
+        [np.NaN, np.NaN, np.NaN, np.NaN, np.NaN],
+        [np.NaN, np.NaN, np.NaN, np.NaN, np.NaN],
+        [np.NaN, np.NaN, np.NaN, np.NaN, np.NaN],
+        [8.4, 8.8, 8.2, 8.6, 88],
+        [np.NaN, np.NaN, np.NaN, np.NaN, np.NaN],
+        [10.4, 10.8, 10.2, 10.6, 101],
+        [np.NaN, np.NaN, np.NaN, np.NaN, np.NaN],
+    )
+    index = pd.DatetimeIndex(
+        [
+            "2022-01-01 08:00",
+            "2022-01-01 09:00",
+            "2022-01-01 10:00",
+            "2022-01-02 08:00",
+            "2022-01-02 09:00",
+            "2022-01-02 10:00",
+            "2022-01-03 08:00",
+            "2022-01-03 09:00",
+            "2022-01-03 10:00",
+            "2022-01-04 08:00",
+            "2022-01-04 09:00",
+            "2022-01-04 10:00",
+        ]
+    )
+    df = pd.DataFrame(ohlcv, index=index, columns=columns)
+    # method ignores calendar save for confirming no session straddles UTC dateline.
+    xlon = xcals.get_calendar("XLON", start="2021-12-21")
+    rtrn, warnings_ = f(df, xlon)
+
+    ohlcv_expected = (
+        [1.4, 1.4, 1.4, 1.4, 0],
+        [1.4, 1.8, 1.2, 1.6, 11],
+        [2.4, 2.8, 2.2, 2.6, 22],
+        [3.4, 3.8, 3.2, 3.6, 33],
+        [3.6, 3.6, 3.6, 3.6, 0],
+        [3.6, 3.6, 3.6, 3.6, 0],
+        [8.4, 8.4, 8.4, 8.4, 0],
+        [8.4, 8.4, 8.4, 8.4, 0],
+        [8.4, 8.8, 8.2, 8.6, 88],
+        [10.4, 10.4, 10.4, 10.4, 0],
+        [10.4, 10.8, 10.2, 10.6, 101],
+        [10.6, 10.6, 10.6, 10.6, 0],
+    )
+
+    expected = pd.DataFrame(
+        ohlcv_expected, index=index, columns=columns, dtype="float64"
+    )
+    assert_frame_equal(rtrn, expected)
+
+    # When session' indices straddle the UTC dataline, verify indices grouped
+    # by session rather than calendar day.
+    xasx = xcals.get_calendar("XASX", start="2021-01-01")
+    session = "2022-01-05"
+    next_session = "2022-01-06"
+    assert xasx.is_session(session) and xasx.is_session(next_session)
+
+    open_, close = xasx.session_open_close(session)
+    next_open, next_close = xasx.session_open_close(next_session)
+
+    index = pd.DatetimeIndex(
+        [
+            "2022-01-05 02:00",
+            "2022-01-05 03:00",
+            "2022-01-05 04:00",
+            "2022-01-05 23:00",
+            "2022-01-06 00:00",
+        ],
+        tz=UTC,
+    )
+
+    assert (
+        ((open_ <= index) & (index < close))
+        | ((next_open <= index) & (index < next_close))
+    ).all()
+
+    ohlcv = (
+        [0.4, 0.8, 0.2, 0.6, 1],
+        [np.NaN, np.NaN, np.NaN, np.NaN, np.NaN],
+        [2.4, 2.8, 2.2, 2.6, 22],
+        [np.NaN, np.NaN, np.NaN, np.NaN, np.NaN],
+        [4.4, 4.8, 4.2, 4.6, 44],
+    )
+
+    df = pd.DataFrame(ohlcv, index=index, columns=columns)
+    rtrn, warnings_ = f(df, xasx)
+
+    ohlcv_expected = (
+        [0.4, 0.8, 0.2, 0.6, 1],
+        [0.6, 0.6, 0.6, 0.6, 0],
+        [2.4, 2.8, 2.2, 2.6, 22],
+        [4.4, 4.4, 4.4, 4.4, 0],
+        [4.4, 4.8, 4.2, 4.6, 44],
+    )
+
+    expected = pd.DataFrame(
+        ohlcv_expected, index=index, columns=columns, dtype="float64"
+    )
+
+    # verify raises warning and fills forward when prices for a full day
+    # are missing.
+    ohlcv = (
+        [0.4, 0.8, 0.2, 0.6, 1],
+        [1.4, 1.8, 1.2, 1.6, 11],
+        [2.4, 2.8, 2.2, 2.6, 22],
+        [np.NaN, np.NaN, np.NaN, np.NaN, np.NaN],
+        [np.NaN, np.NaN, np.NaN, np.NaN, np.NaN],
+        [np.NaN, np.NaN, np.NaN, np.NaN, np.NaN],
+        [6.4, 6.8, 6.2, 6.6, 66],
+        [7.4, 7.8, 7.2, 7.6, 77],
+        [8.4, 8.8, 8.2, 8.6, 88],
+    )
+    index = pd.DatetimeIndex(
+        [
+            "2022-01-01 08:00",
+            "2022-01-01 09:00",
+            "2022-01-01 10:00",
+            "2022-01-02 08:00",
+            "2022-01-02 09:00",
+            "2022-01-02 10:00",
+            "2022-01-03 08:00",
+            "2022-01-03 09:00",
+            "2022-01-03 10:00",
+        ]
+    )
+    df = pd.DataFrame(ohlcv, index=index, columns=columns)
+    rtrn, warnings_ = f(df, xlon)
+    match = re.escape(
+        f"Prices from Yahoo are missing for '{mock_symbol}' at the base interval"
+        f" '{mock_bi}' for the following sessions: ['2022-01-02']"
+    )
+    with pytest.warns(errors.PricesMissingWarning, match=match):
+        warnings.warn(warnings_[0])
+
+    ohlcv_expected = (
+        [0.4, 0.8, 0.2, 0.6, 1],
+        [1.4, 1.8, 1.2, 1.6, 11],
+        [2.4, 2.8, 2.2, 2.6, 22],
+        [2.6, 2.6, 2.6, 2.6, 0],
+        [2.6, 2.6, 2.6, 2.6, 0],
+        [2.6, 2.6, 2.6, 2.6, 0],
+        [6.4, 6.8, 6.2, 6.6, 66],
+        [7.4, 7.8, 7.2, 7.6, 77],
+        [8.4, 8.8, 8.2, 8.6, 88],
+    )
+
+    expected = pd.DataFrame(
+        ohlcv_expected, index=index, columns=columns, dtype="float64"
+    )
+    assert_frame_equal(rtrn, expected)
+
+    # when prices for a first day are missing, verify raises warning and
+    # fills back from next open.
+    ohlcv = (
+        [np.NaN, np.NaN, np.NaN, np.NaN, np.NaN],
+        [np.NaN, np.NaN, np.NaN, np.NaN, np.NaN],
+        [np.NaN, np.NaN, np.NaN, np.NaN, np.NaN],
+        [3.4, 3.8, 3.2, 3.6, 33],
+        [4.4, 4.8, 4.2, 4.6, 44],
+        [5.4, 5.8, 5.2, 5.6, 55],
+        [6.4, 6.8, 6.2, 6.6, 66],
+        [7.4, 7.8, 7.2, 7.6, 77],
+        [8.4, 8.8, 8.2, 8.6, 88],
+    )
+    df = pd.DataFrame(ohlcv, index=index, columns=columns)
+    rtrn, warnings_ = f(df, xlon)
+    match = re.escape(
+        f"Prices from Yahoo are missing for '{mock_symbol}' at the base interval"
+        f" '{mock_bi}' for the following sessions: ['2022-01-01']"
+    )
+    with pytest.warns(errors.PricesMissingWarning, match=match):
+        warnings.warn(warnings_[0])
+
+    ohlcv_expected = (
+        [3.4, 3.4, 3.4, 3.4, 0],
+        [3.4, 3.4, 3.4, 3.4, 0],
+        [3.4, 3.4, 3.4, 3.4, 0],
+        [3.4, 3.8, 3.2, 3.6, 33],
+        [4.4, 4.8, 4.2, 4.6, 44],
+        [5.4, 5.8, 5.2, 5.6, 55],
+        [6.4, 6.8, 6.2, 6.6, 66],
+        [7.4, 7.8, 7.2, 7.6, 77],
+        [8.4, 8.8, 8.2, 8.6, 88],
+    )
+
+    expected = pd.DataFrame(
+        ohlcv_expected, index=index, columns=columns, dtype="float64"
+    )
+    assert_frame_equal(rtrn, expected)
+
+    # verify raises warning and fills both ways (as noted above) for both xlon and
+    # xasx (i.e. crossing UTC midnight, which involves different code path).
+    ohlcv = (
+        [np.NaN, np.NaN, np.NaN, np.NaN, np.NaN],
+        [np.NaN, np.NaN, np.NaN, np.NaN, np.NaN],
+        [np.NaN, np.NaN, np.NaN, np.NaN, np.NaN],
+        [1.4, 1.8, 1.2, 1.6, 11],
+        [2.4, 2.8, 2.2, 2.6, 22],
+        [3.4, 3.8, 3.2, 3.6, 33],
+        [np.NaN, np.NaN, np.NaN, np.NaN, np.NaN],
+        [np.NaN, np.NaN, np.NaN, np.NaN, np.NaN],
+        [np.NaN, np.NaN, np.NaN, np.NaN, np.NaN],
+        [np.NaN, np.NaN, np.NaN, np.NaN, np.NaN],
+        [np.NaN, np.NaN, np.NaN, np.NaN, np.NaN],
+        [np.NaN, np.NaN, np.NaN, np.NaN, np.NaN],
+        [6.4, 6.8, 6.2, 6.6, 66],
+        [7.4, 7.8, 7.2, 7.6, 77],
+        [8.4, 8.8, 8.2, 8.6, 88],
+        [np.NaN, np.NaN, np.NaN, np.NaN, np.NaN],
+        [np.NaN, np.NaN, np.NaN, np.NaN, np.NaN],
+        [np.NaN, np.NaN, np.NaN, np.NaN, np.NaN],
+    )
+    index = pd.DatetimeIndex(
+        [
+            "2022-01-05 01:00",
+            "2022-01-05 02:00",
+            "2022-01-05 03:00",
+            "2022-01-06 01:00",
+            "2022-01-06 02:00",
+            "2022-01-06 03:00",
+            "2022-01-07 01:00",
+            "2022-01-07 02:00",
+            "2022-01-07 03:00",
+            "2022-01-10 01:00",
+            "2022-01-10 02:00",
+            "2022-01-10 03:00",
+            "2022-01-11 01:00",
+            "2022-01-11 02:00",
+            "2022-01-11 03:00",
+            "2022-01-12 01:00",
+            "2022-01-12 02:00",
+            "2022-01-12 03:00",
+        ],
+        tz=UTC,
+    )
+    df = pd.DataFrame(ohlcv, index=index, columns=columns)
+    match_sessions = ["2022-01-05", "2022-01-07", "2022-01-10", "2022-01-12"]
+    rtrn, warnings_ = f(df, xlon)
+    match = re.escape(
+        f"Prices from Yahoo are missing for '{mock_symbol}' at the base interval"
+        f" '{mock_bi}' for the following sessions: {match_sessions}"
+    )
+    with pytest.warns(errors.PricesMissingWarning, match=match):
+        warnings.warn(warnings_[0])
+
+    df = pd.DataFrame(ohlcv, index=index, columns=columns)
+    rtrn, warnings_ = f(df, xasx)
+    with pytest.warns(errors.PricesMissingWarning, match=match):
+        warnings.warn(warnings_[0])
+
+    ohlcv_expected = (
+        [1.4, 1.4, 1.4, 1.4, 0],
+        [1.4, 1.4, 1.4, 1.4, 0],
+        [1.4, 1.4, 1.4, 1.4, 0],
+        [1.4, 1.8, 1.2, 1.6, 11],
+        [2.4, 2.8, 2.2, 2.6, 22],
+        [3.4, 3.8, 3.2, 3.6, 33],
+        [3.6, 3.6, 3.6, 3.6, 0],
+        [3.6, 3.6, 3.6, 3.6, 0],
+        [3.6, 3.6, 3.6, 3.6, 0],
+        [3.6, 3.6, 3.6, 3.6, 0],
+        [3.6, 3.6, 3.6, 3.6, 0],
+        [3.6, 3.6, 3.6, 3.6, 0],
+        [6.4, 6.8, 6.2, 6.6, 66],
+        [7.4, 7.8, 7.2, 7.6, 77],
+        [8.4, 8.8, 8.2, 8.6, 88],
+        [8.6, 8.6, 8.6, 8.6, 0],
+        [8.6, 8.6, 8.6, 8.6, 0],
+        [8.6, 8.6, 8.6, 8.6, 0],
+    )
+
+    expected = pd.DataFrame(
+        ohlcv_expected, index=index, columns=columns, dtype="float64"
+    )
+    assert_frame_equal(rtrn, expected)
+
+
+def mock_now(monkeypatch, now: pd.Timestamp):
+    """Use `monkeypatch` to mock pd.Timestamp.now to return `now`."""
+
+    def mock_now_(*_, tz=None, **__) -> pd.Timestamp:
+        return pd.Timestamp(now.tz_convert(None), tz=tz)
+
+    monkeypatch.setattr("pandas.Timestamp.now", mock_now_)
+
+
+def test_fill_reindexed_daily(one_min, monkeypatch):
+    columns = pd.Index(["open", "high", "low", "close", "volume"])
+    symbol = "AZN.L"
+    xlon = xcals.get_calendar("XLON", start="1990-01-01", side="left")
+    delay = pd.Timedelta(15, "T")
+
+    def f(
+        df: pd.DataFrame,
+        cal: xcals.ExchangeCalendar,
+        mindate: pd.Timestamp | None = None,
+    ) -> tuple[pd.DataFrame, list[errors.PricesMissingWarning]]:
+        mindate = cal.first_session if mindate is None else mindate
+        return m.fill_reindexed_daily(df, cal, mindate, delay, symbol, "Yahoo")
+
+    def match(sessions: pd.DatetimeIndex) -> str:
+        return re.escape(
+            f"Prices from Yahoo are missing for '{symbol}' at the base"
+            f" interval '{intervals.TDInterval.D1}' for the following sessions:"
+            f" {sessions}."
+        )
+
+    index = pd.DatetimeIndex(
+        [
+            "2021-01-04",
+            "2021-01-05",
+            "2021-01-06",
+            "2021-01-07",
+            "2021-01-08",
+            "2021-01-11",
+            "2021-01-12",
+            "2021-01-13",
+            "2021-01-14",
+        ]
+    )
+    ohlcv = (
+        [np.NaN, np.NaN, np.NaN, np.NaN, np.NaN],
+        [1.4, 1.8, 1.2, 1.6, 11],
+        [2.4, 2.8, 2.2, 2.6, 22],
+        [np.NaN, np.NaN, np.NaN, np.NaN, np.NaN],
+        [np.NaN, np.NaN, np.NaN, np.NaN, np.NaN],
+        [5.4, 5.8, 5.2, 5.6, 55],
+        [np.NaN, np.NaN, np.NaN, np.NaN, np.NaN],
+        [7.4, 7.8, 7.2, 7.6, 77],
+        [np.NaN, np.NaN, np.NaN, np.NaN, np.NaN],
+    )
+
+    df = pd.DataFrame(ohlcv, index=index, columns=columns)
+
+    # verify when now is after session open + delay missing values are filled
+    # and a missing prices warning is raised.
+    now = xlon.session_open(index[-1]) + delay + one_min
+    mock_now(monkeypatch, now)
+    missing_sessions = pd.DatetimeIndex(
+        [
+            "2021-01-04",
+            "2021-01-07",
+            "2021-01-08",
+            "2021-01-12",
+            "2021-01-14",
+        ]
+    ).format(date_format="%Y-%m-%d")
+
+    rtrn, warnings_ = f(df.copy(), xlon)
+    with pytest.warns(errors.PricesMissingWarning, match=match(missing_sessions)):
+        warnings.warn(warnings_[0])
+
+    ohlcv_expected = (
+        [1.4, 1.4, 1.4, 1.4, 0],
+        [1.4, 1.8, 1.2, 1.6, 11],
+        [2.4, 2.8, 2.2, 2.6, 22],
+        [2.6, 2.6, 2.6, 2.6, 0],
+        [2.6, 2.6, 2.6, 2.6, 0],
+        [5.4, 5.8, 5.2, 5.6, 55],
+        [5.6, 5.6, 5.6, 5.6, 0],
+        [7.4, 7.8, 7.2, 7.6, 77],
+        [7.6, 7.6, 7.6, 7.6, 0],
+    )
+    expected = pd.DataFrame(
+        ohlcv_expected, index=index, columns=columns, dtype="float64"
+    )
+    assert_frame_equal(rtrn, expected)
+
+    # verify when now is on limit of session open + delay missing values for
+    # last row are included and raised warning does not include last row.
+    mock_now(monkeypatch, now - one_min)
+    missing_sessions = missing_sessions[:-1]
+    rtrn, warnings_ = f(df.copy(), xlon)
+    with pytest.warns(errors.PricesMissingWarning, match=match(missing_sessions)):
+        warnings.warn(warnings_[0])
+
+    missing_row = pd.DataFrame(
+        [[np.NaN] * 5], index=index[-1:], columns=columns, dtype="float64"
+    )
+    expected = pd.concat([expected[:-1], missing_row])
+    assert_frame_equal(rtrn, expected)
+
+    # verify as expected when no missing values to last row
+    mock_now(monkeypatch, now)
+    last_row = pd.DataFrame(
+        [[8.4, 8.8, 8.2, 8.6, 88]], index=index[-1:], columns=columns, dtype="float64"
+    )
+    df = pd.concat([df[:-1], last_row])
+    rtrn, warnings_ = f(df.copy(), xlon)
+    with pytest.warns(errors.PricesMissingWarning, match=match(missing_sessions)):
+        warnings.warn(warnings_[0])
+    expected = pd.concat([expected[:-1], last_row])
+    assert_frame_equal(rtrn, expected)
+
+    # verify returns unchanged and without raising error when no other missing
+    # prices except last row
+    mock_now(monkeypatch, now - one_min)
+    ohlcv = (
+        [0.4, 0.8, 0.2, 0.6, 10],
+        [1.4, 1.8, 1.2, 1.6, 11],
+        [2.4, 2.8, 2.2, 2.6, 22],
+        [3.4, 3.8, 3.2, 3.6, 33],
+        [4.4, 4.8, 4.2, 4.6, 44],
+        [5.4, 5.8, 5.2, 5.6, 55],
+        [6.4, 6.8, 6.2, 6.6, 66],
+        [7.4, 7.8, 7.2, 7.6, 77],
+        [np.NaN, np.NaN, np.NaN, np.NaN, np.NaN],
+    )
+    df = pd.DataFrame(ohlcv, index=index, columns=columns)
+    rtrn, _ = f(df.copy(), xlon)
+
+    assert_frame_equal(rtrn, df)
+
+    # verify returns unchanged when no missing prices
+    ohlcv = (
+        [0.4, 0.8, 0.2, 0.6, 10],
+        [1.4, 1.8, 1.2, 1.6, 11],
+        [2.4, 2.8, 2.2, 2.6, 22],
+        [3.4, 3.8, 3.2, 3.6, 33],
+        [4.4, 4.8, 4.2, 4.6, 44],
+        [5.4, 5.8, 5.2, 5.6, 55],
+        [6.4, 6.8, 6.2, 6.6, 66],
+        [7.4, 7.8, 7.2, 7.6, 77],
+        [8.4, 8.8, 8.2, 8.6, 88],
+    )
+    df = pd.DataFrame(ohlcv, index=index, columns=columns)
+    rtrn, _ = f(df.copy(), xlon)
+    assert_frame_equal(rtrn, df)
+
+    # verify that missing prices before mindate are not filled and no warning raised
+    ohlcv = (
+        [np.NaN, np.NaN, np.NaN, np.NaN, np.NaN],
+        [np.NaN, np.NaN, np.NaN, np.NaN, np.NaN],
+        [2.4, 2.8, 2.2, 2.6, 22],
+        [3.4, 3.8, 3.2, 3.6, 33],
+        [4.4, 4.8, 4.2, 4.6, 44],
+        [5.4, 5.8, 5.2, 5.6, 55],
+        [5.4, 5.8, 5.2, 5.6, 66],
+        [7.4, 7.8, 7.2, 7.6, 77],
+        [8.4, 8.8, 8.2, 8.6, 88],
+    )
+    df = pd.DataFrame(ohlcv, index=index, columns=columns)
+    rtrn, _ = f(df.copy(), xlon, mindate=pd.Timestamp("2021-01-06"))
+    assert_frame_equal(rtrn, df)
+
+
+def test_adjust_high_low():
+    columns = pd.Index(["open", "high", "low", "close", "volume"])
+    ohlcv = (
+        [100.0, 103.0, 98.0, 103.4, 0],  # close higher than high
+        [104.0, 109.0, 104.0, 107.0, 0],
+        [106.0, 108.0, 104.0, 107.0, 0],
+        [106.0, 110.0, 107.0, 109.0, 0],  # open lower than low
+        [108.0, 112.0, 108.0, 112.0, 0],
+        [112.0, 114.0, 107.0, 106.4, 0],  # close lower than low
+        [112.0, 108.0, 104.0, 105.0, 0],  # open higher than high
+    )
+    index = pd.date_range(
+        start=pd.Timestamp("2022-01-01"), freq="D", periods=len(ohlcv)
+    )
+    df = pd.DataFrame(ohlcv, index=index, columns=columns)
+    rtrn = m.adjust_high_low(df)
+
+    ohlcv_expected = (
+        [100.0, 103.4, 98, 103.4, 0],  # close was higher than high
+        [104.0, 109.0, 104.0, 107.0, 0],
+        [106.0, 108.0, 104.0, 107.0, 0],
+        [107.0, 110.0, 107.0, 109.0, 0],  # open was lower than low
+        [108.0, 112.0, 108.0, 112.0, 0],
+        [112.0, 114.0, 106.4, 106.4, 0],  # close was lower than low
+        [108.0, 108.0, 104.0, 105.0, 0],  # open was higher than high
+    )
+    expected = pd.DataFrame(ohlcv_expected, index=index, columns=columns)
+    assert (expected.open >= expected.low).all()
+    assert (expected.low <= expected.high).all()
+    assert (expected.high >= expected.close).all()
+
+    assert_frame_equal(rtrn, expected)
+
+
+def test_get_columns_multiindex():
+    symb = "SYMB"
+    rtrn = m.get_columns_multiindex(symb)
+    assert isinstance(rtrn, pd.MultiIndex)
+    expected = pd.MultiIndex(
+        (
+            [symb],
+            ["open", "high", "low", "close", "volume"],
+        ),
+        codes=([0, 0, 0, 0, 0], [0, 1, 2, 3, 4]),
+        names=["symbol", ""],
+    )
+    assert_index_equal(rtrn, expected)
+
+    existing_cols = pd.Index(["close", "low", "high", "open", "vol"])
+    rtrn = m.get_columns_multiindex(symb, existing_cols)
+    assert isinstance(rtrn, pd.MultiIndex)
+    expected = pd.MultiIndex(
+        (
+            [symb],
+            ["close", "low", "high", "open", "vol"],
+        ),
+        codes=([0, 0, 0, 0, 0], [0, 1, 2, 3, 4]),
+        names=["symbol", ""],
+    )
+    assert_index_equal(rtrn, expected)
 
 
 def test_create_composite(t1_us_lon, t5_us_lon, one_day):

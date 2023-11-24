@@ -363,6 +363,34 @@ class _BaseInterval(_TDIntervalBase, metaclass=_BaseIntervalMeta):
         return lst[i - 1]
 
 
+def create_base_intervals_enum(intervals: list[TDInterval]) -> _BaseInterval:
+    """Create a _BaseInterval enum for given TDInterval.
+
+    Parameters
+    ----------
+    intervals
+        List of TDInterval to be represented in _BaseInterval enum.
+    """
+    d = {}
+    intervals.sort()
+    for intrvl in intervals:
+        unit, value = intrvl.freq_unit, intrvl.freq_value
+        td_args: tuple
+        if unit == "T":
+            td_args = (0, 0, 0, 0, value)
+        elif unit == "H":
+            td_args = (0, 0, 0, 0, 0, value)
+        else:
+            if intrvl is not TDInterval.D1:
+                raise ValueError(
+                    "Base Intervals cannot be greater than 1 day although `intervals`"
+                    f" included '{intrvl}'."
+                )
+            td_args = (1,)
+        d[intrvl.name] = td_args
+    return _BaseInterval("BaseInterval", d)
+
+
 BI = _BaseInterval
 PTInterval = typing.Union[TDInterval, DOInterval, BI]
 
@@ -373,7 +401,6 @@ ONE_DAY: TDInterval = TDInterval.D1
 _BI_CONSTANTS = BI(
     "BI_CONSTANTS",
     dict(T1=TIMEDELTA_ARGS["T1"], D1=TIMEDELTA_ARGS["D1"]),
-    # dict(T1=pd.Timedelta(1, "T"), D1=pd.Timedelta(1, "D")),
 )
 
 BI_ONE_MIN = _BI_CONSTANTS.T1

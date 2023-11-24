@@ -24,10 +24,10 @@ from market_prices.utils import pandas_utils as pdutils
 ONE_DAY = pd.Timedelta(1, "D")
 
 TEST_ROOT = Path(__file__).parent
-_RESOURCES_PATH = TEST_ROOT / "resources"
-STORE_PATH = _RESOURCES_PATH / "store.h5"
-STORE_PBT_PATH = _RESOURCES_PATH / "store_pbt.h5"
-SHELF_PATH = _RESOURCES_PATH / "pbt"
+RESOURCES_PATH = TEST_ROOT / "resources"
+STORE_PATH = RESOURCES_PATH / "store.h5"
+STORE_PBT_PATH = RESOURCES_PATH / "store_pbt.h5"
+SHELF_PATH = RESOURCES_PATH / "pbt"
 _INDEXES_SUFFIX = "_indexes"
 BI_STR = ["T1", "T2", "T5", "H1", "D1"]
 
