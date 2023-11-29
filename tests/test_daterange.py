@@ -1261,26 +1261,20 @@ class TestGetterIntraday:
                 assert drg.get_start(minute) == ans.first_pm_minutes[session]
 
         # --out-of-limit--
-        # includes verifying effect of hard_strict
         session = ans.sessions[len(ans.sessions) // 2]
         limit = ans.opens[session]
         too_early = limit - one_min
         drg = self.get_drg(cal, pp, limit=limit, strict=False)
         assert drg.get_start(too_early) == limit
-        assert drg.get_start(too_early, hard_strict=False) == limit
-
+        
         match = re.escape(
             f"Prices unavailable as start ({helpers.fts(too_early)}) is earlier"
             " than the earliest minute for which price data is available. The earliest"
             f" minute for which prices are available is {helpers.fts(limit)}."
         )
-        with pytest.raises(errors.StartTooEarlyError, match=match):
-            _ = drg.get_start(too_early, hard_strict=True)
-
         drg = self.get_drg(cal, pp, limit=limit, strict=True)
-        for hard_strict in (True, False):
-            with pytest.raises(errors.StartTooEarlyError, match=match):
-                _ = drg.get_start(too_early, hard_strict=hard_strict)
+        with pytest.raises(errors.StartTooEarlyError, match=match):
+            _ = drg.get_start(too_early)
 
     @hyp.given(ds_interval=stmp.intervals_intraday())
     @hyp.example(conftest.base_ds_intervals_dict[TDInterval.T1][0])
@@ -2802,15 +2796,19 @@ class TestGetterIntraday:
         with pytest.raises(errors.StartTooEarlyError):
             _ = drg.daterange
 
+        # NB Nov 23. removed from test on removing requirement to raise error in event
+        # period defined with a duration and `start` that's earlier than the left limit.
+        # retained here in case reinstated. NOTE remove Nov 2025 if given no cause to
+        # reinstate.
         # verify raises error, regardless of strict, when period defined by
         # `start` and duration
-        pp = get_pp_default()
-        pp["start"], pp["days"] = start, 7
+        # pp = get_pp_default()
+        # pp["start"], pp["days"] = start, 7
 
-        for strict in (True, False):
-            drg = self.get_drg(xlon, pp, limit=limit, interval=interval, strict=strict)
-            with pytest.raises(errors.StartTooEarlyError):
-                _ = drg.daterange
+        # for strict in (True, False):
+        #     drg = self.get_drg(xlon, pp, limit=limit, interval=interval, strict=strict)
+        #     with pytest.raises(errors.StartTooEarlyError):
+        #         _ = drg.daterange
 
     def test_daterange_tight(self, xlon_calendar_extended, pp_default):
         """Test daterange_tight for diverges from daterange as expected."""
