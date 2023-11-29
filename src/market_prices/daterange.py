@@ -189,7 +189,7 @@ class _Getter(abc.ABC):
             raise errors.EndTooEarlyError(self, self.limit, ts)
         return self._get_end(ts)
 
-    def get_start(self, ts: pd.Timestamp, hard_strict: bool = False) -> pd.Timestamp:
+    def get_start(self, ts: pd.Timestamp) -> pd.Timestamp:
         """Return left side of indice representing start of a date range.
 
         For intraday indices, indices based on session opens of
@@ -199,28 +199,16 @@ class _Getter(abc.ABC):
         ----------
         ts
             Start of period to be represented by date range.
-
-        hard_strict
-            Require start to be less than `limit` regardless of
-            `self.strict`.
         """
         if ts < self.limit:
-            if hard_strict or self.strict:
+            if self.strict:
                 raise errors.StartTooEarlyError(self, self.limit, ts)
             else:
                 return self.limit
         return self._get_start(ts)
 
-    def _get_start_end(
-        self, hard_strict: bool = False
-    ) -> tuple[mptypes.DateRangeAmb, pd.Timestamp | None]:
+    def _get_start_end(self) -> tuple[mptypes.DateRangeAmb, pd.Timestamp | None]:
         """Return start and end as left/right side of first/last indice.
-
-        Parameters
-        ----------
-        hard_strict
-            Require start to be less than `limit` regardless of
-            `self.strict`.
 
         Returns
         -------
@@ -229,7 +217,7 @@ class _Getter(abc.ABC):
             [1] end accuracy
         """
         start, end = self.pp_start_end
-        start = self.get_start(start, hard_strict) if start is not None else None
+        start = self.get_start(start) if start is not None else None
 
         if end is None and start is not None and self._has_duration:
             # end not required
@@ -989,11 +977,25 @@ class GetterIntraday(_Getter):
         """
         # pylint: disable=too-complex,too-many-branches,too-many-statements
 
+        # NOTE Nov 23. Removed restriction that raised error if period evaluated
+        # from duration and a `start` that's earlier than left limit. Had effect
+        # of removing provision of hard_strict from self.get_start and
+        # self._get_start_end.
+        # The restriction is incoherent with prices being returned if strict
+        # is False and define 'end' within the available range and a duration which
+        # results in start being evaluated prior the left limit.
+        # Removed on basis of the incoherence and, having reviewed code, tests
+        # and documentation, finding no justification for the restriction.
+        # Nov 2025 - remove this note and commented out code if in the meantime
+        # have been given no reason to consider its reinstatement.
+        # NOTE if do reinstate then need to revert all changes, including those to
+        # tests, made in the corresponding commit.
         # raise error if start is before limit and end to be evaluated from start.
-        hard_strict = self._has_duration and self.pp["start"] is not None
+        # hard_strict = self.has_duration and self.pp["start"] is not None
+
         # if end is None will be assigned now although this will in turn be
         # overwritten if start is not None and there's a duration.
-        (start, end), end_accuracy = self._get_start_end(hard_strict=hard_strict)
+        (start, end), end_accuracy = self._get_start_end()
 
         if self._has_duration:
             intraday_duration = self.pp["hours"] * 60 + self.pp["minutes"]
