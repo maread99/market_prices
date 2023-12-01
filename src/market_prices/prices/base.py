@@ -586,6 +586,7 @@ class PricesBase(metaclass=abc.ABCMeta):
     For each base interval a DataFrame is used to store requested data.
     Each of these include all symbols.
     """
+
     # TODO REVISE for changes to including:
     #   accommodating dynamic setting of base intervals
     #   accommodating setting both left and right limits
@@ -1784,62 +1785,40 @@ class PricesBase(metaclass=abc.ABCMeta):
 
     @property
     def _bis_available(self) -> list[BI]:
-        """Return bis for which data available for current gpp parameters."""
+        """Return bis for which data available for current gpp parameters.
+
+        Returns bis for which data is available over the full requested
+        period.
+        """
         bis_valid = self._bis_valid
-        bis_valid.sort(reverse=True)
         drg = self.gpp.drg_intraday
         rtrn: list[BI] = []
-        interval_period_error = None
+        interval_period_errors = []
         for bi in bis_valid:
             drg.interval = bi
             try:
                 start, end = drg.daterange_tight[0]
-            except (
-                errors.StartTooEarlyError,
-                errors.EndTooEarlyError,
-            ):
-                if not rtrn and interval_period_error is not None:
-                    # Data not available at any bi and an 'interval v period' error was
-                    # raised at a higher bi. Should an interval error be raised or
-                    # is this a data availability issue? If a no_limit drg with T1
-                    # interval doesn't raise a period / interval error then its AT LEAST
-                    # a data availability issue (could be a period / interval issue as
-                    # well if ds_interval still higher than a bi that's lower than
-                    # `bi`). Go with the definite known issue by letting return as empty
-                    # list.
-                    drg_no_limit = (  # type: ignore[unreachable]  # 'tis reachable
-                        self.gpp.drg_intraday_no_limit
-                    )
-                    drg_no_limit.interval = intervals.BI_ONE_MIN
-                    try:
-                        drg_no_limit.daterange
-                    except errors.PricesUnavailableIntervalError:
-                        # pylint: disable=raising-bad-type
-                        raise interval_period_error from None
-                    else:
-                        break
-                else:
-                    break
-            except errors.PricesUnavailableIntervalError as e:
-                if bi == intervals.BI_ONE_MIN:
-                    # ds_interval < interval
-                    assert not rtrn
-                    raise
-                else:
-                    interval_period_error = e
-                    continue
-            # necessary to take end as lower of end and now + bi to avoid possibility of
-            # querying beyond rl of 'now + bi' when  `end` is not defined, i.e. None,
-            # and ds_interval > bi. It's a bit of a nasty hack...
-            # NOTE: If move data.Data to not have a hard right limit then will be able
-            # to simply pass through drg.daterange[0] to .available_range()
-            now = helpers.now(bi) + bi
-            end = min(end, now)
+            except Exception as err:
+                if isinstance(err, errors.PricesUnavailableIntervalError):
+                    interval_period_errors.append(err)
+                continue
             if self._pdata[bi].available_range((start, end)):
                 rtrn.append(bi)
-            else:
-                break
-        rtrn.sort()
+
+        if rtrn or not interval_period_errors:
+            return rtrn
+        # no rtrn and interval_period_errors. Should an an interval error
+        # be raised or data availability error? If a no_limit drg with T1
+        # interval doesn't raise a period / interval error then its AT
+        # LEAST a data availability issue (could be a period / interval
+        # issue as well). Go with the definite known issue by returning
+        # as empty list.
+        drg_no_limit = self.gpp.drg_intraday_no_limit
+        drg_no_limit.interval = intervals.BI_ONE_MIN
+        try:
+            drg_no_limit.daterange
+        except errors.PricesUnavailableIntervalError:
+            raise interval_period_errors[0] from None
         return rtrn
 
     @property
@@ -1854,12 +1833,8 @@ class PricesBase(metaclass=abc.ABCMeta):
         rtrn = []
         for bi in bis_valid:
             drg.interval = bi
-            # necessary to take end as lower of end and now + bi to avoid possibility of
-            # querying beyond rl of 'now + bi' when  `end` is not defined, i.e. None,
-            # and ds_interval > bi. It's a bit of a nasty hack...
-            now = helpers.now(bi) + bi
             try:
-                dr_end = drg.daterange[1]
+                end = drg.daterange_tight[0][1]
             except (errors.EndTooEarlyError,):
                 # dr_end would be ealier than limit for bi
                 continue
@@ -1870,7 +1845,6 @@ class PricesBase(metaclass=abc.ABCMeta):
                 else:
                     continue
 
-            end = min(dr_end, now)
             if self._pdata[bi].available(end):
                 rtrn.append(bi)
         return rtrn
@@ -1924,6 +1898,7 @@ class PricesBase(metaclass=abc.ABCMeta):
         bis = self._bis_no_partial_indices(bis)
         return bis
 
+    # TODO WIP Consider / Review what this is doing...
     def _bis_period_end_now(self, bis: list[BI]) -> list[BI]:
         """Return bis of `bis` for which period end and 'now' evaluate to same value."""
         # Feb 22. Believe this can only ever return all `bis` as received or an empty
@@ -1985,14 +1960,17 @@ class PricesBase(metaclass=abc.ABCMeta):
             return bis  # shortcut
 
         drg = self.gpp.drg_intraday_no_limit
-        end_accuracy = []
+        ends = []
         for bi in bis:
             drg.interval = bi
-            end_accuracy.append(drg.daterange[1])
+            (_, end), end_accuracy = drg.daterange
+            ends.append(
+                drg.get_end_as_trading_minute_or_nearest_close(end, end_accuracy)
+            )
 
         drg.interval = intervals.BI_ONE_MIN
         most_accurate_end = drg.daterange[1]
-        diff = np.abs(pd.DatetimeIndex(end_accuracy).asi8 - most_accurate_end.value)
+        diff = np.abs(pd.DatetimeIndex(ends).asi8 - most_accurate_end.value)
         min_diff = np.min(diff)
         bv = diff == min_diff
         ma_bis = [bis[i] for i, b in enumerate(bv) if b]
@@ -2129,13 +2107,7 @@ class PricesBase(metaclass=abc.ABCMeta):
             drg = self.gpp.drg_intraday
             drg.interval = bi
             start, end = drg.daterange_tight[0]
-        # necessary to set end as lower of end and now + bi to avoid possibility of
-        # requesting data beyond rl of 'now + bi' when  `end` is not defined, i.e. None,
-        # and ds_interval > bi. It's a bit of a nasty hack...
-        # NOTE: If develop data.Data to not have a hard right limit then will be able
-        # to simply pass through drg.daterange[0] to ._get_bi_table.
-        bi_now = helpers.now(bi) - self.gpp.delay + bi  # + bi to include live interval
-        end = min(end, bi_now)
+
         table = self._get_bi_table(bi, (start, end))
         return table, bi
 
@@ -2313,8 +2285,9 @@ class PricesBase(metaclass=abc.ABCMeta):
         if anchor is Anchor.OPEN and self.gpp.openend == OpenEnd.SHORTEN:
             accuracy = daterange[1]
             last = df.index[-1]
-            if accuracy < last.right:
-                # accuracy must represent a session close if < last.right
+            if accuracy < last.right and not drg.cal.is_trading_minute(accuracy):
+                # if accuracy < last.right and not a trading minute then
+                # the accuracy represents an unaligned close.
                 new = pd.Interval(last.left, accuracy, last.closed)
                 index = df.index[:-1].insert(len(df) - 1, new)
                 df.index = index
@@ -3236,8 +3209,8 @@ class PricesBase(metaclass=abc.ABCMeta):
                 True (default): raise an error (subclass of
                 errors.PricesUnavailableError).
 
-                False: return prices for the later part of the period for
-                which data is available.
+                False: return prices for the part of the period for which
+                data is available.
 
             See data_availability.ipynb tutorial for example usage.
 

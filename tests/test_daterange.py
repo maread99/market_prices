@@ -1266,7 +1266,7 @@ class TestGetterIntraday:
         too_early = limit - one_min
         drg = self.get_drg(cal, pp, limit=limit, strict=False)
         assert drg.get_start(too_early) == limit
-        
+
         match = re.escape(
             f"Prices unavailable as start ({helpers.fts(too_early)}) is earlier"
             " than the earliest minute for which price data is available. The earliest"
@@ -1827,12 +1827,13 @@ class TestGetterIntraday:
         monkeypatch.setattr("pandas.Timestamp.now", lambda *a, **k: now)
         drg = self.get_drg(cal, pp, interval=interval)
         end = open_ + (TDInterval.T15 * 2)  # end is end of current live interval
-        assert drg.end_now == drg.get_end(None) == (end, end)
+        assert drg.end_now == drg.get_end(None) == (end, now + one_min)
 
         # test trading minute with delay
-        drg = self.get_drg(cal, pp, interval=interval, delay=pd.Timedelta(10, "T"))
+        delay = pd.Timedelta(10, "T")
+        drg = self.get_drg(cal, pp, interval=interval, delay=delay)
         end = open_ + TDInterval.T15
-        assert drg.end_now == drg.get_end(None) == (end, end)
+        assert drg.end_now == drg.get_end(None) == (end, now + one_min - delay)
 
         # test non-trading minute
         sessions = ans.sessions_sample.intersection(ans.sessions_with_gap_after)
@@ -1845,9 +1846,10 @@ class TestGetterIntraday:
         drg = self.get_drg(cal, pp, interval=TDInterval.T1)
         assert drg.end_now == drg.get_end(None) == (close, close)
 
-        drg = self.get_drg(cal, pp, interval=TDInterval.T1, delay=pd.Timedelta(15, "T"))
+        delay = pd.Timedelta(15, "T")
+        drg = self.get_drg(cal, pp, interval=TDInterval.T1, delay=delay)
         end = close - pd.Timedelta(5, "T") + one_min  # returns right of live indice
-        assert drg.end_now == drg.get_end(None) == (end, end)
+        assert drg.end_now == drg.get_end(None) == (end, now + one_min - delay)
 
     def test_get_start_get_end_anchor_effect(
         self, calendars_with_answers_extended, pp_default
@@ -2354,17 +2356,19 @@ class TestGetterIntraday:
             years=pp["years"],
         )
         if end is None:
-            end = drg.end_now[0]
+            end, end_accuracy = drg.end_now
+        else:
+            end_accuracy = end
         start = end - duration
 
         try:
-            assert drg.daterange == ((start, end), end)
+            assert drg.daterange == ((start, end), end_accuracy)
         except AssertionError:
             assert (
                 start.value in cal.closes_nanos or start.value not in cal.minutes_nanos
             )
             start = cal.next_minute(start)
-            assert drg.daterange == ((start, end), end)
+            assert drg.daterange == ((start, end), end_accuracy)
 
     @pytest.mark.parametrize("limit_idx", [0, 100])
     def test_daterange_duration_cal_end_minute_oolb(
@@ -2491,7 +2495,9 @@ class TestGetterIntraday:
 
         end = pp["end"]
         if end is None:
-            end = drg.end_now[0]
+            end, end_accuracy = drg.end_now
+        else:
+            end_accuracy = end
 
         end_session = cal.minute_to_session(end, "previous")
         target_session = end_session - (pp["days"] * cal.day)
@@ -2513,7 +2519,7 @@ class TestGetterIntraday:
             start = min(start, target_session_close)
 
         try:
-            assert drg.daterange == ((start, end), end)
+            assert drg.daterange == ((start, end), end_accuracy)
         except AssertionError:
             start_dst = cal.tz.dst(start.tz_convert(None))
             end_dst = cal.tz.dst(end.tz_convert(None))
@@ -2523,7 +2529,7 @@ class TestGetterIntraday:
                 or start_dst < end_dst
             )
             start = cal.next_minute(start)
-            assert drg.daterange == ((start, end), end)
+            assert drg.daterange == ((start, end), end_accuracy)
 
     def test_daterange_duration_days_end_oolb_minute(
         self, calendars_with_answers_extended, pp_default, one_min
@@ -2674,20 +2680,22 @@ class TestGetterIntraday:
 
         end = pp["end"]
         if end is None:
-            end = drg.end_now[0]
+            end, end_accuracy = drg.end_now
+        else:
+            end_accuracy = end
 
         minutes = pp["minutes"] + (pp["hours"] * 60)
         i = cal.minutes.get_indexer([end], method="bfill")[0]
         start = cal.minutes[i - minutes]
 
         try:
-            assert drg.daterange == ((start, end), end)
+            assert drg.daterange == ((start, end), end_accuracy)
         except AssertionError:
             assert (
                 start.value in cal.closes_nanos or end.value in cal.break_starts_nanos
             )
             start = cal.next_minute(start)
-            assert drg.daterange == ((start, end), end)
+            assert drg.daterange == ((start, end), end_accuracy)
 
     def test_daterange_duration_intraday_start_minute_ool(
         self, calendars_with_answers_extended, pp_default

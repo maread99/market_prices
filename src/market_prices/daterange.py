@@ -168,14 +168,21 @@ class _Getter(abc.ABC):
         -------
         tuple[pd.Timestamp, pd.Timestamp]
             [0]: right side of last indice of date range.
-            [1]: accuracy of [0]. Will only differ from [0] if all of:
-                - `interval` is intraday.
-                - date range end is an unaligned session close.
-                - no symbol trades in the period from the session close
-                to the end of the unaligned indice.
 
-                In this case [0] will represent the end of the unaligned
-                indice* and [1] will represnt the session close.
+            [1]: accuracy of [0]. Will only differ from [0] if `interval`
+            is intraday and either of:
+                - date range end is an unaligned session close and no
+                symbol trades in the period from the session close to the
+                end of the unaligned indice. In this case [0] will
+                represent the end of the unaligned indice* and [1] will
+                represent the session close.
+
+                - date range end represents a live indice (i.e. date range
+                through to 'now'.) In this case [0] will represent the
+                right side of the live indice and [1] will represent 'now'.
+
+            `GetterIntraday._get_end_as_trading_minute_or_nearest_close`
+            method can effectively be used to disambiguate the above cases.
 
         Notes
         -----
@@ -214,7 +221,9 @@ class _Getter(abc.ABC):
         -------
         tuple[ReqDateRange, pd.Timestamp]
             [0] daterange
-            [1] end accuracy
+
+            [1] end accuracy, as `get_end` or None if end not required to
+            evaluate daterange.
         """
         start, end = self.pp_start_end
         start = self.get_start(start) if start is not None else None
@@ -700,15 +709,27 @@ class GetterIntraday(_Getter):
         Returns
         -------
         tuple[pd.Timestamp, pd.Timestamp]
-            [0]: end of current indice if 'now' falls within an indice,
+            [0]: end of live indice if 'now' falls within an indice,
             otherwise end of prior indice. In turn, this end may be
             adjusted if it is an unaligned session close.
 
-            [1]: Accuracy, as for --get_end()--.
+            [1]: Accuracy of [0]. 'now' if [0] represents the end of a live
+            indice, otherwise [0].
         """
+        # evaluate now as left side of current minute and add alignment interval to it.
+        # this provides for evaluating end of current indice which will be this now
+        # + alignment interval if this aligns with the indices, or otherwise somewhere
+        # between this now and now + alignment interval.
         now = helpers.now(self.interval) - self._delay
         ts = min(now + self.alignment_interval, self.cal.next_open(now))
-        return self._get_end(ts)
+        end, end_accuracy = self._get_end(ts)
+        # min of end_accuracy and 'now' as 'now' could be out of hours.
+        # now + one minute as want accuracy to represent the minute up to
+        # which the end is accurate as at the moment the end is requested.
+        # (without the + one minute would be ignoring those price that have
+        # come in since the current minute started.)
+        end_accuracy = min(end_accuracy, now + pd.Timedelta("1T"))
+        return end, end_accuracy
 
     def _trading_index(
         self,
@@ -784,8 +805,8 @@ class GetterIntraday(_Getter):
 
                 exception: If the end alignment interval is longer than the
                 length of the session / pm subsession (if session has
-                break) the both [0] and [1] will be returned as the session
-                / pm subsession open.
+                break) then both [0] and [1] will be returned as the
+                session / pm subsession open.
         """
         if end.value not in self.cal.closes_nanos:
             # not a session close
@@ -951,6 +972,24 @@ class GetterIntraday(_Getter):
 
         return minute
 
+    def get_end_as_trading_minute_or_nearest_close(
+        self, end: pd.Timestamp, end_accuracy: pd.Timestamp
+    ) -> pd.Timestamp:
+        """Get end as either a trading minute or nearest prior close.
+
+        `end` and `end_accuracy` as returned by `daterange`.
+
+        Notes
+        -----
+        Provides for disambiguation of whether `end_accuracy` differs from
+        `end` due to `end` being the right of a live indice (in which
+        case returns `end`) or `end` being an unaligned close (in which
+        case returns `end_accuracy`, i.e. the close).
+        """
+        if end == end_accuracy:
+            return end  # shortcut
+        return end if self.cal.is_trading_minute(end) else end_accuracy
+
     @property
     def daterange(self) -> tuple[mptypes.DateRange, pd.Timestamp]:
         """Date range over which to request prices, and end accuracy.
@@ -962,18 +1001,51 @@ class GetterIntraday(_Getter):
                 [0]: Start of range as left side of an indice based on
                     `self.interval`.
                 [1]: End of range as right side of an indice based on
-                    `end_alignment_interval`.
-            [1]: Accuracy of range end. Will be as end of date range unless
-            range end is an unaligned session close that was advanced to
-            the right of the unaligned indice, in which case accuracy will
-            be as session close. Note: end will only have been advanced if
-            no symbol traded between session close and the right of the
-            unaligned indice.
+                    `end_alignment_interval`. See below for how this is
+                    evaluated when the range end falls on an unaligned
+                    session close.
+
+            [1]: accuracy of range end. Where end of range ([0][1]) is
+            'end':
+                If 'end' is aligned to a historic indice then as 'end'.
+                If 'end' is the right of a live indice then as 'now'.
+                If range end falls on an unaligned close, as noted below.
+
+            Where the range end would fall on an unaligned session close:
+                If no symbol trades during the part of the final indice
+                (based on `end_alignment_interval`) that falls after
+                the session close:
+                    'end' - right side of final indice (beyond session
+                        close).
+                    'accuracy' - session close
+
+                If any symbol trades during the part of the final indice
+                that falls after the session close:
+                    'end' - left side of final indice
+                    'accuracy' - left side of final indice
+                NB In this case interval will be maintained although
+                session close will not be represented.
+
+                exception: If the end alignment interval is longer than the
+                length of the session / pm subsession (if session has
+                break) then both 'end' and 'accuracy' will be returned as
+                the session / pm subsession open.
+
+
+            NB The `._get_end_as_trading_minute_or_nearest_close` method
+            can effectively be used to disambiguate when 'accuracy' differs
+            from 'end' due to a live indice or an unaligned close.
 
         Raises
         ------
         errors.PricesUnavailableIntervalPeriodError
             Evaluated period does not span at least one full indice.
+
+        Notes
+        -----
+        Use `daterange` to evaluate extents of indexes based on final
+        interval.
+        Use `daterange_tight` to request price date or query availability.
         """
         # pylint: disable=too-complex,too-many-branches,too-many-statements
 
@@ -1005,14 +1077,10 @@ class GetterIntraday(_Getter):
                         pd.Timedelta(intraday_duration, "T"), self
                     )
                 if start is None:
-                    end_ = end_accuracy
-                    assert end_ is not None
-                    if (
-                        end_.value in self.cal.closes_nanos
-                        and end_.value not in self.cal.opens_nanos
-                    ) or (end_.value in self.cal.break_starts_nanos):
+                    end_ = end
+                    if not self.cal.is_trading_minute(end_):
                         # minute_offset takes a trading minute
-                        end_ = self.cal.next_minute(end_)
+                        end_ = self.cal.next_minute(end)
                     try:
                         start = self.cal.minute_offset(end_, -intraday_duration)
                     except xcals.errors.RequestedMinuteOutOfBounds:
@@ -1031,7 +1099,10 @@ class GetterIntraday(_Getter):
                 days = self.pp["days"]
                 if start is None:
                     assert end_accuracy is not None
-                    start = self._offset_days(end_accuracy, -days)
+                    end_ = self.get_end_as_trading_minute_or_nearest_close(
+                        end, end_accuracy
+                    )
+                    start = self._offset_days(end_, -days)
                 else:
                     end = self._offset_days(start, days)
 
@@ -1050,7 +1121,7 @@ class GetterIntraday(_Getter):
             end, end_accuracy = self.get_end(end)
 
             end_now, end_now_accuracy = self.end_now
-            if end > end_now:
+            if end >= end_now:
                 end, end_accuracy = end_now, end_now_accuracy
 
         elif start is None:  # pylint: disable=confusing-consecutive-elif
@@ -1060,24 +1131,23 @@ class GetterIntraday(_Getter):
         assert end is not None
         assert end_accuracy is not None
 
+        end_ = self.get_end_as_trading_minute_or_nearest_close(end, end_accuracy)
         if self.anchor is mptypes.Anchor.OPEN:
-            if start >= end_accuracy:
+            if start >= end_:
                 # If start < end then there's >= one interval between them.
                 # Start will be > end if end resolves to close of previous session
                 # and start resolves to open of next session.
-                raise errors.PricesUnavailableIntervalPeriodError(
-                    self, start, end_accuracy
-                )
+                raise errors.PricesUnavailableIntervalPeriodError(self, start, end_)
         else:
             # minutes_in_period to account for crossing (sub)sessions.
-            if start >= end_accuracy:
+            if start >= end_:
                 minutes = 0
             else:
-                minutes = calutils.minutes_in_period(self.cal, start, end_accuracy)
+                minutes = calutils.minutes_in_period(self.cal, start, end_)
             if self.final_interval.as_minutes > minutes:
                 period_duration = pd.Timedelta(minutes, "T")
                 raise errors.PricesUnavailableIntervalPeriodError(
-                    self, start, end_accuracy, period_duration
+                    self, start, end_, period_duration
                 )
 
         if self.pp["add_a_row"]:
@@ -1096,32 +1166,47 @@ class GetterIntraday(_Getter):
     def daterange_tight(self) -> tuple[mptypes.DateRangeReq, pd.Timestamp]:
         """Tight date range over which to request prices.
 
-        Use to request prices and query requested prices. For base
-        intervals range will include all required indices whilst avoiding
-        periods beyond the last requested indice for which prices will not
-        be available. (This is not an issue if only every requesting
-        prices for the full range, although will be if only request prices
-        for part of the range and that part happens to be the big at the
-        end for which prices are not available.)
+        For base intervals range will include all required indices whilst
+        avoiding periods beyond the last requested indice for which prices
+        will not be available. (This is not an issue if only ever
+        requesting prices for the full range, although will be if only
+        request prices for part of the range and that part happens to be
+        the bit at the end for which prices are not available.)
 
         As `daterange` although will tighten range 'end' to less than one
         `interval` from 'end_accuracy'. Accordingly, only different from
-        `daterange` in event of all of the following:
-            - `ds_interval` is > `interval`.
-            - end is an unaligned end.
-            - difference between 'end' and 'end_accuracy' is greater than
-                `interval`.
+        `daterange` in event that 'end' differs from 'accuracy'. See
+        `daterange` doc for which this can be the case.
 
-        For example, if `interval` were 1H, `ds_interval` were 2H and
+        For example, 'end' and 'accuracy' differ as a result of an
+        unaligned close, if `interval` were 1H, `ds_interval` were 2H and
         `daterange` were to return:
             ((Timestamp('2022-03-08 14:30', tz=zoneinfo.ZoneInfo("UTC")),
               Timestamp('2022-03-10 22:30', tz=zoneinfo.ZoneInfo("UTC"))),
             Timestamp('2022-03-10 21:00', tz=zoneinfo.ZoneInfo("UTC"))
-
         ...then `daterange_tight` would return:
             ((Timestamp('2022-03-08 14:30', tz=zoneinfo.ZoneInfo("UTC")),
               Timestamp('2022-03-10 21:30', tz=zoneinfo.ZoneInfo("UTC"))),
             Timestamp('2022-03-10 21:00', tz=zoneinfo.ZoneInfo("UTC"))
+
+        Further example, 'end' and 'accuracy' differ as a result of end
+        representing the end of a live indice, if `interval` were 5T,
+        `ds_interval` were 20T and the date range were to cover a period
+        through to live prices, with 'now' being '2022-03-10 20:23', then
+        if `daterange` were to return:
+            ((Timestamp('2022-03-08 14:40', tz=zoneinfo.ZoneInfo("UTC")),
+              Timestamp('2022-03-10 20:40', tz=zoneinfo.ZoneInfo("UTC"))),
+            Timestamp('2022-03-10 20:23', tz=zoneinfo.ZoneInfo("UTC"))
+        ...then `daterange_tight` would return:
+            ((Timestamp('2022-03-08 14:40', tz=zoneinfo.ZoneInfo("UTC")),
+              Timestamp('2022-03-10 20:25', tz=zoneinfo.ZoneInfo("UTC"))),
+            Timestamp('2022-03-10 20:23', tz=zoneinfo.ZoneInfo("UTC"))
+
+        Notes
+        -----
+        Use `daterange` to evaluate extents of indexes based on final
+        interval.
+        Use `daterange_tight` to request price date or query availability.
         """
         (start, end), end_accuracy = self.daterange
         if end - end_accuracy >= self.interval:
