@@ -32,9 +32,10 @@ jobs:
       with:
         user: __token__
         password: ${{ secrets.PYPI_TEST_API_TOKEN }}
-        repository_url: https://test.pypi.org/legacy/
+        repository-url: https://test.pypi.org/legacy/
 
     - name: Install from testpypi and import
+      shell: bash
       run: |
         i=0
         while [ $i -lt 12 ] && [ "${{ github.ref_name }}" != $(pip index versions -i https://test.pypi.org/simple --pre market_prices | cut -d'(' -f2 | cut -d')' -f1 | sed 1q) ];\
@@ -55,6 +56,7 @@ jobs:
         password: ${{ secrets.PYPI_API_TOKEN }}
 
     - name: Install and import
+      shell: bash
       run: |
         i=0
         while [ $i -lt 12 ] && [ "${{ github.ref_name }}" != $(pip index versions -i https://pypi.org/simple --pre market_prices | cut -d'(' -f2 | cut -d')' -f1 | sed 1q) ];\
