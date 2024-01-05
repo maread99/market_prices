@@ -29,7 +29,7 @@ exceptiongroup==1.2.0
     #   pytest
 exchange-calendars==4.5.1
     # via market-prices (pyproject.toml)
-flake8==6.1.0
+flake8==7.0.0
     # via
     #   flake8-docstrings
     #   market-prices (pyproject.toml)
