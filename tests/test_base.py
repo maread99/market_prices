@@ -2183,15 +2183,15 @@ def test__minute_to_session(PricesMock, cal_start, side, one_min, monkeypatch):
         assert f(minute, *args) == session
 
 
-def test__minute_to_latest_trading_minute(PricesMock, cal_start, side, one_min):
-    """Test `_minute_to_latest_trading_minute`."""
+def test__minute_to_latest_next_trading_minute(PricesMock, cal_start, side, one_min):
+    """Test `_minute_to_latest_next_trading_minute`."""
     xnys = xcals.get_calendar("XNYS", start=cal_start, side=side)
     xlon = xcals.get_calendar("XLON", start=cal_start, side=side)
     xhkg = xcals.get_calendar("XHKG", start=cal_start, side=side)
 
     symbols = "LON, NY, HK"
     prices = PricesMock(symbols, [xlon, xnys, xhkg])
-    f = prices._minute_to_latest_trading_minute
+    f = prices._minute_to_latest_next_trading_minute
 
     # two consecutive sessions for all calendars (from knowledge of schedule)
     session = pd.Timestamp("2021-12-22")
@@ -2380,6 +2380,10 @@ class TestBis:
                     @property
                     def pp_raw(self) -> str:
                         return "<mock pp>"
+
+                    @property
+                    def request_all_available_data(self) -> bool:
+                        return True
 
                 self._gpp = GetPricesParamsMock(drg, drg, ds_interval, anchor)
 
@@ -2586,14 +2590,14 @@ class TestBis:
         assert prices._bis_valid == prices.bis_intraday[:-3]
 
     def test__bis_available(self, PricesMockBis, GetterMock, symbols, xlon, xnys):
-        """Test `_bis_available` and `_bis_available_end`."""
+        """Test `_bis_available_all` and `_bis_available_end`."""
         prices = PricesMockBis(symbols, [xlon, xnys])
         get_drg_args = (prices, GetterMock)
 
-        def bis_available(interval: int, drg) -> list[intervals.BI]:
+        def bis_available_all(interval: int, drg) -> list[intervals.BI]:
             prices.gpp.ds_interval = intervals.to_ptinterval(str(interval) + "T")
             self.set_prices_gpp_drg_properties(prices, drg)
-            return prices._bis_available
+            return prices._bis_available_all
 
         def bis_available_end(interval: int, drg) -> list[intervals.BI]:
             prices.gpp.ds_interval = intervals.to_ptinterval(str(interval) + "T")
@@ -2603,33 +2607,45 @@ class TestBis:
         for i, bi in enumerate(prices.bis_intraday[:-1]):
             # start at limit for bi, end now
             drg = self.get_mock_drg_limit_available(*get_drg_args, bi)
-            assert bis_available(30, drg) == prices.bis_intraday[i:-1]
+            assert bis_available_all(30, drg) == prices.bis_intraday[i:-1]
             assert bis_available_end(30, drg) == prices.bis_intraday[:-1]
 
-            assert bis_available(bi.as_minutes, drg) == [bi]
+            assert bis_available_all(bi.as_minutes, drg) == [bi]
 
             # start before limit for bi, end now
             drg = self.get_mock_drg_limit_available(*get_drg_args, bi, -1)
-            assert bis_available(30, drg) == prices.bis_intraday[i + 1 : -1]
+            assert bis_available_all(30, drg) == prices.bis_intraday[i + 1 : -1]
             assert bis_available_end(30, drg) == prices.bis_intraday[:-1]
 
-            assert bis_available(bi.as_minutes, drg) == []
+            assert bis_available_all(bi.as_minutes, drg) == []
 
             # start and end at limit for bi
             drg = self.get_mock_drg_limit_available(*get_drg_args, bi, limit_end=True)
-            assert bis_available(30, drg) == prices.bis_intraday[i:-1]
+            assert bis_available_all(30, drg) == prices.bis_intraday[i:-1]
             assert bis_available_end(30, drg) == prices.bis_intraday[i:-1]
 
             assert bis_available_end(bi.as_minutes, drg) == [bi]
 
             # start and end beyond limit for bi
+            match = re.escape(  # start of message only
+                "The end of the requested period is earlier than the earliest"
+                " timestamp at which intraday data is available for any base interval."
+            )
             drg = self.get_mock_drg_limit_available(
                 *get_drg_args, bi, -1, limit_end=True, delta_end=-1
             )
-            assert bis_available(30, drg) == prices.bis_intraday[i + 1 : -1]
-            assert bis_available_end(30, drg) == prices.bis_intraday[i + 1 : -1]
+            assert bis_available_all(30, drg) == prices.bis_intraday[i + 1 : -1]
+            if bi.as_minutes == 30:
+                # Not even T30 data available to meet
+                with pytest.raises(errors.PricesIntradayUnavailableError, match=match):
+                    bis_available_end(30, drg)
+            else:
+                assert bis_available_end(30, drg) == prices.bis_intraday[i + 1 : -1]
 
-            assert bis_available_end(bi.as_minutes, drg) == []
+            # Can only be met by this interval or a lower interval, i.e. can only be
+            # met by intervals for which data not available
+            with pytest.raises(errors.PricesIntradayUnavailableError, match=match):
+                bis_available_end(bi.as_minutes, drg)
 
     def test_bis_stored_methods(self, PricesMockBis, GetterMock, symbols, xlon, xnys):
         """Tests `_bis_stored` and `_get_stored_bi_from_bis`."""
@@ -2911,28 +2927,41 @@ class TestBis:
             start: pd.Timestamp,
             cal: xcals.ExchangeCalendar,
             part_period_available: bool = False,
+            end_before_ll: bool = False,
         ) -> str:
             interval = prices.gpp.ds_interval
             anchor = prices.gpp.anchor
             factors = [bi for bi in prices.bis_intraday if not interval % bi]
-            highest_factor_limit = prices.BASE_LIMITS[factors[-1]]
-            earliest_minute = cal.minute_to_trading_minute(highest_factor_limit, "next")
+            limit_start, limit_end = prices.limits[factors[-1]]
+            earliest_minute = cal.minute_to_trading_minute(limit_start, "next")
+            latest_minute = cal.minute_to_trading_minute(limit_end, "previous")
+            available_period = (earliest_minute, latest_minute)
+            if end_before_ll:
+                s = (
+                    "The end of the requested period is earlier than the earliest"
+                    " timestamp at which intraday data is available for any base"
+                    " interval."
+                )
+            else:
+                s = (
+                    "Data is unavailable at a sufficiently low base interval to evaluate"
+                    f" prices at interval {interval} anchored '{anchor}'."
+                )
             anchor_insert = " and that have no partial trading indices"
             insert1 = "" if anchor is mptypes.Anchor.OPEN else anchor_insert
-            s = (
-                "Data is unavailable at a sufficiently low base interval to evaluate"
-                f" prices at interval {interval} anchored '{anchor}'.\nBase intervals"
-                f" that are a factor of {interval}{insert1}:\n\t{factors}.\nThe"
-                f" earliest minute from which data is available at {factors[-1]} is"
-                f" {earliest_minute}, although at this base interval the requested"
+            s += (
+                f"\nBase intervals that are a factor of {interval}{insert1}:"
+                f"\n\t{factors}."
+                f"\nThe period over which data is available at {factors[-1]} is"
+                f" {available_period}, although at this base interval the requested"
                 f" period evaluates to {(start, early_close)}."
                 "\nPeriod evaluated from parameters: <mock pp>."
             )
             if part_period_available:
                 s += (
-                    f"\nData is available from {earliest_minute} through to the end"
-                    f" of the requested period. Consider passing `strict` as False"
-                    f" to return prices for this part of the period."
+                    f"\nData is available from {helpers.fts(earliest_minute)} through"
+                    f" to the end of the requested period. Consider passing `strict` as"
+                    f" False to return prices for this part of the period."
                 )
             return re.escape(s)
 
@@ -2978,7 +3007,8 @@ class TestBis:
         assert prices._bis_end == [prices.bis.T2]  # although T2 can still serve end
 
         prices.gpp.ds_interval = intervals.TDInterval.T3  # until it can't...
-        msg = match(start, drg.cal, part_period_available=False)
+        # can only be served by T1 which has limit later than `early_close`
+        msg = match(start, drg.cal, part_period_available=False, end_before_ll=True)
         with pytest.raises(errors.PricesIntradayUnavailableError, match=msg):
             _ = prices._bis_end
 
@@ -2999,7 +3029,8 @@ class TestBis:
         assert prices._bis_end == [prices.bis.T2]
 
         prices.gpp.ds_interval = intervals.TDInterval.T7  # and now not even T2...
-        msg = match(start, drg.cal, part_period_available=False)
+        # can only be met by T1, the limit for which falls after `early_close`
+        msg = match(start, drg.cal, part_period_available=False, end_before_ll=True)
         with pytest.raises(errors.PricesIntradayUnavailableError, match=msg):
             _ = prices._bis_end
 
@@ -3008,23 +3039,25 @@ class TestBis:
         prices.gpp.anchor = anchor = mptypes.Anchor.OPEN
         # set start to before leftmost limit
         highest_bi = prices.bis_intraday[-1]
-        leftmost_limit = prices.BASE_LIMITS[highest_bi]
+        limit_start, limit_end = prices.limits[highest_bi]
         # Use cal from previous drg...
-        earliest_minute = drg.cal.minute_to_trading_minute(leftmost_limit, "next")
-        start = leftmost_limit - one_min
+        earliest_minute = drg.cal.minute_to_trading_minute(limit_start, "next")
+        latest_minute = drg.cal.minute_to_trading_minute(limit_end, "previous")
+        available_period = (earliest_minute, latest_minute)
+        start = limit_start - one_min
         drg = self.get_mock_drg(GetterMock, cc, start, early_close)
         self.set_prices_gpp_drg_properties(prices, drg)
 
         msg = re.escape(
             "Data is unavailable at a sufficiently low base interval to evaluate"
             f" prices at an inferred interval anchored '{anchor}'.\nBase intervals:"
-            f"\n\t{prices.bis_intraday}.\nThe earliest minute from which data is"
-            f" available at {highest_bi} is {earliest_minute}, although at this base"
+            f"\n\t{prices.bis_intraday}.\nThe period over which data is available at"
+            f" {highest_bi} is {available_period}, although at this base"
             f" interval the requested period evaluates to {(start, early_close)}."
             "\nPeriod evaluated from parameters: <mock pp>."
-            f"\nData is available from {earliest_minute} through to the end of the"
-            " requested period. Consider passing `strict` as False to return prices"
-            " for this part of the period."
+            f"\nData is available from {helpers.fts(earliest_minute)} through to the"
+            " end of the requested period. Consider passing `strict` as False to return"
+            " prices for this part of the period."
         )
         with pytest.raises(errors.PricesIntradayUnavailableError, match=msg):
             _ = prices._bis

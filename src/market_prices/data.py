@@ -13,7 +13,7 @@ from pandas import DataFrame
 
 from market_prices import errors, helpers, intervals
 from market_prices.utils import calendar_utils as calutils
-from market_prices.mptypes import DateRangeReq
+from market_prices.mptypes import DateRange, DateRangeReq
 
 from .utils.pandas_utils import (
     interval_contains,
@@ -285,6 +285,45 @@ class Data:
             assert avail is not None
 
         return avail
+
+    # TODO ADD TEST
+    def available_any(self, daterange: DateRangeReq) -> bool | None:
+        """Query if data is available for any timestamp within a range.
+
+        Parameters
+        ----------
+        daterange
+            Range over which to query.
+
+        Returns
+        -------
+        bool | None
+            False: known that no timestamp within range is available from
+                source.
+            None: unknown if a timestamp within range is available from
+                source.
+            True: known that data is available for at least one timestamp
+                within range.
+
+        """
+        left, right = daterange
+        if left > self.rl:
+            return False
+        if self.ll is not None:
+            if left is None:
+                return right >= self.ll
+            else:
+                return (left <= self.rl) and (right >= self.ll)
+
+        leftmost = self.leftmost_requested
+        if leftmost is None:
+            return None
+
+        if left is None and right >= leftmost:
+            return True
+        elif (left <= self.rl) and (right >= leftmost):
+            return True
+        return None
 
     def requested(self, timestamps: pd.Timestamp | Sequence[pd.Timestamp]) -> bool:
         """Query if uninterrupted data has been requested.

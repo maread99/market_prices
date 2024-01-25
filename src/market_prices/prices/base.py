@@ -14,6 +14,7 @@ import copy
 import dataclasses
 import datetime
 import functools
+import itertools
 import warnings
 from typing import Any, Literal, Optional, Union, TYPE_CHECKING, Annotated
 from zoneinfo import ZoneInfo
@@ -587,10 +588,6 @@ class PricesBase(metaclass=abc.ABCMeta):
     Each of these include all symbols.
     """
 
-    # TODO REVISE for changes to including:
-    #   accommodating dynamic setting of base intervals
-    #   accommodating setting both left and right limits
-
     # pylint: disable=too-many-instance-attributes, too-many-public-methods
 
     # See class documentation for implementation of abstract class attributes
@@ -1122,22 +1119,49 @@ class PricesBase(metaclass=abc.ABCMeta):
             )
         self._pdata = d
 
+    # TODO would need simple test
+    @property
+    def live_prices(self) -> bool:
+        """Query if live prices are avaiable (as opposed to only historic).
+
+        NB Method is not concerned with whether any live prices are
+        available real-time or delayed.
+        """
+        return set(self._base_limits_right.values()) == {None}
+
     def _minute_to_session(
         self,
         ts: pd.Timestamp,
         extreme: Literal["earliest", "latest"],
         direction: Literal["previous", "next"],
     ) -> pd.Timestamp:
-        """Minute to session of one of associated calendars.
+        """Get a session corresponding with a minute.
 
-        Only considers those calendars where `ts` falls within schedule.
+        Session will be a session of one of the associated calendars.
 
-        Calendars closed "left" such that close is not considered a session
-        minute.
+        Note:
+            Only considers calendars where `ts` falls within schedule.
 
-        For each calendar, evaluated minute will be the earlier of `ts` or
-        the latest minute at which a price is available for any symbol
-        to which the calendar is assigned.
+            Calendars closed "left" such that a session close is not
+            considered a session minute.
+
+            For each calendar, the evaluated minute will be the earlier of
+            `ts` or the latest minute at which a price is available for any
+            symbol to which the calendar is assigned.
+
+        Parameters
+        ----------
+        ts
+            Minute to be evaluated
+
+        extreme
+            From the set of corresponding sessions (one for each calendar),
+            return the "earliest"/"latest".
+
+        direction
+            Where `ts` is not a trading minute of a calendar, evaluate the
+            minute as the "previous"/"next" trading minute before/after
+            `ts`.
         """
         sessions = []
         if ts < helpers.now() - self.max_delay:
@@ -1158,14 +1182,27 @@ class PricesBase(metaclass=abc.ABCMeta):
         session = f(sessions)
         return session
 
-    def _minute_to_latest_trading_minute(self, minute: pd.Timestamp) -> pd.Timestamp:
-        """Return latest trading minute of all calendars.
+    def _minute_to_latest_next_trading_minute(
+        self, minute: pd.Timestamp
+    ) -> pd.Timestamp:
+        """Return latest next trading minute of all calendars.
 
-        Returns latest trading minute of all calendars that is or follows
-        `minute`.
+        Returns latest trading minute of all calendars that is or
+        immediately follows `minute`.
         """
         cals = self.calendars_unique
         return max(cal.minute_to_trading_minute(minute, "next") for cal in cals)
+
+    def _minute_to_earliest_previous_trading_minute(
+        self, minute: pd.Timestamp
+    ) -> pd.Timestamp:
+        """Return earliest preivous trading minute of all calendars.
+
+        Returns earliest trading minute of all calendars that is or
+        immediately preceeds `minute`.
+        """
+        cals = self.calendars_unique
+        return min(cal.minute_to_trading_minute(minute, "previous") for cal in cals)
 
     @property
     def limits(self) -> dict[BI, mptypes.DateRangeReq]:
@@ -1193,6 +1230,12 @@ class PricesBase(metaclass=abc.ABCMeta):
         if self.bi_daily is None:
             return None
         return self._pdata[self.bi_daily].ll
+
+    # TODO INCLUDE SIMPLE TEST based on any for limit_daily
+    @property
+    def limit_right_daily(self) -> pd.Timestamp:
+        """Latest date for which daily prices can be requested."""
+        return self._pdata[self.bi_daily].rl
 
     def limit_intraday(
         self, calendar: xcals.ExchangeCalendar | None = None
@@ -1222,7 +1265,31 @@ class PricesBase(metaclass=abc.ABCMeta):
         assert isinstance(limit_raw, pd.Timestamp)
         if calendar is not None:
             return calendar.minute_to_trading_minute(limit_raw, "next")
-        return self._minute_to_latest_trading_minute(limit_raw)
+        return self._minute_to_latest_next_trading_minute(limit_raw)
+
+    # TODO will need a test, perhaps using limit_intraday as template
+    @property
+    def limit_right_intraday(self) -> pd.Timestamp:
+        """Latest minute that intraday prices can be requested.
+
+        'now' if live prices are available.
+
+        Note: intraday prices will not be considered available for any
+        base interval for which indices are not aligned over the full
+        period for which intraday data is available at that interval.
+        """
+        if self.live_prices:
+            return helpers.now()
+        limits_raw = []
+        for bi in self.bis_intraday:
+            limit_minute = self.limits[bi][1]
+            limit_session = self.cc.minute_to_sessions(limit_minute, "previous")[-1]
+            if self._indices_aligned[bi][:limit_session].all():
+                assert limit_minute is not None
+                limits_raw.append(limit_minute)
+        limit_raw = max(limits_raw)
+        assert isinstance(limit_raw, pd.Timestamp)
+        return limit_raw
 
     @property
     def limits_sessions(self) -> dict[BI, mptypes.DateRangeReq]:
@@ -1357,14 +1424,59 @@ class PricesBase(metaclass=abc.ABCMeta):
         return max(minutes)
 
     @property
+    def _minute_for_last_requestable_session(self) -> pd.Timestamp:
+        """Return minute that can be used to get last requestable session."""
+        minute_ = pd.Timestamp(
+            self.limit_right_daily + helpers.ONE_DAY - helpers.ONE_MIN, tz=helpers.UTC
+        )
+        return min(helpers.now(), minute_)
+
+    @property
     def last_requestable_session_all(self) -> pd.Timestamp:
-        """Most recent session available for all calendars."""
-        return self._minute_to_session(helpers.now(), "earliest", "previous")
+        """Most recent session available for all calendars.
+
+        Considers only daily data.
+        """
+        minute = self._minute_for_last_requestable_session
+        return self._minute_to_session(minute, "earliest", "previous")
 
     @property
     def last_requestable_session_any(self) -> pd.Timestamp:
-        """Most recent session available for any calendar."""
-        return self._minute_to_session(helpers.now(), "latest", "previous")
+        """Most recent session available for any calendar.
+
+        Considers only daily data.
+        """
+        minute = self._minute_for_last_requestable_session
+        return self._minute_to_session(minute, "latest", "previous")
+
+    # TODO currently no test, possibly base one on test for earliest_requestable_minute?
+    # ... although they are implemented notably differently
+    @property
+    def latest_requestable_minute(self) -> pd.Timestamp:
+        """Latest minute for which prices can be requested.
+
+        Returns
+        -------
+        pd.Timestamp
+            `now` if live prices are available.
+
+            Otherwise, the later of the latest minute for which intraday
+            price data is available at any interval or the latest session
+            close of any calendar on the latest session for which daily
+            price data is available.
+        """
+        if self.live_prices:
+            return helpers.now()
+
+        minutes = []
+        if self.bis_intraday:
+            minutes.append(self.limit_right_intraday)
+
+        if self.bi_daily is not None:
+            session = self.cc.date_to_session(self.limit_right_daily, "previous")
+            minutes.append(self.cc.session_close(session))
+
+        return max(minutes)
 
     def _set_trading_indexes(self):
         indexes = {}
@@ -1461,7 +1573,15 @@ class PricesBase(metaclass=abc.ABCMeta):
         True if all trading indices, for period interval associated with
         drg, are aligned.
         """
-        start, end = drg.daterange_sessions
+        try:
+            start, end = drg.daterange_sessions
+        except (
+            errors.EndTooEarlyError,
+            errors.EndTooLateError,
+            errors.StartTooEarlyError,
+            errors.StartTooLateError,
+        ):
+            return False
         return self._indices_aligned[drg.interval][slice(start, end)].all()
 
     def _set_indexes_status(self):
@@ -1737,19 +1857,33 @@ class PricesBase(metaclass=abc.ABCMeta):
         ds_interval = self.gpp.ds_interval
         assert ds_interval is None or isinstance(ds_interval, (TDInterval, BI))
         bis_factors = []
+        ends_too_early = 0
+        i = 0
         for bi in self.bis_intraday:
-            if ds_interval is None:
+            if ds_interval is not None and ds_interval % bi != pd.Timedelta(0):
+                continue
+            i += 1
+            drg = self.gpp.drg_intraday_no_limit
+            drg.interval = bi
+            try:
+                drg.daterange
+            except errors.PricesUnavailableIntervalError:
                 # reject bi and all higher bis if interval is longer than duration.
                 # believe this is only a consideration if ds_interval is None.
-                drg = self.gpp.drg_intraday_no_limit
-                drg.interval = bi
-                try:
-                    drg.daterange
-                except errors.PricesUnavailableIntervalError:
+                if ds_interval is None:
                     break
-                bis_factors.append(bi)
-            elif ds_interval % bi == pd.Timedelta(0):
-                bis_factors.append(bi)
+            except errors.EndTooEarlyError:
+                # as drg_no_limit, will only occur if both start and end are to
+                # the left of the calendar bound
+                ends_too_early += 1
+                continue
+            # Note no analogous provision is made for start and end being to the right
+            # of the calendar bounds (if were to consider there's a need to implement
+            # then would require at least a new `EndOutOfBoundsRightError`).
+            bis_factors.append(bi)
+
+        if not bis_factors and ends_too_early == i:
+            raise errors.EndOutOfBoundsError(self.calendar_default, None, False)
 
         if self.has_single_calendar:
             return bis_factors
@@ -1784,30 +1918,48 @@ class PricesBase(metaclass=abc.ABCMeta):
         return rtrn
 
     @property
-    def _bis_available(self) -> list[BI]:
-        """Return bis for which data available for current gpp parameters.
+    def _bis_available_all(self) -> list[BI]:
+        """Return bis for which data available over all of period.
 
         Returns bis for which data is available over the full requested
-        period.
+        period as defined by the current gpp parameters.
         """
         bis_valid = self._bis_valid
-        drg = self.gpp.drg_intraday
+        if not self.gpp.request_all_available_data:
+            return bis_valid
+
+        # Why use the 'no_limit' drg? Becuase do not want dateranges to be
+        # curtailed to limits, which would preclude excluding bis where start
+        # before left limit or end after right limit.
+        # Have looked at other approaches (including a strict drg and considering
+        # the errors raised) and conlcluded this is the cleanest way.
+        drg = self.gpp.drg_intraday_no_limit
         rtrn: list[BI] = []
         interval_period_errors = []
+        starts_too_late = 0
+        ends_too_early = 0
         for bi in bis_valid:
             drg.interval = bi
             try:
                 start, end = drg.daterange_tight[0]
-            except Exception as err:
-                if isinstance(err, errors.PricesUnavailableIntervalError):
-                    interval_period_errors.append(err)
+            except errors.PricesUnavailableIntervalError as err:
+                interval_period_errors.append(err)
                 continue
             if self._pdata[bi].available_range((start, end)):
                 rtrn.append(bi)
+            elif start > self.limits[bi][1]:
+                starts_too_late += 1
+            elif end < self.limits[bi][0]:
+                ends_too_early += 1
 
         if rtrn or not interval_period_errors:
             return rtrn
-        # no rtrn and interval_period_errors. Should an an interval error
+
+        len_bis = len(bis_valid)
+        if starts_too_late == len_bis or ends_too_early == len_bis:
+            raise errors.PricesIntradayUnavailableError(self)
+
+        # no rtrn and interval_period_errors. Should an interval error
         # be raised or data availability error? If a no_limit drg with T1
         # interval doesn't raise a period / interval error then its AT
         # LEAST a data availability issue (could be a period / interval
@@ -1829,24 +1981,83 @@ class PricesBase(metaclass=abc.ABCMeta):
         returned bis.
         """
         bis_valid = self._bis_valid
+        if not self.gpp.request_all_available_data:
+            return bis_valid
+
+        # Why use the 'no_limit' drg? See comment to `_bis_available_all`
         drg = self.gpp.drg_intraday_no_limit
+
         rtrn = []
+        starts_too_late = 0
+        ends_too_early = 0
         for bi in bis_valid:
             drg.interval = bi
             try:
-                end = drg.daterange_tight[0][1]
-            except (errors.EndTooEarlyError,):
-                # dr_end would be ealier than limit for bi
-                continue
+                start, end = drg.daterange_tight[0]
             except errors.PricesUnavailableIntervalError:
                 if bi == intervals.BI_ONE_MIN:
                     # ds_interval < interval
                     raise
-                else:
-                    continue
-
+                continue
             if self._pdata[bi].available(end):
                 rtrn.append(bi)
+            elif end < self.limits[bi][0]:
+                ends_too_early += 1
+
+            if start > self.limits[bi][1]:
+                starts_too_late += 1
+
+        if rtrn:
+            return rtrn
+
+        len_bis = len(bis_valid)
+        if starts_too_late == len_bis or ends_too_early == len_bis:
+            raise errors.PricesIntradayUnavailableError(self)
+
+        return rtrn
+
+    @property
+    def _bis_available_any(self) -> list[BI]:
+        """Return bis for which any data available.
+
+        Returns bis for which any data is available during the period as
+        defined by the current gpp parameters.
+
+        Makes no claim on whether data is available throughout the period
+        or at either extreme (rather merely that some data is available at
+        some point during the period).
+        """
+        bis_valid = self._bis_valid
+        if not self.gpp.request_all_available_data:
+            return bis_valid
+
+        # Why use the 'no_limit' drg? See comment to `_bis_available_all`
+        drg = self.gpp.drg_intraday_no_limit
+
+        rtrn = []
+        starts_too_late = 0
+        ends_too_early = 0
+        for bi in bis_valid:
+            drg.interval = bi
+            try:
+                start, end = drg.daterange_tight[0]
+            except errors.PricesUnavailableIntervalError:
+                if bi == intervals.BI_ONE_MIN:
+                    # ds_interval < interval
+                    raise
+                continue
+
+            if self._pdata[bi].available_any((start, end)):
+                rtrn.append(bi)
+            if start > self.limits[bi][1]:
+                starts_too_late += 1
+            elif end < self.limits[bi][0]:
+                ends_too_early += 1
+
+        len_bis = len(bis_valid)
+        if starts_too_late == len_bis or ends_too_early == len_bis:
+            raise errors.PricesIntradayUnavailableError(self)
+
         return rtrn
 
     def _bis_no_partial_indices(self, bis: list[BI]) -> list[BI]:
@@ -1882,7 +2093,7 @@ class PricesBase(metaclass=abc.ABCMeta):
         As for `_bis_no_partial_indices` with additional constraint that price data
         available for returned bis over the requested period.
         """
-        bis = self._bis_available
+        bis = self._bis_available_all
         bis = self._bis_no_partial_indices(bis)
         return bis
 
@@ -1898,7 +2109,19 @@ class PricesBase(metaclass=abc.ABCMeta):
         bis = self._bis_no_partial_indices(bis)
         return bis
 
-    # TODO WIP Consider / Review what this is doing...
+    @property
+    def _bis_available_any_no_partial_indices(self) -> list[BI]:
+        """Return bis for which data available during period with no partial indices.
+
+        As for `_bis_no_partial_indices` save for additional constraint that
+        returned bis can serve data during `drg.daterange`. Makes no claims on
+        whether returned bis could serve data throughout all of `drg.daterange`
+        or at either extreme.
+        """
+        bis = self._bis_available_any
+        bis = self._bis_no_partial_indices(bis)
+        return bis
+
     def _bis_period_end_now(self, bis: list[BI]) -> list[BI]:
         """Return bis of `bis` for which period end and 'now' evaluate to same value."""
         # Feb 22. Believe this can only ever return all `bis` as received or an empty
@@ -1923,7 +2146,7 @@ class PricesBase(metaclass=abc.ABCMeta):
         with the end of the requested period.
         """
         if self.gpp.anchor is Anchor.OPEN:
-            bis = self._bis_available
+            bis = self._bis_available_all
         else:
             bis = self._bis_available_no_partial_indices
         if not bis:
@@ -1943,6 +2166,25 @@ class PricesBase(metaclass=abc.ABCMeta):
             bis = self._bis_available_end
         else:
             bis = self._bis_available_end_no_partial_indices
+        if not bis:
+            raise errors.PricesIntradayUnavailableError(self)
+        return bis
+
+    @property
+    def _bis_any(self) -> list[BI]:
+        """Base intervals able to serve prices during requested period.
+
+        Base intervals can serve prices during the requested period with
+        these prices based on the requested anchor. Method makes no
+        claim as to whether the base intervals can serve prices during the
+        whole of the requested period or at either extreme or as to the
+        accuracy with which these base intervals may align with the end of
+        the requested period.
+        """
+        if self.gpp.anchor is Anchor.OPEN:
+            bis = self._bis_available_any
+        else:
+            bis = self._bis_available_any_no_partial_indices
         if not bis:
             raise errors.PricesIntradayUnavailableError(self)
         return bis
@@ -2014,7 +2256,7 @@ class PricesBase(metaclass=abc.ABCMeta):
         Where more than one bi is equally able to serve prices for the
         given `priority` precedence is given, in order:
             to bis that can serve prices without ignore breaks
-            to the higest bis if ds_interval is None or the request is for
+            to the highest bis if ds_interval is None or the request is for
                 all available data at a specific interval (this provides
                 for consistency of return in these circumstances).
             to bis that can serve prices from stored data
@@ -2024,7 +2266,7 @@ class PricesBase(metaclass=abc.ABCMeta):
         ----------
         bis
             Base intervals that can serve prices over required period (be
-            that all or only end of requested period).
+            that all, any or only end of requested period).
 
         priority (default: as `self.gpp.priority`)
             Priority.END: return a bi of `bis` that is able to represent
@@ -2042,7 +2284,7 @@ class PricesBase(metaclass=abc.ABCMeta):
             bis = pref_bis
         if self.gpp.request_earliest_available_data or self.gpp.ds_interval is None:
             # to ensure consistency of return in these circumstances, return highest
-            # bi (i.e. with longest available data) regardless of store.
+            # bi (i.e. ASSUMED as bi with longest available data) regardless of store.
             return bis[-1]
         bis.sort(reverse=True)
         bi = self._get_stored_bi_from_bis(bis)
@@ -2077,16 +2319,35 @@ class PricesBase(metaclass=abc.ABCMeta):
             self.gpp.anchor is Anchor.WORKBACK or self.gpp.ds_interval is None
         )
         # pylint: disable=too-many-try-statements
-        try:  # get any bis that can represent full period
+        try:  # get bis that can represent full period
             with self._strict_priority_as(force_strict or strict):
                 bis = self._bis
-        except errors.PricesIntradayUnavailableError:
-            if strict:
+        except errors.PricesIntradayUnavailableError as err:
+            if strict or not str(err).startswith("Data is unavailable"):
+                # strict or prices unavailable as start and end either both to left or
+                # both to right of period over which intraday data is available
                 raise
-            bi = None
-        else:  # ...from which get bi that can best represent the period end.
-            bi = self._get_bi_from_bis(bis, priority=Priority.END)
+            priority = Priority.PERIOD
             if self.gpp.priority is Priority.END:
+                try:
+                    bis = self._bis_end
+                except errors.PricesIntradayUnavailableError:
+                    bis = self._bis_any
+                else:
+                    priority = Priority.END
+            else:
+                bis = self._bis_any
+            bi = self._get_bi_from_bis(bis, priority=priority)
+        else:  # ...from which get bi that can best represent period end, if relevant
+            try:
+                bis_end = self._bis_end
+            except errors.PricesIntradayUnavailableError:
+                priority = Priority.PERIOD
+            else:
+                priority = Priority.END
+            bi = self._get_bi_from_bis(bis, priority=priority)
+            if self.gpp.priority is Priority.END and priority is Priority.END:
+                # if `priority` not END then data not available for end
                 accurate_end_bis = self._bis_end_most_accurate
                 if bi not in accurate_end_bis:
                     # if end could be represented more accurately by a bi that cannot
@@ -2096,11 +2357,7 @@ class PricesBase(metaclass=abc.ABCMeta):
                             self, bis, accurate_end_bis
                         )
                     else:
-                        bi = None
-
-        if bi is None:
-            bis = self._bis_end
-            bi = self._get_bi_from_bis(bis)
+                        bi = self._get_bi_from_bis(bis_end)
 
         # get table for bi
         with self._strict_priority_as(False):
@@ -2242,7 +2499,8 @@ class PricesBase(metaclass=abc.ABCMeta):
                 )
 
             # TODO This whole clause is an assert...
-            # TODO Lose if hasn't raised in 6 months of prior bug. Last raised March 22.
+            # TODO last raised March 22. Lose if hasn't raised by Jan 25 (i.e. one year
+            # after changes for `PricesCSV`)
             if anchor is Anchor.OPEN and not removed_last_indice:
                 # if removed last indice then already resolved excess rows.
                 tables_end_align = (
@@ -2651,6 +2909,11 @@ class PricesBase(metaclass=abc.ABCMeta):
             """
             pp_ = copy.copy(self.pp_raw)
             gregorian = self.ds_interval is not None and self.ds_interval.is_monthly
+            mr_minute = (
+                None
+                if self.prices.live_prices
+                else self.prices.latest_requestable_minute
+            )
             pp_["start"], pp_["end"] = parsing.parse_start_end(
                 pp_["start"],
                 pp_["end"],
@@ -2659,12 +2922,14 @@ class PricesBase(metaclass=abc.ABCMeta):
                 self.delay,
                 self.strict,
                 gregorian,
+                self.daily_limit_right,
+                mr_minute,
             )
             return pp_
 
         @property
         def intraday_limit(self) -> Callable[[intervals.BI], pd.Timestamp]:
-            """Earliest minute for which intraday data can be requested."""
+            """Callable to get earliest minute from which data can be requested."""
 
             # pylint: disable=protected-access
             def limit(bi: BI) -> pd.Timestamp:
@@ -2674,15 +2939,39 @@ class PricesBase(metaclass=abc.ABCMeta):
             return limit
 
         @property
+        def intraday_limit_right(self) -> Callable[[intervals.BI], pd.Timestamp | None]:
+            """Callable to get latest minute for which data can be requested.
+
+            Callable will return None if can request prices through to 'now'.
+            """
+
+            def limit_right(bi: BI) -> pd.Timestamp | None:
+                limit = self.prices.base_limits_right[bi]
+                if limit is None:
+                    return None
+                return self.calendar.minute_to_trading_minute(limit, "previous")
+
+            return limit_right
+
+        @property
         def daily_limit(self) -> pd.Timestamp:
             """Earliest session for which daily data can be requested."""
             # pylint: disable=protected-access
             return self.prices._earliest_requestable_calendar_session(self.calendar)
 
+        @property
+        def daily_limit_right(self) -> pd.Timestamp | None:
+            """Latest session for which daily data can be requested.
+
+            None if can request prices through to 'now'.
+            """
+            return self.prices.base_limits_right[intervals.BI_ONE_DAY]
+
         def _drg(
             self,
             intraday: bool,
             limit: pd.Timestamp,
+            limit_right: pd.Timestamp | None,
             ds_interval: intervals.PTInterval | None,
             **kwargs,
         ) -> dr.GetterIntraday | dr.GetterDaily:
@@ -2694,6 +2983,7 @@ class PricesBase(metaclass=abc.ABCMeta):
                 limit=limit,
                 pp=pp,
                 ds_interval=ds_interval,
+                limit_right=limit_right,
                 **kwargs,
             )
 
@@ -2713,6 +3003,7 @@ class PricesBase(metaclass=abc.ABCMeta):
                 "intraday": True,
                 "limit": self.intraday_limit,
                 "ds_interval": self.ds_interval,
+                "limit_right": self.intraday_limit_right,
                 "composite_calendar": self.prices.cc,
                 "delay": self.delay,
                 "anchor": self.anchor,
@@ -2738,6 +3029,7 @@ class PricesBase(metaclass=abc.ABCMeta):
             # pylint: disable=protected-access
             limit = self.prices._earliest_requestable_calendar_minute(self.calendar)
             kwargs["limit"] = limit
+            kwargs["limit_right"] = None
             kwargs["strict"] = False
             drg = self._drg(**kwargs)
             assert isinstance(drg, dr.GetterIntraday)
@@ -2746,7 +3038,9 @@ class PricesBase(metaclass=abc.ABCMeta):
         @property
         def drg_daily(self) -> dr.GetterDaily:
             """Daily drg for stored parameters."""
-            drg = self._drg(False, self.daily_limit, self.ds_interval)
+            drg = self._drg(
+                False, self.daily_limit, self.daily_limit_right, self.ds_interval
+            )
             assert isinstance(drg, dr.GetterDaily)
             return drg
 
@@ -2756,7 +3050,9 @@ class PricesBase(metaclass=abc.ABCMeta):
 
             All other params as stored.
             """
-            drg = self._drg(False, self.daily_limit, intervals.ONE_DAY)
+            drg = self._drg(
+                False, self.daily_limit, self.daily_limit_right, intervals.ONE_DAY
+            )
             assert isinstance(drg, dr.GetterDaily)
             return drg
 
@@ -2780,8 +3076,19 @@ class PricesBase(metaclass=abc.ABCMeta):
 
         @property
         def request_earliest_available_data(self) -> bool:
-            """Query if params represent request for all available data."""
+            """Query if params represent request for earliest available data."""
             return self.pp_raw["start"] is None and not self.duration
+
+        # TODO INCLUDE TEST FOR ADDED PROPERTY, probably alongside the test that includes
+        # effect of request_earliest_available_data
+        @property
+        def request_all_available_data(self) -> bool:
+            """Query if params represent request for all available data."""
+            return not (
+                self.pp_raw["start"] is None
+                and self.pp_raw["end"] is None
+                and not self.duration
+            )
 
     @parse
     def get(
@@ -3194,9 +3501,14 @@ class PricesBase(metaclass=abc.ABCMeta):
                     express the period end at the expense of returning
                     prices for only the later part of the requested period.
 
-                    NB In this case prices will only be returned if`strict`
-                    is False. If `strict` is True then a
-                    `errors.LastIndiceInaccurateError` will be raised.
+                    NB In this case prices will only be returned if
+                    `strict` is False (if `strict` is True then a
+                    `errors.LastIndiceInaccurateError` will be raised).
+
+                    NB If price data is not available at the end of the
+                    requested period then passing 'end' will have no effect
+                    and price data will be returned based on maximising
+                    period length.
 
             See data_availability.ipynb tutorial for further explanation
             and example usage.
@@ -3423,7 +3735,7 @@ class PricesBase(metaclass=abc.ABCMeta):
                 errors.PricesUnavailableDOIntervalPeriodError:
                     Monthly `interval` is longer than the evaluated period.
 
-                errors.PricesUnvailableInferredIntervalError
+                errors.PricesUnavailableInferredIntervalError
                     `interval` is None and inferred as intraday although
                     the request can only be met with daily data.
 
@@ -3656,8 +3968,10 @@ class PricesBase(metaclass=abc.ABCMeta):
             # get a daily table
             if self.gpp.intraday_duration:
                 raise errors.PricesUnvailableDurationConflict()
+            # TODO WHAT HAPPENS IF DAILY DATA NOT AVAILABLE? INCLUDE TEST.
             table = self._get_table_daily()
         else:
+            # TODO WHAT HAPPENS IF INTRADAY DATA NOT AVAILABLE? INCLUDE TEST.
             # get an intraday table
             # if composite, only interested in a non-composite table if end
             # represented with max posible accuracy and can serve full period.
@@ -3667,6 +3981,7 @@ class PricesBase(metaclass=abc.ABCMeta):
                 try:
                     table = self._get_table_intraday()
                 except errors.PricesIntradayUnavailableError as e:
+                    orig_err = e
                     if interval_ is not None:
                         raise
                     if not composite:
@@ -3682,9 +3997,9 @@ class PricesBase(metaclass=abc.ABCMeta):
                             try:
                                 bis_acc = self._bis_end_most_accurate
                             except errors.PricesIntradayUnavailableError:
-                                # intraday prices not available over any of period,
-                                # fulfill from daily (which represents greatest end
-                                # accuracy)
+                                # intraday prices not available at end of period,
+                                # try t6 fulfill from daily (which now represents
+                                # greatest end accuracy)
                                 pass
                             else:
                                 assert bis_acc
@@ -3698,22 +4013,31 @@ class PricesBase(metaclass=abc.ABCMeta):
                                     self, [], bis_acc
                                 ) from None
 
-        if table is None:
-            # interval inferred and intraday table unavailable at a single interval over
-            # the full period, so serve as either composite or daily.
-            assert interval_ is None
-            if composite:
+            if table is None and composite:
                 try:
                     table = self._get_table_composite()
                 except errors.PricesIntradayUnavailableError:
                     # intraday prices unavailable, can only serve request from daily
-                    table = None
-            if table is None:
-                if self._inferred_intraday_interval(cal, pp):
-                    raise errors.PricesUnvailableInferredIntervalError(pp)
-                table = self._get_table_daily(force_ds_daily=True)
+                    pass
 
-        # TODO Lose if hasn't raised in 6 months of prior bug. Last raised March 22.
+            if table is None:
+                # interval inferred, intraday table unavailable at a single
+                # interval to fulfil request, composite either not wanted or
+                # not available, so try to serve from daily.
+                try:
+                    # TODO WHAT IF DAILY DATA NOT AVAILABLE?
+                    table = self._get_table_daily(force_ds_daily=True)
+                except errors.PricesUnavailableError:
+                    raise orig_err from None
+                else:
+                    if self._inferred_intraday_interval(cal, pp):
+                        # daily available but parameters suggest wasn't wanted
+                        raise errors.PricesUnavailableInferredIntervalError(
+                            pp
+                        ) from None
+
+        # TODO Lose assertion Jan 25 if hasn't raised following Jan 24 changes
+        # to accommodate CSVs.
         assert table is not None and not table.empty
 
         if force and table.pt.is_intraday and anchor_ is Anchor.OPEN:
@@ -3821,6 +4145,7 @@ class PricesBase(metaclass=abc.ABCMeta):
         # pylint: disable=missing-param-doc, differing-type-doc
         if TYPE_CHECKING:
             assert session is None or isinstance(session, pd.Timestamp)
+        # TODO THIS daily assert REQUIRES BETTER HANDLING...
         assert self.bi_daily is not None
         mr_session = self.last_requestable_session_any
         if session is None:
@@ -3891,6 +4216,7 @@ class PricesBase(metaclass=abc.ABCMeta):
         # pylint: disable=missing-param-doc, differing-type-doc
         if TYPE_CHECKING:
             assert date is None or isinstance(date, pd.Timestamp)
+        # TODO THIS daily assert REQUIRES BETTER HANDLING...
         assert self.bi_daily is not None
         mr_session = self.last_requestable_session_any
         if date is None:
@@ -3925,37 +4251,53 @@ class PricesBase(metaclass=abc.ABCMeta):
                 forwards price to sun pm.
         """
         # pylint: disable=too-many-locals
-        delay = pd.Timedelta(0)  # `price_at`` ignores delays
+        live_prices = self.live_prices
+        delay = pd.Timedelta(0)  # `price_at` ignores delays
         rss = {}
         for bi in bis:
-            limit = self.limits[bi][0]
-            assert limit is not None
-            earliest_minute = self._minute_to_latest_trading_minute(limit)
+            limit_s, limit_e = self.limits[bi]
+            if TYPE_CHECKING:
+                assert limit_s is not None
+                assert limit_e is not None
+            earliest_minute = self._minute_to_earliest_previous_trading_minute(limit_s)
             if minute < earliest_minute:
                 continue
+            if not live_prices and minute > limit_e:
+                continue
             first: pd.Timestamp | None = None
-            ignore_bi = False
+            last: pd.Timestamp | None = None
+            limit_right = None if live_prices else limit_e
             for cal in self.calendars_unique:
                 ignore_breaks = self._ignore_breaks_cal(cal, bi)
                 drg = dr.GetterIntraday(
-                    cal, self.cc, delay, earliest_minute, ignore_breaks, None, bi
+                    cal,
+                    self.cc,
+                    delay,
+                    earliest_minute,
+                    ignore_breaks,
+                    None,
+                    bi,
+                    limit_right=limit_right,
                 )
                 start, _ = drg.get_end(minute)
                 try:
-                    end_ = drg.get_start(minute)
+                    end = drg.get_start(minute)
                 except errors.StartTooLateError:
                     # one full bi of data not available over required request range
-                    ignore_bi = True
-                    break
+                    if first is None or start < first:
+                        first = start
+                    continue
                 if first is None or start < first:
                     first = start
-                    end = end_
-            if ignore_bi:
-                continue
+                if last is None or end > last:
+                    last = end
+            if last is None:
+                last = minute
             assert first is not None  # for mypy
             # need at least one indice of data.
-            # NB the +/- bi could be doing from_, to_ = end, first
-            from_, to_ = first - bi, end + bi
+            # NB the +/- bi could be doing from_, to_ = last, first
+            from_, to_ = first - bi, last + bi
+            to_ = last + bi if limit_right is None else min(limit_right, last + bi)
             assert isinstance(from_, pd.Timestamp)  # for mypy
             rss[bi] = (from_, to_)
         return rss
@@ -3967,12 +4309,18 @@ class PricesBase(metaclass=abc.ABCMeta):
 
         Return will be `minute` or earlier.
         """
+        live_prices = self.live_prices
         delay = pd.Timedelta(0)  # `price_at` ignores delays
         ma_tss = {}
         for bi in bis:
-            limit = self.limits[bi][0]
-            assert limit is not None
-            earliest_minute = self._minute_to_latest_trading_minute(limit)
+            limit_s, limit_e = self.limits[bi]
+            assert limit_s is not None
+            earliest_minute = self._minute_to_earliest_previous_trading_minute(limit_s)
+            limit_right = (
+                self._minute_to_latest_next_trading_minute(limit_e)
+                if live_prices
+                else None
+            )
             closest: pd.Timestamp | None = None
             for cal in self.calendars_unique:
                 ignore_breaks = self._ignore_breaks_cal(cal, bi)
@@ -3984,6 +4332,7 @@ class PricesBase(metaclass=abc.ABCMeta):
                     ignore_breaks,
                     None,
                     bi,
+                    limit_right=limit_right,
                 )
                 cal_closest, cal_closest_acc = drg.get_end(minute)
                 if cal.is_trading_minute(minute):  # NB querying `minute` not closest
@@ -4006,47 +4355,109 @@ class PricesBase(metaclass=abc.ABCMeta):
     def _price_at_from_daily(
         self, minute: pd.Timestamp | None, tz: ZoneInfo
     ) -> pd.DataFrame:
-        """Serve call for `_price_at` from daily prices table."""
-        # pylint: disable=too-many-locals
+        """Serve call for `_price_at` from daily prices table.
+
+        `minute` will be assumed as 'now' if receieved as None.
+        """
+        # TODO change exception when provide dedicated no daily interval error
         assert self.bi_daily is not None
+
         now = helpers.now()
         if minute is not None and minute < now - self.min_delay:
             set_indice_to_now = False
         else:
             set_indice_to_now = self.cc.is_open_on_minute(now, ignore_breaks=True)
+
         minute = now if minute is None else minute
 
-        start_sesh = self._minute_to_session(minute, "earliest", "previous")
-        end_sesh = self._minute_to_session(minute, "latest", "previous")
-        table = self._get_bi_table(self.bi_daily, (start_sesh, end_sesh))
+        cc = self.cc
+        session = cc.minute_to_sessions(minute, "previous")[-1]
+        sessions = [session]
+        itr_limit = 5
 
-        indices = []
+        for _ in range(itr_limit):
+            opens = [
+                c.session_open(session) for c in cc.calendars if c.is_session(session)
+            ]
+            closes = [
+                c.session_close(session) for c in cc.calendars if c.is_session(session)
+            ]
+            times = sorted(
+                [tm for tm in itertools.chain(opens, closes) if minute >= tm],
+                reverse=True,
+            )
+
+            indice = None
+            for tm in times:
+                overlaps = False
+                for c in cc.calendars:
+                    if not c.is_session(session):
+                        continue
+                    if c.opens[session] < tm < c.closes[session]:
+                        overlaps = True
+                        break
+                if not overlaps:
+                    indice = tm
+                    break
+
+            if indice is not None:
+                break
+
+            session = cc.previous_session(session)
+            sessions.append(session)
+
+        if not indice:
+            # Considered unlikely that this would ever raise, but it could
+            # if the sessions of the underlying calendars continuously overlap
+            raise errors.PriceAtUnavailableError(minute, itr_limit)
+
+        not_represented = set(self.calendars_unique)
+        j = 0
+        while not_represented:
+            j += 1
+            # first iteration takes session as defined prior to breaking prior loop
+            session = cc.previous_session(session)
+            sessions.append(session)
+            for c in list(not_represented):
+                if c.is_session(session):
+                    not_represented.remove(c)
+            if j == 5:
+                # Considered even more unlikely that would raise here, but
+                # not impossible if the sessions of the underlying calendars
+                # start to continuously overlap as work backwards
+                raise errors.PriceAtUnavailableError(minute, itr_limit + j)
+
+        table = self._get_bi_table(self.bi_daily, (sessions[-1], sessions[0]))
         d: dict[str, float] = {}  # key: symbol, value: price_at
         for s in self.symbols:
-            cal = self.calendars[s]
+            c = self.calendars[s]
             sdf = table[s].dropna()
             if sdf.empty:
                 d[s] = np.NaN
                 continue
-            session = sdf.index[-1]
-            if set_indice_to_now or minute >= cal.session_close(session):
-                v = sdf.loc[session, "close"]
-                indice = cal.session_close(session)
-            elif minute >= cal.session_open(session):
-                v = sdf.loc[session, "open"]
-                indice = cal.session_open(session)
+            v = None
+            if set_indice_to_now:
+                v = sdf.iloc[-1].close
             else:
-                try:
-                    session = sdf.index[-2]
-                except IndexError:
-                    d[s] = np.NaN
-                    continue
-                v = sdf.loc[session, "close"]
-                indice = cal.session_close(session)
+                for session in sessions:
+                    if session < self.limit_daily:
+                        raise errors.PriceAtUnavailableLimitError(
+                            minute, self.limit_daily
+                        )
+                    if not c.is_session(session):
+                        continue
+                    if indice >= c.session_close(session):
+                        v = sdf.loc[session, "close"]
+                        break
+                    if indice >= c.session_open(session):
+                        v = sdf.loc[session, "open"]
+                        break
+            assert v is not None
             d[s] = v
-            indices.append(indice)
 
-        indice = minute if set_indice_to_now else (max(indices) if indices else pd.NaT)
+        if set_indice_to_now:
+            indice = minute
+
         indice = indice.tz_convert(tz) if indice is not pd.NaT else indice
         index = pd.DatetimeIndex([indice])
         df = pd.DataFrame(d, index=index)
@@ -4081,6 +4492,9 @@ class PricesBase(metaclass=abc.ABCMeta):
         prices are currently delayed, then the price will not be the actual
         price as at the defined indice, but rather the delayed price
         available as at that time.
+
+        NOTE: All data in the return will be sourced from EITHER intraday
+        data OR daily data.
 
         Parameters
         ----------
@@ -4124,22 +4538,28 @@ class PricesBase(metaclass=abc.ABCMeta):
         # pylint: disable=too-complex, too-many-locals, too-many-branches
         # pylint: disable=too-many-statements
         if TYPE_CHECKING:
-            assert (minute is None) or isinstance(minute, pd.Timestamp)
+            assert minute is None or isinstance(minute, pd.Timestamp)
             assert tz is None or isinstance(tz, ZoneInfo)
 
         if tz is None:
             tz = self.tz_default
-        l_limit, r_limit = self.earliest_requestable_minute, helpers.now()
-        if minute is not None:
+
+        if minute is None:
+            if not self.live_prices:
+                raise errors.PriceAtUnavailableLivePricesError()
+            elif self.bi_daily is not None:
+                return self._price_at_from_daily(minute, tz)
+        else:
+            l_limit = self.earliest_requestable_minute
+            r_limit = self.latest_requestable_minute
             minute = parsing.parse_timestamp(minute, tz)
             parsing.verify_time_not_oob(minute, l_limit, r_limit)
 
-        if (
-            minute is None
-            or minute < self.limit_intraday()
-            or minute > helpers.now() - self.min_delay  # no intraday data available
-        ):
-            return self._price_at_from_daily(minute, tz)
+            if minute < self.limit_intraday():
+                return self._price_at_from_daily(minute, tz)
+            # serve from daily now and any timestamp within delay
+            if minute is None or minute > helpers.now() - self.min_delay:
+                return self._price_at_from_daily(minute, tz)
 
         # get bis for which indices are not misaligned
         start_sesh = self._minute_to_session(minute, "earliest", "previous")
@@ -4168,10 +4588,11 @@ class PricesBase(metaclass=abc.ABCMeta):
             pdata = self._pdata[bi]
             if pdata.available_range(rng):
                 bis.append(bi)
+
         if not bis:
+            # shouldn't be able to get to here if daily data not available
             return self._price_at_from_daily(minute, tz)
 
-        # of those, those can represent minute most accurately
         ma_tss = self._price_at_most_accurate(bis, minute)
         srs = pd.Series(ma_tss)
         diff = minute - srs

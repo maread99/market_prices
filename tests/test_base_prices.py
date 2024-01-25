@@ -1209,9 +1209,12 @@ class TestTableIntraday:
     ) -> str:
         """Return error message for LastIndiceIntervalError."""
         bi_accurate = bis_accuracy[0]
-        limit = prices.limits[bi_accurate][0]
+        limit_start, limit_end = prices.limits[bi_accurate]
         cal = prices.gpp.calendar
-        earliest_minute = cal.minute_to_trading_minute(limit, "next")
+        earliest_minute = cal.minute_to_trading_minute(limit_start, "next")
+        latest_minute = cal.minute_to_trading_minute(limit_end, "previous")
+        available_period = (earliest_minute, latest_minute)
+
         drg = prices.gpp.drg_intraday_no_limit
         drg.interval = bi_accurate
         would_be_period = drg.daterange[0]
@@ -1223,14 +1226,14 @@ class TestTableIntraday:
             "The following base intervals could represent the end indice with the"
             " greatest possible accuracy although have insufficient data available to"
             f" cover the full period:\n\t{bis_accuracy}.\n"
-            f"The earliest minute from which data is available at {bi_accurate}"
-            f" is {earliest_minute}, although at this base interval the"
+            f"The period over which data is available at {bi_accurate}"
+            f" is {available_period}, although at this base interval the"
             f" requested period evaluates to {would_be_period}.\n"
             f"Period evaluated from parameters: {prices.gpp.pp_raw}."
             "\nData that can express the period end with the greatest possible"
-            f" accuracy is available from {earliest_minute}. Pass `strict` as False"
-            " to return prices for this part of the period."
-            "\nAlternatively, consider"
+            f" accuracy is available from {helpers.fts(earliest_minute)} through to"
+            " the end of the requested period. Consider passing `strict` as False to"
+            " return prices for this part of the period.\nAlternatively, consider"
         )
         if anchor is mptypes.Anchor.OPEN:
             s += " creating a composite table (pass `composite` as True) or"
@@ -4228,8 +4231,11 @@ class TestGet:
 
         # now prices.gpp available...match message
         bi = prices.bis.T5
-        bi_limit = prices.limits[bi][0]
-        earliest_minute = xnys.minute_to_trading_minute(bi_limit, "next")
+        bi_limit_start, bi_limit_end = prices.limits[bi]
+        earliest_minute = xnys.minute_to_trading_minute(bi_limit_start, "next")
+        latest_minute = xnys.minute_to_trading_minute(bi_limit_end, "previous")
+        available_period = (earliest_minute, latest_minute)
+
         drg = prices.gpp.drg_intraday_no_limit
         drg.interval = bi
 
@@ -4237,21 +4243,22 @@ class TestGet:
             "Full period not available at any synchronised intraday base interval."
             " The following base intervals could represent the end indice with the"
             " greatest possible accuracy although have insufficient data available"
-            f" to cover the full period:\n\t{[bi]}.\nThe earliest minute from which"
-            f" data is available at {bi} is {earliest_minute}, although"
+            f" to cover the full period:\n\t{[bi]}.\nThe period over which data is"
+            f" available at {bi} is {available_period}, although"
             " at this base interval the requested period evaluates to"
             f" {drg.daterange[0]}."
             f"\nPeriod evaluated from parameters: {prices.gpp.pp_raw}."
             "\nData that can express the period end with the greatest possible accuracy"
-            f" is available from {earliest_minute}. Pass `strict` as False to return"
-            " prices for this part of the period."
+            f" is available from {helpers.fts(earliest_minute)} through to the end of"
+            " the requested period. Consider passing `strict` as False to return prices"
+            " for this part of the period."
             f"\nAlternatively, consider creating a composite table (pass `composite`"
             " as True) or passing `priority` as 'period'."
         )
         with pytest.raises(errors.LastIndiceInaccurateError, match=msg):
             prices.get(start=start_H1_oob, end=end)
 
-        # Verify raises `PricesUnvailableInferredIntervalError` when interval
+        # Verify raises `PricesUnavailableInferredIntervalError` when interval
         # inferred as intraday although only daily data available.
 
         # Verify returns daily data on limit (6 sessions different)
@@ -4274,7 +4281,7 @@ class TestGet:
             " passed then the distance between them should be no less than"
             f" 6 sessions.\nPeriod parameters were evaluted as {pp}"
         )
-        with pytest.raises(errors.PricesUnvailableInferredIntervalError, match=msg):
+        with pytest.raises(errors.PricesUnavailableInferredIntervalError, match=msg):
             prices.get(start=start, end=start_H1_oob)
 
     # -------------- Tests related to post-processing options -------------
@@ -4439,12 +4446,17 @@ class TestPriceAt:
         # verify raises error if `minute` oob
         limit_left_session = prices.limits[prices.bis.D1][0]
         limit_left = max(
-            c.session_open(limit_left_session) for c in prices.calendars_unique
+            c.session_close(limit_left_session) for c in prices.calendars_unique
         )
         df_left_limit = prices.price_at(limit_left)  # at limit
         assert df_left_limit.index[0] == limit_left
-        with pytest.raises(errors.DatetimeTooEarlyError):
+
+        with pytest.raises(errors.PriceAtUnavailableLimitError):
             prices.price_at(limit_left - one_min)
+
+        oob = prices.earliest_requestable_minute - one_min
+        with pytest.raises(errors.DatetimeTooEarlyError):
+            prices.price_at(oob)
 
         limit_right = now = helpers.now()
         df_limit_right = prices.price_at(limit_right, UTC)  # at limit
@@ -4529,23 +4541,16 @@ class TestPriceAt:
         # xnys open
         minute = xnys.session_open(session)
         df = f(minute, UTC)
-        indice = minute
-        values = {
-            symb_xnys: (session, "open"),
-            symb_xlon: (session, "open"),
-            symb_xhkg: (session, "close"),
-        }
+        # unchanged as from daily data unable to get value for AZN.L open as at xnys open
+        indice = indice
+        values = values
         self.assertions(table, df, indice, values)
 
         # prior to xnys close
         minute = xnys.session_close(session) - one_min
         df = f(minute, UTC)
-        indice = xlon.session_close(session)
-        values = {
-            symb_xnys: (session, "open"),
-            symb_xlon: (session, "close"),
-            symb_xhkg: (session, "close"),
-        }
+        indice = indice  # as reason for prior
+        values = values  # as reason for prior
         self.assertions(table, df, indice, values)
 
         # xnys close

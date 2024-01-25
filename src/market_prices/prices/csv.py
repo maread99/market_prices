@@ -1126,6 +1126,13 @@ class PricesCsv(base.PricesBase):
                 PricesCsvParsingConsolidatedWarning(all_errors_warnings, verbose)
             )
 
+        # request all available data for all intervals
+        for intrvl, pdata in self._pdata.items():
+            dr = (None, self.limits[intrvl][1])
+            pdata.get_table(dr)
+        # delete tables to avoid copies
+        del self._tables
+
     def _compile_tables(
         self, parsed_data: dict[TDInterval, dict[str, pd.DataFrame]]
     ) -> tuple[
@@ -1212,9 +1219,49 @@ class PricesCsv(base.PricesBase):
         """
         return self._csv_paths
 
-    def _request_data():
-        # TODO
-        pass
+    def _request_data(
+        self,
+        interval: BI,
+        start: pd.Timestamp | None,
+        end: pd.Timestamp,
+    ) -> pd.DataFrame:
+        """Request data.
+
+        Parameters
+        ----------
+        interval
+            Interval covered by each row.
+
+        start
+            Timestamp from which data required. Can only take None if
+            interval is daily, in which case will assume data required from
+            first date available.
+
+        end : pd.Timestamp
+            Timestamp to which data required.
+
+        Returns
+        -------
+        pd.DataFrame
+            .index:
+                If `interval` intra-day:
+                    pd.IntervalIndex, closed on left, UTC times indicating
+                    interval covered by row.
+
+                If `interval` daily:
+                    pd.DatetimeIndex of dates represening session covered
+                    by row.
+
+            .columns: MultiIndex:
+                level-0: symbol.
+                level-1: ['open', 'high', 'low', 'close', 'volume'] for
+                    each symbol.
+        """
+        if not hasattr(self, "_tables"):
+            raise NotImplementedError(
+                "`PricesCsv._request_data` is not implemented outside of constructor"
+            )
+        return self._tables[interval]
 
     def prices_for_symbols():
         # TODO

@@ -157,9 +157,26 @@ class TestParseStartEnd:
         calendar, answers = calendars_with_answers_extended
 
         def f(
-            s, e, as_times, delay=pd.Timedelta(0), strict=True, gregorian=False
+            s,
+            e,
+            as_times,
+            delay=pd.Timedelta(0),
+            strict=True,
+            gregorian=False,
+            mr_session=None,
+            mr_minute=None,
         ) -> mptypes.DateRangeAmb:
-            return m.parse_start_end(s, e, as_times, calendar, delay, strict, gregorian)
+            return m.parse_start_end(
+                s,
+                e,
+                as_times,
+                calendar,
+                delay,
+                strict,
+                gregorian,
+                mr_session,
+                mr_minute,
+            )
 
         yield f, answers
 
@@ -317,7 +334,7 @@ class TestParseStartEnd:
             f"Prices unavailable as start ({helpers.fts(date)}) is earlier than the"
             f" earliest date of calendar '{ans.name}'. The calendar's earliest date"
             f" is {helpers.fts(ans.first_session)} (this bound should coincide with the"
-            " earliest date for which daily price data is available)."
+            " earliest date for which price data is available)."
         )
         for as_ in [as_times, as_dates]:
             with pytest.raises(errors.StartOutOfBoundsError):
@@ -334,7 +351,7 @@ class TestParseStartEnd:
             f"Prices unavailable as start ({helpers.fts(minute)}) is earlier than the"
             f" earliest minute of calendar '{ans.name}'. The calendar's earliest minute"
             f" is {helpers.fts(ans.first_minute)} (this bound should coincide with the"
-            " earliest minute for which daily price data is available)."
+            " earliest minute or date for which price data is available)."
         )
         for as_ in [as_times, as_dates]:
             with pytest.raises(errors.StartOutOfBoundsError, match=match_msg):
@@ -504,6 +521,175 @@ class TestParseStartEnd:
         ool_minute = mock_now_open() - d + one_min
         with pytest.raises(errors.StartTooLateError):
             f(ool_minute, None, as_times, d)
+
+    def test_start_end_right_limit_not_now(
+        self, f_with_ans, one_min, one_day, as_times, as_dates, now_utc, monkeypatch
+    ):
+        """Tests passing start and end with mr_session and mr_minute."""
+        f_, ans = f_with_ans
+
+        dti = pd.DatetimeIndex(ans.first_minutes)
+        idx = len(dti) // 2
+        session = ans.sessions[idx - 1]
+        session_first_minute = ans.first_minutes[session]
+        session_close = ans.closes[session]
+
+        def f(*args, **kwargs):
+            idx = len(dti) // 2
+            session = ans.sessions[idx - 1]
+            session_close = ans.closes[session]
+            kwargs.setdefault("mr_session", session)
+            kwargs.setdefault("mr_minute", session_close)
+            return f_(*args, **kwargs)
+
+        # on limits
+        assert f(None, session, as_dates) == (None, session)
+        assert f(session, None, as_dates) == (session, None)
+        assert f(None, session, as_times) == (None, session_close)
+        assert f(session, None, as_times) == (session_first_minute, None)
+        assert f(None, session_close, as_times) == (None, session_close)
+
+        # over limit
+        rol_session = ans.get_next_session(session)
+        rol_session_open = ans.opens[rol_session]
+        rol_session_close = ans.closes[rol_session]
+        rol_minute = session_close + one_min
+
+        # limit should have no effect on end
+        assert f(None, rol_session, as_dates) == (None, rol_session)
+        assert f(None, rol_session, as_times) == (None, rol_session_close)
+        assert f(None, rol_minute, as_dates) == (None, session)
+        exp_end = (
+            rol_minute if rol_minute == rol_session_open + one_min else session_close
+        )
+        assert f(None, rol_minute, as_times) == (None, exp_end)
+
+        # should raise when start > limit
+        match_D = re.escape(
+            "`start` cannot be a later date than the latest date for which prices are"
+            " available.\nThe latest date for which prices are available for interval"
+            f" '1 day, 0:00:00' is {helpers.fts(session)}, although `start`"
+            f" received as {helpers.fts(rol_session)}."
+        )
+        match_T = re.escape(
+            "`start` cannot be a later time than the latest time for which prices"
+            " are available.\nThe latest time for which prices are available for"
+            f" interval '0:01:00' is {helpers.fts(session_first_minute)}, although"
+            f" `start` received as {helpers.fts(rol_minute)}."
+        )
+        match_TT = re.escape(
+            "`start` cannot be a later time than the latest time for which prices"
+            " are available.\nThe latest time for which prices are available for"
+            f" interval '0:01:00' is {helpers.fts(session_close)}, although"
+            f" `start` received as {helpers.fts(rol_minute)}."
+        )
+        with pytest.raises(errors.StartTooLateError, match=match_D):
+            f(rol_session, None, as_dates)
+        with pytest.raises(errors.StartTooLateError, match=match_D):
+            f(rol_session, None, as_times)
+        with pytest.raises(errors.StartTooLateError, match=match_T):
+            f(rol_minute, None, as_dates)
+        with pytest.raises(errors.StartTooLateError, match=match_TT):
+            f(rol_minute, None, as_times)
+
+        # Check behavious as expected when start and end passed to the right of
+        # now and the right calendar bound
+        # should still raise when start > now
+        # should return end as parses when end > now, i.e. should not set to None
+
+        idx = pd.DatetimeIndex(ans.first_minutes).get_slice_bound(now_utc, "left")
+        ronow_session = ans.sessions[idx]  # session to right of now
+        ronow_session_close = ans.closes[ronow_session]
+        last_session = ans.sessions[idx - 1]
+        last_session_close = ans.closes[last_session]
+
+        oob_session = ans.last_session + one_day  # right of right calendar bound
+        oob_minute = ans.last_minute + one_min  # right of right calendar bound
+
+        def mock_now_closed(*_, tz=UTC, **__) -> pd.Timestamp:
+            now = ans.last_minutes[last_session] + (5 * one_min)
+            if tz is not UTC:
+                now = now.tz_convert(tz)
+            return now
+
+        def mock_now_open(*_, tz=UTC, **__) -> pd.Timestamp:
+            now = ans.last_minutes[last_session] - (5 * one_min)
+            if tz is not UTC:
+                now = now.tz_convert(tz)
+            return now
+
+        # input as date
+        for session in [ronow_session, oob_session]:
+            with pytest.raises(errors.StartTooLateError):
+                f(session, None, as_dates)
+            with pytest.raises(errors.StartTooLateError):
+                f(session, None, as_times)
+
+        # when end > now should NOT return end as None, but rather just pass end
+        assert f(None, ronow_session, as_dates) == (None, ronow_session)
+        assert f(None, ronow_session, as_times) == (None, ronow_session_close)
+        match = re.escape(
+            f"Prices unavailable as end ({helpers.fts(oob_session)}) is later than"
+            f" the latest date of calendar '{ans.name}'. The calendar's latest date"
+            f" is {helpers.fts(ans.last_session)}."
+        )
+        with pytest.raises(errors.EndOutOfBoundsRightError, match=match):
+            f(None, oob_session, as_dates)
+        with pytest.raises(errors.EndOutOfBoundsRightError):
+            f(None, oob_session, as_times)
+
+        if last_session in ans.sessions_with_gap_after:
+            monkeypatch.setattr("pandas.Timestamp.now", mock_now_closed)
+            # when end > now should return end as session
+            assert f(None, ronow_session, as_times) == (None, ronow_session_close)
+            assert f(None, ronow_session, as_dates) == (None, ronow_session)
+            with pytest.raises(errors.EndOutOfBoundsRightError):
+                f(None, oob_session, as_times)
+            with pytest.raises(errors.EndOutOfBoundsRightError):
+                f(None, oob_session, as_dates)
+
+        monkeypatch.setattr("pandas.Timestamp.now", mock_now_open)
+        # should ignore now
+        assert f(None, ronow_session, as_times) == (None, ronow_session_close)
+        assert f(None, ronow_session, as_dates) == (None, ronow_session)
+        with pytest.raises(errors.EndOutOfBoundsRightError):
+            f(None, oob_session, as_times)
+        with pytest.raises(errors.EndOutOfBoundsRightError):
+            f(None, oob_session, as_dates)
+
+        # input as time
+        ool_minute = mock_now_open() + (5 * one_min)
+        # StartTooLateError should raise regardless of now
+        for minute in [ool_minute, oob_minute]:
+            with pytest.raises(errors.StartTooLateError):
+                f(minute, None, as_times)
+            with pytest.raises(errors.StartTooLateError):
+                f(minute, None, as_dates)
+
+        # end should return without consideration to now
+        assert f(None, ool_minute, as_times) == (None, ool_minute)
+        assert f(None, ool_minute, as_dates) == (None, last_session)
+        with pytest.raises(errors.EndOutOfBoundsRightError):
+            f(None, oob_minute, as_times)
+        with pytest.raises(errors.EndOutOfBoundsRightError):
+            f(None, oob_minute, as_dates)
+
+        if last_session in ans.sessions_with_gap_after:
+            monkeypatch.setattr("pandas.Timestamp.now", mock_now_closed)
+            ool_minute = mock_now_closed() + (7 * one_min)
+
+            for minute in [ool_minute, oob_minute]:
+                with pytest.raises(errors.StartTooLateError):
+                    f(minute, None, as_times)
+                with pytest.raises(errors.StartTooLateError):
+                    f(minute, None, as_dates)
+
+            assert f(None, ool_minute, as_times) == (None, last_session_close)
+            assert f(None, ool_minute, as_dates) == (None, last_session)
+            with pytest.raises(errors.EndOutOfBoundsRightError):
+                f(None, oob_minute, as_times)
+            with pytest.raises(errors.EndOutOfBoundsRightError):
+                f(None, oob_minute, as_dates)
 
     @dataclasses.dataclass
     class StartEnd:
@@ -841,7 +1027,14 @@ class TestParseStartEnd:
         }
 
         def f(start, end, gregorian) -> mptypes.DateRangeAmb:
-            return m.parse_start_end(start, end, gregorian=gregorian, **kwargs)
+            return m.parse_start_end(
+                start,
+                end,
+                gregorian=gregorian,
+                mr_session=None,
+                mr_minute=None,
+                **kwargs,
+            )
 
         # verify returns as gregorian dates, not trading calendar sessions
         start = pd.Timestamp("2020-01-01")

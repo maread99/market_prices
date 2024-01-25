@@ -357,7 +357,7 @@ class PricesYahoo(base.PricesBase):
         self._ticker = yq.Ticker(
             symbols,
             formatted=False,
-            asynchronous=True,
+            asynchronous=False,
             max_workers=8,
             proxies=proxies,
             validate=True,

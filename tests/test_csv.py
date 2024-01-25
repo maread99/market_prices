@@ -757,7 +757,8 @@ def test_tables(csv_dir, symbols, calendars, res_us_lon_hk):
         prices = m.PricesCsv(csv_dir, symbols, calendars)
 
     # TODO revise test to look at wherever the tables data ends up
-    for interval, table in prices._tables.items():
+    for interval, pdata in prices._pdata.items():
+        table = pdata._table
         res = res_us_lon_hk[0][interval.as_pdfreq[-1::-1]]  # just reversed freq str
         if interval.is_daily:
             expected = res.loc[table.index[0] : table.index[-1]].dropna(
