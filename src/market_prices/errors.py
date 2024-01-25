@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import functools
 import warnings
 from typing import TYPE_CHECKING, Any, Literal
 
@@ -73,7 +74,7 @@ class PricesDateRangeEmpty(PricesUnavailableError):
 
 
 class _OutOfBoundsError(PricesUnavailableError):
-    """`start` or `end` parameter earlier than calendar's left bound.
+    """`start` or `end` parm earlier/later than calendar's left/right bound.
 
     Parameters
     ----------
@@ -90,7 +91,8 @@ class _OutOfBoundsError(PricesUnavailableError):
         False: `ts` would have represente a time.
     """
 
-    param: Literal["start", "end"]
+    param: Literal["start", "end"] = "end"
+    left_bound: bool = True
 
     def __init__(
         self,
@@ -102,142 +104,155 @@ class _OutOfBoundsError(PricesUnavailableError):
         self._c = calendar
         self._ts = ts
         self._ts_type = "date" if is_date else "minute"
-        self._bound = calendar.first_session if is_date else calendar.first_minute
+        if self.left_bound:
+            self._bound = calendar.first_session if is_date else calendar.first_minute
+        else:
+            self._bound = calendar.last_session if is_date else calendar.last_minute
 
     def __str__(self) -> str:
+        earlier_later = "earlier" if self.left_bound else "later"
+        earliest_latest = "earliest" if self.left_bound else "latest"
         if self._ts is not None:
-            insert = f"({helpers.fts(self._ts)}) is earlier"
+            insert = f"({fts(self._ts)}) is {earlier_later}"
         else:
-            insert = f"would resolve to an earlier {self._ts_type}"
+            insert = f"would resolve to an {earlier_later} {self._ts_type}"
+        insert2 = "date" if self._ts_type == "date" else "minute or date"
         msg = (
             f"Prices unavailable as {self.param} {insert} than the"
-            f" earliest {self._ts_type} of calendar '{self._c.name}'."
-            f" The calendar's earliest {self._ts_type} is {helpers.fts(self._bound)}"
-            f" (this bound should coincide with the earliest {self._ts_type} for which"
-            " daily price data is available)."
+            f" {earliest_latest} {self._ts_type} of calendar '{self._c.name}'."
+            f" The calendar's {earliest_latest} {self._ts_type} is {fts(self._bound)}"
         )
+        if self.left_bound:
+            msg += (
+                f" (this bound should coincide with the earliest {insert2} for"
+                " which price data is available)."
+            )
+        else:
+            msg += "."
         return msg
 
 
 class StartOutOfBoundsError(_OutOfBoundsError):
     """'start' parameter earlier than calendar's left bound."""
 
-    param: Literal["start"] = "start"
+    param = "start"
 
 
 class EndOutOfBoundsError(_OutOfBoundsError):
     """'end' parameter earlier than calendar's left bound."""
 
-    param: Literal["end"] = "end"
+
+class EndOutOfBoundsRightError(_OutOfBoundsError):
+    """'end' parameter earlier than calendar's left bound."""
+
+    left_bound = False
 
 
-# - 'start' later than right limit (latest session/minute for which prices available) -
+# 'start'/'end' later than right limit (latest session/minute for which prices available)
 
 
-class StartTooLateError(PricesUnavailableError):
-    """start parameter later than right limit for which prices available.
+class _TooLateError(PricesUnavailableError):
+    """start/end is or resolves to session/minute after last available.
 
     Parameters
     ----------
-    start
-        Either start parameter as received, adjusted only for `tzin`, or
-        start of daterange as subsequently evaluated.
+    ts
+        'start'/'end' parameter either as received, adjusted only for
+        `tzin`, or start/end of daterange as subsequently evaluated.
 
     evaluated
-        True: `start` is start of an evaluated date range.
-        False: `start` is start parameter as receieved (default).
+        True: `ts` is start/end of an evaluated date range.
+        False: `ts` is start/end parameter as receieved (default).
     """
+
+    param: Literal["start", "end"]
 
     def __init__(
         self,
-        start: pd.Timestamp,
+        ts: pd.Timestamp,
         limit: pd.Timestamp,
-        calendar: xcals.ExchangeCalendar,
-        delay: pd.Timedelta,
+        interval: intervals.TDInterval,
+        delay: pd.Timedelta | None = None,
         evaluated: bool = False,
     ):
         # pylint: disable=too-many-arguments
-        self.start = start  # inspected by tests.
-
-        time_date = "date" if helpers.is_date(start) else "time"
-        cannot_must = "cannot" if helpers.is_date(start) else "must"
-        later_earlier = "a later" if helpers.is_date(start) else "an earlier"
+        self.ts = ts  # inspected by tests.
+        time_date = "date" if helpers.is_date(ts) else "time"
         evaluate_be = "evaluate to" if evaluated else "be"
         evaluates_received = "evaluates to" if evaluated else "received as"
 
         self._msg = (
-            f"`start` {cannot_must} {evaluate_be} {later_earlier} {time_date} than the"
+            f"`{self.param}` cannot {evaluate_be} a later {time_date} than the"
             f" latest {time_date} for which prices are available.\nThe latest"
-            f" {time_date} for which prices are available for calendar"
-            f" '{calendar.name}' is {fts(limit)}, although `start`"
-            f" {evaluates_received} {fts(start)}."
+            f" {time_date} for which prices are available for interval"
+            f" '{interval}' is {fts(limit)}, although `{self.param}`"
+            f" {evaluates_received} {fts(ts)}."
         )
         if time_date == "time" and delay:
             self._msg += f"\nNote: lead_symbol has a delay of {delay}."
+
+
+class StartTooLateError(_TooLateError):
+    """'start' param later than right limit for which prices available."""
+
+    param = "start"
+
+
+class EndTooLateError(_TooLateError):
+    """'end' param later than right limit for which prices available."""
+
+    param = "end"
 
 
 # --- 'start'/'end' earlier than earliest session/minute for which prices available ---
 
 
 class _TooEarlyError(PricesUnavailableError):
-    """start/end is or resolves to session/minute before first available."""
+    """start/end evaluates to session/minute earlier than first available."""
 
     param: Literal["start", "end"]
 
     def __init__(
         self,
-        drg: _Getter,
+        ts: pd.Timestamp,
         limit: pd.Timestamp,
-        ts: pd.Timestamp | None = None,
     ):
-        if ts is not None:
-            is_session = helpers.is_date(ts)
-        else:
-            if TYPE_CHECKING:
-                assert isinstance(drg.interval, BI)
-                assert isinstance(intervals.ONE_DAY, BI)
-            is_session = drg.interval is intervals.ONE_DAY
+        is_session = helpers.is_date(ts)
         self._ts_type = "session" if is_session else "minute"
         self._limit = limit
         self._ts = ts
-        self._c = drg.cal
 
     def __str__(self) -> str:
-        if self._ts is not None:
-            insert = f"({helpers.fts(self._ts)}) is earlier"
-        else:
-            insert = f"would resolve to an earlier {self._ts_type}"
         msg = (
-            f"Prices unavailable as {self.param} {insert} than the"
-            f" earliest {self._ts_type} for which price data is available."
-            f" The earliest {self._ts_type} for which prices are available"
-            f" is {helpers.fts(self._limit)}."
+            f"Prices unavailable as {self.param} evaluates to {fts(self._ts)}"
+            f" which is earlier than the earliest {self._ts_type} for which price"
+            f" data is available. The earliest {self._ts_type} for which prices are"
+            f" available is {fts(self._limit)}."
         )
         return msg
 
 
 class StartTooEarlyError(_TooEarlyError):
-    """start is or resolves to session/minute before first available."""
+    """start evaluates to session/minute earlier than first available."""
 
     param: Literal["start"] = "start"
 
     def __init__(
         self,
-        drg: _Getter,
+        ts: pd.Timestamp,
         limit: pd.Timestamp,
-        ts: pd.Timestamp | None = None,
         add_a_row: bool | None = False,
     ):
         # add_a_row True if known that start before first available
         # session/datetime due solely to add_a_row option being True.
         self._add_a_row = add_a_row
-        super().__init__(drg, limit, ts)
+        super().__init__(ts, limit)
 
     def __str__(self) -> str:
         msg = super().__str__()
         if self._add_a_row:
             msg += (
-                "\nNB range start falls earlier than first available"
+                "\nNB The evaluated start falls earlier than first available"
                 f" {self._ts_type} due only to 'add_a_row=True'."
             )
         return msg
@@ -327,43 +342,103 @@ class PricesIntradayUnavailableError(PricesUnavailableError):
             self._drg.interval = self._bi
             self._dr = self._drg.daterange[0]
 
-    @property
+    @functools.cached_property
     def _earliest_minute_available(self) -> pd.Timestamp:
         limit = self._prices.limits[self._bi][0]
         cal = self._drg.cal
         return cal.minute_to_trading_minute(limit, "next")
 
+    @functools.cached_property
+    def _latest_minute_available(self) -> pd.Timestamp:
+        limit = self._prices.limits[self._bi][1]
+        cal = self._drg.cal
+        return cal.minute_to_trading_minute(limit, "previous")
+
+    @functools.cached_property
+    def end_before_ll(self) -> bool:
+        return self._dr[1] < self._earliest_minute_available
+
+    @functools.cached_property
+    def start_after_rl(self) -> bool:
+        return self._latest_minute_available < self._dr[0]
+
     @property
-    def _earliest_availability(self) -> str:
+    def _dr_available(self) -> tuple[pd.Timestamp, pd.Timestamp]:
+        return (self._earliest_minute_available, self._latest_minute_available)
+
+    @property
+    def _availability(self) -> str:
         msg = (
-            f"\nThe earliest minute from which data is available"
-            f" at {self._bi} is {self._earliest_minute_available}, although"
-            f" at this base interval the requested period evaluates to"
-            f" {self._dr}."
+            f"\nThe period over which data is available at {self._bi} is"
+            f" {self._dr_available}, although at this base interval the"
+            f" requested period evaluates to {self._dr}."
         )
         return msg
 
-    @property
-    def _strict_advice(self) -> str:
-        msg = (
-            f"\nData is available from {self._earliest_minute_available} through to"
-            f" the end of the requested period. Consider passing `strict` as False"
-            f" to return prices for this part of the period."
+    def _get_strict_advices(self) -> str:
+        """Advices of part of requested period for which prices are available."""
+        if self.end_before_ll or self.start_after_rl:
+            return ""
+
+        start_before_ll = self._dr[0] < self._earliest_minute_available
+        end_after_rl = self._dr_available[1] < self._dr[1]
+        if start_before_ll and end_after_rl:
+            s = (
+                f"from {fts(self._earliest_minute_available)} through"
+                f" {fts(self._latest_minute_available)}."
+            )
+        elif start_before_ll:
+            s = (
+                f"from {fts(self._earliest_minute_available)} through to the end"
+                " of the requested period."
+            )
+        else:
+            assert end_after_rl
+            s = (
+                "from the start of the requested period through to"
+                f" {fts(self._latest_minute_available)}."
+            )
+        s += (
+            " Consider passing `strict` as False to return prices for this"
+            " part of the period."
         )
-        return msg
+        return s
 
     @property
-    def _s1(self) -> str:
-        insert = (
-            f"interval {self.interval}"
-            if self.interval is not None
-            else "an inferred interval"
-        )
+    def _strict_advices(self) -> str:
+        advices = self._get_strict_advices()
+        if advices:
+            advices = "\nData is available " + advices
+        return advices
+
+    @property
+    def _s0(self) -> str:
+        if self.interval is None:
+            insert = "an inferred interval"
+        else:
+            insert = f"interval {self.interval}"
         s = (
             "Data is unavailable at a sufficiently low base interval to"
             f" evaluate prices at {insert} anchored '{self.anchor}'."
         )
         return s
+
+    @property
+    def _s0_no_data_available(self) -> str:
+        start_end = "start" if self.start_after_rl else "end"
+        later_earlier = "later" if self.start_after_rl else "earlier"
+        latest_earliest = "latest" if self.start_after_rl else "earliest"
+        return (
+            f"The {start_end} of the requested period is {later_earlier}"
+            f" than the {latest_earliest} timestamp at which intraday data"
+            " is available for any base interval."
+        )
+
+    @property
+    def _s1(self) -> str:
+        if self.bis and (self.start_after_rl or self.end_before_ll):
+            return self._s0_no_data_available
+        return self._s0
 
     @property
     def _s2(self) -> str:
@@ -379,7 +454,7 @@ class PricesIntradayUnavailableError(PricesUnavailableError):
 
         if self.bis:
             s = f"\nBase {s2_}:\n\t{self.bis}."
-            s += self._earliest_availability
+            s += self._availability
         else:
             s = f"There are no base {s2_}."
         return s
@@ -389,10 +464,7 @@ class PricesIntradayUnavailableError(PricesUnavailableError):
         return f"\nPeriod evaluated from parameters: {self._prices.gpp.pp_raw}."
 
     def __str__(self) -> str:
-        s = self._s1 + self._s2 + self._pp
-        if self._earliest_minute_available < self._dr[1]:
-            s += self._strict_advice
-        return s
+        return self._s1 + self._s2 + self._pp + self._strict_advices
 
 
 class LastIndiceInaccurateError(PricesIntradayUnavailableError):
@@ -415,13 +487,15 @@ class LastIndiceInaccurateError(PricesIntradayUnavailableError):
         self._dr = self._drg.daterange[0]
 
     @property
-    def _strict_advice(self) -> str:
-        msg = (
-            "\nData that can express the period end with the greatest possible"
-            f" accuracy is available from {self._earliest_minute_available}."
-            " Pass `strict` as False to return prices for this part of the period."
-        )
-        return msg
+    def _strict_advices(self) -> str:
+        advices = self._get_strict_advices()
+        if advices:
+            start = (
+                "\nData that can express the period end with the greatest"
+                " possible accuracy is available "
+            )
+            advices = start + advices
+        return advices
 
     def __str__(self) -> str:
         if self.bis_period:
@@ -443,9 +517,9 @@ class LastIndiceInaccurateError(PricesIntradayUnavailableError):
             " the greatest possible accuracy although have insufficient"
             f" data available to cover the full period:\n\t{self.bis_accuracy}."
         )
-        msg += self._earliest_availability
+        msg += self._availability
         msg += self._pp
-        msg += self._strict_advice
+        msg += self._strict_advices
         msg += "\nAlternatively, consider"
         if self._prices.gpp.anchor is mptypes.Anchor.OPEN:
             msg += " creating a composite table (pass `composite` as True) or"
@@ -526,7 +600,7 @@ class PricesUnvailableDurationConflict(PricesUnavailableIntervalError):
         )
 
 
-class PricesUnvailableInferredIntervalError(PricesUnavailableIntervalError):
+class PricesUnavailableInferredIntervalError(PricesUnavailableIntervalError):
     """Interval inferred as intraday although only daily data available.
 
     Interval inferred as intraday although request can only be met with
@@ -630,6 +704,38 @@ class CalendarTooShortError(CalendarError):
             " (all calendars must be valid over at least the period for which intraday"
             " price data is available)."
         )
+
+
+class PriceAtUnavailableError(PricesUnavailableError):
+    """Prices unavailable to serve a `price_at` request."""
+
+    def __init__(self, minute: pd.Timestamp, num_sessions: int):
+        self._msg = (
+            "`price_at` cannot return data as intraday data is not available"
+            f" at '{minute}' and the sessions of the underlying symbols"
+            " continuously overlap (it is not possible to evaluate prices"
+            f" at any specific minute during a period covering the {num_sessions}"
+            f" composite sessions that immediately preceed '{minute}')."
+        )
+
+
+class PriceAtUnavailableLimitError(PricesUnavailableError):
+    """Prices unavailable to serve a `price_at` request due to left limit."""
+
+    def __init__(self, minute: pd.Timestamp, limit: pd.Timestamp):
+        self._msg = (
+            "`price_at` cannot return data as intraday data is not available"
+            f" at '{minute}' and to evaluate a price at '{minute}' would require,"
+            " for least one symbol, data ealier than the earliest session for"
+            f" which daily data is available ({limit})"
+        )
+
+
+class PriceAtUnavailableLivePricesError(PricesUnavailableError):
+    """Live prices unavailable to serve a `price_at` request for 'now'."""
+
+    def __init__(self):
+        self._msg = "'minute' parameter can only be None if live prices are available."
 
 
 class CompositeIndexConflict(MarketPricesError):

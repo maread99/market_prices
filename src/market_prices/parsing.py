@@ -101,7 +101,9 @@ def _parse_start(
         return cal.minute_to_future_session(start)
 
 
-def _mr_minute_left(cal: xcals.ExchangeCalendar, delay: pd.Timedelta) -> pd.Timestamp:
+def _now_mr_minute_left(
+    cal: xcals.ExchangeCalendar, delay: pd.Timedelta
+) -> pd.Timestamp:
     """Left side of most recent minute."""
     now = helpers.now() - delay
     if cal.is_open_on_minute(now, ignore_breaks=True):
@@ -110,14 +112,16 @@ def _mr_minute_left(cal: xcals.ExchangeCalendar, delay: pd.Timedelta) -> pd.Time
         return cal.previous_minute(now)
 
 
-def _mr_minute_right(cal: xcals.ExchangeCalendar, delay: pd.Timedelta) -> pd.Timestamp:
+def _now_mr_minute_right(
+    cal: xcals.ExchangeCalendar, delay: pd.Timedelta
+) -> pd.Timestamp:
     """Right side of most recent minute."""
-    return _mr_minute_left(cal, delay) + helpers.ONE_MIN
+    return _now_mr_minute_left(cal, delay) + helpers.ONE_MIN
 
 
-def _mr_session(cal: xcals.ExchangeCalendar, delay: pd.Timedelta) -> pd.Timestamp:
+def _now_mr_session(cal: xcals.ExchangeCalendar, delay: pd.Timedelta) -> pd.Timestamp:
     """Most recent session."""
-    return cal.minute_to_session(_mr_minute_left(cal, delay), "none")
+    return cal.minute_to_session(_now_mr_minute_left(cal, delay), "none")
 
 
 def _parse_end(
@@ -126,32 +130,37 @@ def _parse_end(
     as_time: bool,
     cal: xcals.ExchangeCalendar,
     delay: pd.Timedelta,
+    curtail: bool,
 ) -> pd.Timestamp:
     """Parse `end` to a time if `as_time` or date otherwise."""
     # pylint: disable=too-many-return-statements
-    if is_date:
-        end = min(end, _mr_session(cal, delay))
-        session = cal.date_to_session(end, "previous")
-        if as_time:
-            return min(cal.session_close(session), _mr_minute_right(cal, delay))
-        return session
 
+    if is_date:
+        if curtail:
+            end = min(end, _now_mr_session(cal, delay))
+        session = cal.date_to_session(end, "previous")
+        if not as_time:
+            return session
+        # as_time
+        close = cal.session_close(session)
+        return min(close, _now_mr_minute_right(cal, delay)) if curtail else close
+
+    # is_time
+    end = end if not curtail else min(end, _now_mr_minute_right(cal, delay))
+    if as_time:
+        if end.value in cal.closes_nanos:
+            return end
+        minute = cal.minute_to_trading_minute(end, "previous")
+        # advance to close/break_start if end was not a trading minute
+        return minute if minute == end else minute + helpers.ONE_MIN
+    # is_time required as_date
+    if end.value in cal.closes_nanos:  # pylint: disable=else-if-used
+        return cal.minute_to_session(end - helpers.ONE_MIN)
+    elif end > _now_mr_minute_left(cal, delay) - helpers.ONE_SEC:
+        # return live session if market open, otherwise prior session
+        return cal.minute_to_session(end, "previous")
     else:
-        end = min(end, _mr_minute_right(cal, delay))
-        if as_time:
-            if end.value in cal.closes_nanos:
-                return end
-            minute = cal.minute_to_trading_minute(end, "previous")
-            # advance to close/break_start if end was not a trading minute
-            return minute if minute == end else minute + helpers.ONE_MIN
-        else:  # is time required as date
-            if end.value in cal.closes_nanos:  # pylint: disable=else-if-used
-                return cal.minute_to_session(end - helpers.ONE_MIN)
-            elif end > _mr_minute_left(cal, delay) - helpers.ONE_SEC:
-                # return live session if market open, otherwise prior session
-                return cal.minute_to_session(end, "previous")
-            else:
-                return cal.minute_to_past_session(end)
+        return cal.minute_to_past_session(end)
 
 
 def _parse_start_end(
@@ -161,6 +170,8 @@ def _parse_start_end(
     cal: xcals.ExchangeCalendar,
     delay: pd.Timedelta,
     strict: bool,
+    mr_session: pd.Timestamp | None,
+    mr_minute: pd.Timestamp | None,
 ) -> mptypes.DateRangeAmb:
     """Parse `start` and `end` values received from client.
 
@@ -177,6 +188,7 @@ def _parse_start_end(
         `end` is later than 'now' (adjusted for `delay`) then range end
         will be None.
     """
+    assert bool(mr_session is None) + bool(mr_minute is None) != 1
     # pylint: disable=too-complex, too-many-arguments, too-many-locals,
     # pylint: disable=too-many-branches, too-many-statements
     if start is None and end is None:
@@ -196,7 +208,7 @@ def _parse_start_end(
         # if end > now, set to None.
         now_interval = intervals.ONE_DAY if end_is_date else intervals.ONE_MIN
         now = helpers.now(now_interval, "left")
-        if end >= now - delay:
+        if mr_session is None and end >= now - delay:
             end = None
 
     # Code order dictated by having to verify that `start`/`end` are within calendar
@@ -205,34 +217,59 @@ def _parse_start_end(
     # Check start isn't later than latest date/time for which prices available.
     # Has side-effect of ensuring `start` is to the left of right calendar bound.
     if start is not None:
+        # NB this section is needed...
+        # For a Prices class where the right limit is earlier than 'now' when using
+        # an `intraday_drg_no_limit` the right limit will be assumed as now. If not
+        # for this section a start defined later than the right limit would result in
+        # errors being raised with unintelligble error messages based on prices being
+        # available to 'now'. Better catching it here.
         if start_is_date:
-            mrs = _mr_session(cal, delay)
+            mrs = mr_session if mr_session is not None else _now_mr_session(cal, delay)
             if start > mrs:
-                raise errors.StartTooLateError(start, mrs, cal, delay)
-        elif not as_times:  # pylint: disable=confusing-consecutive-elif
-            # start is time and require as_date
-            mrs_start = cal.session_first_minute(_mr_session(cal, delay))
+                raise errors.StartTooLateError(start, mrs, intervals.BI_ONE_DAY, delay)
+        elif not as_times:  # start is time and require as_date
+            mrs = mr_session if mr_session is not None else _now_mr_session(cal, delay)
+            mrs_start = cal.session_first_minute(mrs)
             if start > mrs_start:
-                raise errors.StartTooLateError(start, mrs_start, cal, delay)
-        else:
-            mrm = _mr_minute_left(cal, delay)
+                raise errors.StartTooLateError(
+                    start, mrs_start, intervals.BI_ONE_MIN, delay
+                )
+        else:  # start is time and require as_time
+            mrm = (
+                mr_minute if mr_minute is not None else _now_mr_minute_left(cal, delay)
+            )
             if start > mrm:
-                raise errors.StartTooLateError(start, mrm, cal, delay)
+                raise errors.StartTooLateError(start, mrm, intervals.BI_ONE_MIN, delay)
 
     # if `start` or `end` earlier than left calendar bound
     end_parsed: pd.Timestamp | None
     if end is not None:
         if end_is_date:
-            bound = cal.first_session
+            left_bound = cal.first_session
         else:
             if as_times:  # pylint: disable=else-if-used
-                bound = cal.first_minute
+                left_bound = cal.first_minute
             else:
-                bound = cal.closes[cal.first_session]
-        if end < bound:
+                left_bound = cal.closes[cal.first_session]
+        if end < left_bound:
             raise errors.EndOutOfBoundsError(cal, end)
-        # if end to the right of right calendar bound then will be parsed to 'now'.
-        end_parsed = _parse_end(end, end_is_date, as_times, cal, delay)
+
+        curtail = mr_session is None
+        if not curtail:
+            # check right bound
+            if end_is_date:
+                right_bound = cal.last_session
+            else:
+                if as_times:  # pylint: disable=else-if-used
+                    right_bound = cal.last_minute
+                else:
+                    right_bound = cal.closes[cal.last_session] - helpers.ONE_MIN
+            if end > right_bound:
+                raise errors.EndOutOfBoundsRightError(cal, end)
+
+        # NB if mr_session is None then any end to the right of right calendar bound
+        # will be parsed to 'now'...
+        end_parsed = _parse_end(end, end_is_date, as_times, cal, delay, curtail)
     else:
         end_parsed = None
 
@@ -352,6 +389,8 @@ def parse_start_end(
     delay: pd.Timedelta,
     strict: bool,
     gregorian: bool,
+    mr_session: pd.Timestamp | None,
+    mr_minute: pd.Timestamp | None,
 ) -> mptypes.DateRangeAmb:
     """Parse `start` and `end` values received from client.
 
@@ -389,6 +428,20 @@ def parse_start_end(
         True: Evaluate start/end in terms of the Gregorian calendar
         False: Evaluate start/end in terms of the trading `calendar`.
 
+    mr_session
+        Most recent session for which price data is available. Pass as None
+        if live price data is available.
+
+        NB this will only be considered in the context of ensuring that any
+        `start` does not represent a start that is later than this session.
+
+    mr_minute
+        Most recent minute for which price data is available. Pass as None
+        if live price data is available.
+
+        NB this will only be considered in the context of ensuring that any
+        `start` does not represent a start that is later than this minute.
+
     Returns
     -------
     mptypes.DateRangeAmb
@@ -401,7 +454,9 @@ def parse_start_end(
         range end will be None.
     """
     # pylint: disable=too-many-arguments
-    start_, end_ = _parse_start_end(start, end, as_times, calendar, delay, strict)
+    start_, end_ = _parse_start_end(
+        start, end, as_times, calendar, delay, strict, mr_session, mr_minute
+    )
     if not gregorian:
         return start_, end_
 

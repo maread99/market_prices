@@ -52,10 +52,21 @@ class _Getter(abc.ABC):
         downsampled.
 
     strict
-        Determines behaviour in event daterange start falls before
-        `limit`:
-            True: raises errors.StartTooEarlyError.
-            False: sets daterange start to `limit`.
+        Determines behaviour in event daterange start / end falls before
+        `limit` /  after `limit_right`:
+            True: raises:
+                `errors.StartTooEarlyError` if start earlier than `limit`
+                `errors.EndTooLateError` if end later than `limit_right`
+
+            False: sets daterange start to `limit` / end to `limit_right`
+
+    limit_right
+        Latest session/minute to which prices are available. None if
+        available through to 'now'.
+
+        If limits differ by interval then can be receievd as a callable.
+        Callable should takes one argument, the interval, and return the
+        limit corresponding with that interval.
     """
 
     def __init__(  # pylint: disable=too-many-arguments
@@ -65,9 +76,13 @@ class _Getter(abc.ABC):
         pp: mptypes.PP | None = None,
         ds_interval: intervals.PTInterval | None = None,
         strict=True,
+        limit_right: pd.Timestamp
+        | Callable[[intervals.BI], pd.Timestamp | None]
+        | None = None,
     ):
         self._cal = calendar
         self._limit = limit
+        self._limit_right = limit_right
         self._pp = pp
         self._verify_ds_interval(ds_interval)
         self._ds_interval = ds_interval
@@ -122,9 +137,19 @@ class _Getter(abc.ABC):
             return self._limit(interval)
         return self._limit
 
+    # TODO one way or another tests will need to verify that can pass through as a callable
+    @property
+    def limit_right(self) -> pd.Timestamp | None:
+        """Right limit."""
+        if callable(self._limit_right):
+            interval = self.interval
+            assert interval is not None
+            return self._limit_right(interval)
+        return self._limit_right
+
     @property
     def strict(self) -> bool:
-        """Query if `self.limit` applied strictly."""
+        """Query if limits should be applied strictly."""
         return self._strict
 
     @property
@@ -145,14 +170,59 @@ class _Getter(abc.ABC):
 
     @abc.abstractmethod
     def _get_end(self, ts: pd.Timestamp) -> tuple[pd.Timestamp, pd.Timestamp]:
-        """Return `ts` aligned with last indice / right of last indice."""
+        """Return `ts` as aligned with indice or nearest prior indice.
+
+        If interval is daily, returns `ts` if ts is a session, otherwise
+        returns most recent session prior to `ts`.
+
+        If interval is intraday, returns `ts` if ts is aligned with the
+        right of an indice, otherwise returns the right side of the most
+        recent indice prior to `ts`.
+        """
 
     @abc.abstractmethod
-    def _get_start(self, ts: pd.Timestamp) -> pd.Timestamp:
-        """Return `ts` aligned with first indice / left of first indice."""
+    def _get_start(self, ts: pd.Timestamp) -> pd.Timestamp | None:
+        """Return `ts` as aligned indice or earliest subsequent indice.
+
+        If interval is daily, returns `ts` if ts is a session, otherwise
+        returns nearest session subsequent to `ts`.
+
+        If interval is intraday, returns `ts` if ts is aligned with the
+        left of an indice, otherwise returns the left side of the nearest
+        indice subseqeunt to `ts`.
+
+        Returns None if start would lie to the left of the calendar's left
+        bound.
+        """
+
+    def _raise_end_too_late_error(self, ts, limit, interval, evaluated=True, **kwargs):
+        """Raise `errors.EndTooLateError`"""
+        raise errors.EndTooLateError(ts, limit, interval, evaluated=evaluated, **kwargs)
+
+    @property
+    def end_limit(self) -> tuple[pd.Timestamp, pd.Timestamp]:
+        """Return limit for 'end' and accuracy.
+
+        Returns
+        -------
+        tuple[pd.Timestamp, pd.Timestamp]
+            As `end_now` if no `limit_right`, otherwise:
+                [0] as `limit_right` if limit right is a session / aligned
+                with the right side of an indice, otherwise most recent
+                session / right of latest indice prior to `limit_right`. If
+                the right side of an indice then this may in trun be
+                adjusted if it is an unaligned session close.
+                [1]: Accuracy, as for --get_end()--.
+        """
+        if self.limit_right is None:
+            return self.end_now
+        return self._get_end(self.limit_right)
 
     def get_end(  # pylint: disable=missing-param-doc
-        self, ts: pd.Timestamp | None
+        self,
+        ts: pd.Timestamp | None,
+        limit: bool = True,
+        strict: bool | None = None,
     ) -> tuple[pd.Timestamp, pd.Timestamp]:
         """Return right side of indice representing end of a date range.
 
@@ -163,6 +233,18 @@ class _Getter(abc.ABC):
         ----------
         ts : , default: 'now'
             End of period to be represented by date range.
+
+        limit:
+            Limit end in accordance with `limit_right`. NB: ignored if
+            `strict` or `self.strict` is True.
+
+        strict:
+            Override `self.strict` with `strict` for the purpose of this
+            call. Provides for evaluating end based on a `ts` that lies to
+            the right of the limit. In this case the client should ensure
+            that any subsequent adjustments bring the end to the left of
+            the limit or, if `self.strict` is True, raise an
+            `errors.EndTooLateError`.
 
         Returns
         -------
@@ -191,12 +273,27 @@ class _Getter(abc.ABC):
         beyond the session close.
         """
         if ts is None:
-            return self.end_now
-        if ts < self.limit:
-            raise errors.EndTooEarlyError(self, self.limit, ts)
-        return self._get_end(ts)
+            return self.end_limit
 
-    def get_start(self, ts: pd.Timestamp) -> pd.Timestamp:
+        # TODO will require a test to ensure limiting when limit is True
+        # Currently revised at least one existing test (test_get_end_non_trading_minutes)
+        # to pass limit as False (NB all daterange tests were passing)
+        # TODO will require a test to ensure treating strict as `strict` if
+        # `strict` passed to override `self.strict`
+
+        end, end_acc = self._get_end(ts)
+        if end < self.limit:
+            raise errors.EndTooEarlyError(end, self.limit)
+
+        strict = self.strict if strict is None else strict
+        end_limit, end_limit_acc = self.end_limit
+        if strict and end > end_limit:
+            self._raise_end_too_late_error(end, end_limit, self.final_interval)
+        if limit and ts >= end_limit:
+            return end_limit, end_limit_acc
+        return end, end_acc
+
+    def get_start(self, ts: pd.Timestamp, limit: bool = True) -> pd.Timestamp:
         """Return left side of indice representing start of a date range.
 
         For intraday indices, indices based on session opens of
@@ -206,16 +303,47 @@ class _Getter(abc.ABC):
         ----------
         ts
             Start of period to be represented by date range.
-        """
-        if ts < self.limit:
-            if self.strict:
-                raise errors.StartTooEarlyError(self, self.limit, ts)
-            else:
-                return self.limit
-        return self._get_start(ts)
 
-    def _get_start_end(self) -> tuple[mptypes.DateRangeAmb, pd.Timestamp | None]:
+        limit:
+            Limit start in accordance with `limit`. NB: ignored if
+            strict is True.
+        """
+        start = self._get_start(ts)
+
+        if start is None:
+            if self.strict:
+                raise errors.StartOutOfBoundsError(
+                    self.cal, None, self.final_interval.is_daily
+                )
+            else:
+                start = self._get_start(self.limit)
+                assert start is not None
+                return start
+
+        limit_right = self.limit_right
+        if limit_right is not None and start > limit_right:
+            raise errors.StartTooLateError(
+                start, self.limit_right, self.final_interval, evaluated=True
+            )
+
+        if start < self.limit:
+            if self.strict:
+                raise errors.StartTooEarlyError(start, self.limit)
+            elif limit:
+                start = self._get_start(self.limit)
+                assert start is not None
+        return start
+
+    def _get_start_end(
+        self, limit: bool = True
+    ) -> tuple[mptypes.DateRangeAmb, pd.Timestamp | None]:
         """Return start and end as left/right side of first/last indice.
+
+        Parameters
+        ----------
+        limit:
+            Limit start and end in accordance with respectively `limit`
+            and `limit_right`. NB: ignored if strict is True.
 
         Returns
         -------
@@ -226,12 +354,12 @@ class _Getter(abc.ABC):
             evaluate daterange.
         """
         start, end = self.pp_start_end
-        start = self.get_start(start) if start is not None else None
+        start = self.get_start(start, limit) if start is not None else None
 
         if end is None and start is not None and self._has_duration:
             # end not required
             return (start, end), end  # [0] is mptypes.DateRangeAmb
-        end, end_accuracy = self.get_end(end)
+        end, end_accuracy = self.get_end(end, limit)
         return (start, end), end_accuracy  # [0] is mptypes.DateRangeReq
 
     @property
@@ -287,13 +415,16 @@ class GetterDaily(_Getter):
             end = self.cal.date_to_session(ts, "previous")
         return end, end
 
-    def _get_start(self, ts: pd.Timestamp) -> pd.Timestamp:
+    def _get_start(self, ts: pd.Timestamp) -> pd.Timestamp | None:
         if self.final_interval.is_monthly:
             assert isinstance(self.final_interval, intervals.DOInterval)
             # are there any sessions between ts and the start of the current month?
             start = self.final_interval.as_offset_ms.rollforward(ts)
         else:
-            start = self.cal.date_to_session(ts, "next")
+            try:
+                start = self.cal.date_to_session(ts, "next")
+            except xcals.errors.DateOutOfBounds:
+                return None
         return start
 
     @property
@@ -313,28 +444,19 @@ class GetterDaily(_Getter):
     def _prior_start(self, start: pd.Timestamp) -> pd.Timestamp | None:
         """Return start prior to `start`.
 
-        Returns None if prior start would fall before `self.limit`.
+        Returns None if start would fall before calendar's left bound.
         """
         assert self.ds_interval is not None
         if self.ds_interval.is_monthly:
             prior_start = start - self.ds_interval
-            if prior_start < self.limit:
+            if prior_start < self.cal.first_session:
                 return None
         else:
             try:
                 window = self.cal.sessions_window(start, -self.ds_factor - 1)
             except ValueError:
-                sessions = self.cal.sessions
-                limit_idx = sessions.get_loc(self.limit)
-                idx = sessions.get_loc(start) - self.ds_factor
-                if idx < limit_idx:
-                    # prior indice lies to left of limit
-                    return None
-                else:
-                    raise
-            prior_start = helpers.to_tz_naive(window[0])
-            if prior_start < self.limit:
                 return None
+            prior_start = helpers.to_tz_naive(window[0])
         assert isinstance(prior_start, pd.Timestamp)
         return prior_start
 
@@ -360,7 +482,13 @@ class GetterDaily(_Getter):
         prior_start = self._prior_start(start)
         if prior_start is None:
             if self.strict:
-                raise errors.StartTooEarlyError(self, self.limit, add_a_row=True)
+                raise errors.StartOutOfBoundsError(self.cal, None, True)
+            else:
+                # Do not set to limit, i.e. do not include 'some of a ds_interval'
+                prior_start = start_pre_add_a_row
+        if prior_start < self.limit:
+            if self.strict:
+                raise errors.StartTooEarlyError(prior_start, self.limit, add_a_row=True)
             else:
                 # Do not set to limit, i.e. do not include 'some of a ds_interval'
                 prior_start = start_pre_add_a_row
@@ -386,14 +514,16 @@ class GetterDaily(_Getter):
         # pylint: disable=too-complex, too-many-branches
         # pylint: disable=too-many-locals, too-many-statements
         assert isinstance(self.final_interval, intervals.DOInterval)
-        # if end is None will be assigned now although this will in turn be
-        # overwritten if start is not None and there's a duration.
-        (start, end), end_accuracy = self._get_start_end()
 
         if self._has_duration:
+            # if end is None will be assigned now although this will in turn be
+            # overwritten if start is not None.
+            (start, end), end_accuracy = self._get_start_end(limit=False)
+            end_reset = False
             if end == self.end_now[0]:
                 # evaluate duration from period end, i.e. right of last indice.
                 # end will be reset to now after evaluating start.
+                end_reset = end
                 one_day = helpers.ONE_DAY
                 end = self.final_interval.as_offset_ms.rollforward(end + one_day)
                 end -= one_day
@@ -433,11 +563,12 @@ class GetterDaily(_Getter):
                     end = start + duration
 
             start = self.get_start(start)
+            if end_reset:
+                end = end_reset
             end, end_accuracy = self.get_end(end)
 
-            end_now, end_now_accuracy = self.end_now
-            if end > end_now:
-                end, end_accuracy = end_now, end_now_accuracy
+        else:
+            (start, end), end_accuracy = self._get_start_end(limit=False)
 
         assert end is not None and end_accuracy is not None
 
@@ -463,6 +594,14 @@ class GetterDaily(_Getter):
                 start_ += excess
 
         self._check_period_covers_one_monthly_interval(start_, end)
+
+        # although will have been checked for strict, won't necessarily have been
+        # restrained by limits...
+        end_limit, end_limit_acc = self.end_limit
+        if end > end_limit:
+            end, end_accuracy = end_limit, end_limit_acc
+        if start is not None and start < self.limit:
+            start = self.limit
 
         if start is not None:
             start = self._daterange_add_a_row_adjustment(start)
@@ -505,11 +644,10 @@ class GetterDaily(_Getter):
         if self.final_interval.is_monthly:
             return self._daterange_is_monthly()
 
-        # if end is None will be assigned now although this will in turn be
-        # overwritten if start is not None and there's a duration.
-        (start, end), end_accuracy = self._get_start_end()
-
         if self._has_duration:
+            # if end is None will be assigned now although this will in turn be
+            # overwritten if start is not None
+            (start, end), end_accuracy = self._get_start_end(limit=False)
             if self.pp["days"] > 0:
                 days = self.pp["days"]
                 if start is None:
@@ -541,9 +679,8 @@ class GetterDaily(_Getter):
             start = self.get_start(start)
             end, end_accuracy = self.get_end(end)
 
-            end_now, end_now_accuracy = self.end_now
-            if end > end_now:
-                end, end_accuracy = end_now, end_now_accuracy
+        else:
+            (start, end), end_accuracy = self._get_start_end(limit=True)
 
         assert end is not None and end_accuracy is not None
 
@@ -597,14 +734,17 @@ class GetterIntraday(_Getter):
         ds_interval: intervals.TDInterval | None = None,
         anchor: mptypes.Anchor = mptypes.Anchor.OPEN,
         end_alignment: mptypes.Alignment = mptypes.Alignment.BI,
-        strict=True,
+        strict: bool = True,
+        limit_right: pd.Timestamp
+        | Callable[[intervals.BI], pd.Timestamp | None]
+        | None = None,
     ):
         self._cc = composite_calendar
         self._delay = delay
         self._anchor = anchor
         self._end_alignment = end_alignment
         self._ignore_breaks = ignore_breaks
-        super().__init__(calendar, limit, pp, ds_interval, strict)
+        super().__init__(calendar, limit, pp, ds_interval, strict, limit_right)
         if interval is not None:
             self.interval = interval
         else:
@@ -702,6 +842,11 @@ class GetterIntraday(_Getter):
             return self._ignore_breaks[self.interval]
         return self._ignore_breaks
 
+    def _raise_end_too_late_error(self, ts, limit, interval, evaluated=True, **kwargs):
+        """Raise `errors.EndTooLateError`"""
+        kwargs.setdefault("delay", self._delay)
+        super()._raise_end_too_late_error(ts, limit, interval, evaluated, **kwargs)
+
     @property
     def end_now(self) -> tuple[pd.Timestamp, pd.Timestamp]:
         """Return live end value and accuracy.
@@ -751,8 +896,7 @@ class GetterIntraday(_Getter):
     def _prior_start(self, start: pd.Timestamp) -> pd.Timestamp | None:
         """Return start prior to `start`.
 
-        Returns None if prior start would fall before `self.limit` or
-        calendar left bound.
+        Returns None if prior start would fall before or calendar left bound.
         """
         end_session = self.cal.minute_to_session(start, "none")
         minutes = self.final_interval.as_minutes
@@ -771,8 +915,6 @@ class GetterIntraday(_Getter):
         i = index.get_loc(start)
         diff = self.ds_factor if self.final_interval != self.alignment_interval else 1
         prior_start = index[i - diff]
-        if prior_start < self.limit:
-            return None
         return prior_start
 
     def _end_unaligned_close_adj(
@@ -885,23 +1027,30 @@ class GetterIntraday(_Getter):
         end = index[i]
         return self._end_unaligned_close_adj(end)
 
-    def _get_start(self, ts: pd.Timestamp) -> pd.Timestamp:
-        session = self.cal.minute_to_session(ts, "next")
+    def _get_start(self, ts: pd.Timestamp) -> pd.Timestamp | None:
+        try:
+            session = self.cal.minute_to_session(ts, "next")
+        except xcals.errors.MinuteOutOfBounds:
+            return None
         # index includes next session to have value when ts is within final interval
         # of trading index (i.e. when needs to roll forwards to next open).
         next_session = self.cal.next_session(session)
         index = self._trading_index(session, next_session, "left")
         start = index[index.get_indexer([ts], method="bfill")[0]]
-        end_now = self.end_now[0]
-        last_valid_start = end_now - self.final_interval
+        end_limit = self.end_limit[0]
+        last_valid_start = end_limit - self.final_interval
         if start > last_valid_start:
             # last reprieve, only evaluate if could be saved by it...
             # open of current session is a valid start
-            last_valid_start = max(last_valid_start, self.cal.previous_open(end_now))
+            last_valid_start = max(last_valid_start, self.cal.previous_open(end_limit))
             if start > last_valid_start:
                 assert isinstance(last_valid_start, pd.Timestamp)
                 raise errors.StartTooLateError(
-                    start, last_valid_start, self.cal, self._delay, evaluated=True
+                    start,
+                    last_valid_start,
+                    self.final_interval,
+                    self._delay,
+                    evaluated=True,
                 )
         return start
 
@@ -1049,27 +1198,10 @@ class GetterIntraday(_Getter):
         """
         # pylint: disable=too-complex,too-many-branches,too-many-statements
 
-        # NOTE Nov 23. Removed restriction that raised error if period evaluated
-        # from duration and a `start` that's earlier than left limit. Had effect
-        # of removing provision of hard_strict from self.get_start and
-        # self._get_start_end.
-        # The restriction is incoherent with prices being returned if strict
-        # is False and define 'end' within the available range and a duration which
-        # results in start being evaluated prior the left limit.
-        # Removed on basis of the incoherence and, having reviewed code, tests
-        # and documentation, finding no justification for the restriction.
-        # Nov 2025 - remove this note and commented out code if in the meantime
-        # have been given no reason to consider its reinstatement.
-        # NOTE if do reinstate then need to revert all changes, including those to
-        # tests, made in the corresponding commit.
-        # raise error if start is before limit and end to be evaluated from start.
-        # hard_strict = self.has_duration and self.pp["start"] is not None
-
-        # if end is None will be assigned now although this will in turn be
-        # overwritten if start is not None and there's a duration.
-        (start, end), end_accuracy = self._get_start_end()
-
         if self._has_duration:
+            # if end is None will be assigned now although this will in turn be
+            # overwritten if start is not None
+            (start, end), end_accuracy = self._get_start_end(limit=False)
             intraday_duration = self.pp["hours"] * 60 + self.pp["minutes"]
             if intraday_duration:
                 if intraday_duration < self.final_interval.as_minutes:
@@ -1118,19 +1250,18 @@ class GetterIntraday(_Getter):
                     end = start + duration
 
             start = self.get_start(start)
-            end, end_accuracy = self.get_end(end)
+            end, end_accuracy = self.get_end(end, limit=True)
 
-            end_now, end_now_accuracy = self.end_now
-            if end >= end_now:
-                end, end_accuracy = end_now, end_now_accuracy
-
-        elif start is None:  # pylint: disable=confusing-consecutive-elif
-            start = self.get_start(self.limit)
+        else:
+            (start, end), end_accuracy = self._get_start_end(limit=True)
+            if start is None:  # pylint: disable=confusing-consecutive-elif
+                start = self.get_start(self.limit)
 
         assert start is not None
         assert end is not None
         assert end_accuracy is not None
 
+        # check for IntervalPeriodError
         end_ = self.get_end_as_trading_minute_or_nearest_close(end, end_accuracy)
         if self.anchor is mptypes.Anchor.OPEN:
             if start >= end_:
@@ -1155,7 +1286,13 @@ class GetterIntraday(_Getter):
             start = self._prior_start(start)
             if start is None:
                 if self.strict:
-                    raise errors.StartTooEarlyError(self, self.limit, add_a_row=True)
+                    raise errors.StartOutOfBoundsError(self.cal, None, False)
+                else:
+                    # Do not set to limit, i.e. don't include 'some of a ds_interval'
+                    start = start_pre_add_a_row
+            if start < self.limit:
+                if self.strict:
+                    raise errors.StartTooEarlyError(start, self.limit, add_a_row=True)
                 else:
                     # Do not set to limit, i.e. don't include 'some of a ds_interval'
                     start = start_pre_add_a_row

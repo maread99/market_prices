@@ -103,11 +103,12 @@ class TestGetterDaily:
         limit=None,
         ds_interval=None,
         strict=True,
+        limit_right=None,
     ) -> m.GetterDaily:
         """Get m.GetterDaily with default arguments unless otherwise passed."""
         if limit is None:
             limit = calendar.first_session
-        return m.GetterDaily(calendar, limit, pp, ds_interval, strict)
+        return m.GetterDaily(calendar, limit, pp, ds_interval, strict, limit_right)
 
     def test_constructor_properties(self, xlon_calendar, pp_default):
         """Test properties that expose constructor parameters."""
@@ -176,7 +177,7 @@ class TestGetterDaily:
             session = answers.date_to_session(non_session, "previous")
             assert drg.end_now == (session, session)
 
-    def test_get_start(self, calendars_with_answers, pp_default, one_day):
+    def test_get_start(self, calendars_with_answers, pp_default):
         """Test `get_start`.
 
         Notes
@@ -199,15 +200,16 @@ class TestGetterDaily:
             assert drg.get_start(non_session) == expected
 
         limit = ans.sessions[len(ans.sessions) // 2]
-        too_early = limit - one_day
+        too_early = ans.get_prev_session(limit)
         drg = self.get_drg(cal, pp_default, limit=limit, strict=False)
         assert drg.get_start(too_early) == limit
 
         drg = self.get_drg(cal, pp_default, limit=limit, strict=True)
         match = re.escape(
-            f"Prices unavailable as start ({helpers.fts(too_early)}) is earlier"
-            " than the earliest session for which price data is available. The earliest"
-            f" session for which prices are available is {helpers.fts(limit)}."
+            f"Prices unavailable as start evaluates to {helpers.fts(too_early)} which"
+            " is earlier than the earliest session for which price data is available."
+            " The earliest session for which prices are available is"
+            f" {helpers.fts(limit)}."
         )
         with pytest.raises(errors.StartTooEarlyError, match=match):
             _ = drg.get_start(too_early)
@@ -225,7 +227,7 @@ class TestGetterDaily:
         `market_prices.parsing.parse_start_end`.
         """
         cal, ans = calendars_with_answers
-        drg = self.get_drg(cal, pp_default)
+        drg = self.get_drg(cal, pp_default, limit_right=cal.last_session)
 
         for session in ans.sessions_sample:
             assert drg.get_end(session) == (session, session)
@@ -235,11 +237,11 @@ class TestGetterDaily:
             assert drg.get_end(non_session) == (expected, expected)
 
         limit = ans.sessions[len(ans.sessions) // 2]
-        too_early = limit - one_day
+        too_early = cal.date_to_session(limit - one_day, "previous")
         match = re.escape(
-            f"Prices unavailable as end ({helpers.fts(too_early)}) is earlier"
-            " than the earliest session for which price data is available. The earliest"
-            f" session for which prices are available is {helpers.fts(limit)}."
+            f"Prices unavailable as end evaluates to {helpers.fts(too_early)} which is"
+            " earlier than the earliest session for which price data is available. The"
+            f" earliest session for which prices are available is {helpers.fts(limit)}."
         )
         for strict in [True, False]:
             drg = self.get_drg(cal, pp_default, limit=limit, strict=strict)
@@ -433,7 +435,7 @@ class TestGetterDaily:
     @hyp.settings(
         deadline=500, suppress_health_check=[hyp.HealthCheck.differing_executors]
     )
-    @pytest.mark.parametrize("limit_idx", [0, 50])
+    @pytest.mark.parametrize("limit_idx", [0, 1500])
     def test_daterange_add_a_row_errors(
         self,
         calendars_with_answers_extended,
@@ -456,21 +458,27 @@ class TestGetterDaily:
         explore possible calendar-related errors at the bound) and to the
         right of the left calendar bound.
         """
-
-        def match_msg(limit: pd.Timestamp) -> str:
-            return re.escape(
-                "Prices unavailable as start would resolve to an earlier session than"
-                " the earliest session for which price data is available. The earliest"
-                f" session for which prices are available is {helpers.fts(limit)}.\nNB"
-                " range start falls earlier than first available session due only to"
-                " 'add_a_row=True'."
-            )
-
         cal, ans = calendars_with_answers_extended
         pp = get_pp_default()
-
         limit = ans.sessions[limit_idx]
         today = get_today(cal)
+
+        def match_msg(start, limit: pd.Timestamp) -> str:
+            return re.escape(
+                f"Prices unavailable as start evaluates to {helpers.fts(start)} which"
+                " is earlier than the earliest session for which price data is"
+                " available. The earliest session for which prices are available is"
+                f" {helpers.fts(limit)}."
+                "\nNB The evaluated start falls earlier than first available session"
+                " due only to 'add_a_row=True'."
+            )
+
+        match_cal_msg = re.escape(
+            "Prices unavailable as start would resolve to an earlier date than the"
+            f" earliest date of calendar '{cal.name}'. The calendar's earliest date is"
+            f" {helpers.fts(cal.first_session)} (this bound should coincide"
+            " with the earliest date for which price data is available)."
+        )
 
         if ds_interval.is_monthly:
             start_exp, _ = self.do_bounds_from_end(
@@ -504,8 +512,29 @@ class TestGetterDaily:
         assert drg.daterange[0][0] == drg_not_add_a_row.daterange[0][0]
 
         drg = self.get_drg(cal, pp, limit, ds_interval, strict=True)  # left of limit
-        with pytest.raises(errors.StartTooEarlyError, match=match_msg(limit)):
-            _ = drg.daterange
+        if ds_interval.is_monthly:
+            months = ds_interval.freq_value
+            # evaluated_start = prior_session - ds_interval
+            evaluated_start_ = prior_session - pd.DateOffset(months=months)
+            evaluated_start = pd.tseries.frequencies.to_offset("1MS").rollforward(
+                evaluated_start_
+            )
+        else:
+            evaluated_start = prior_session - cal.day * ds_interval.freq_value
+
+        if limit_idx == 1500:
+            with pytest.raises(
+                errors.StartTooEarlyError, match=match_msg(evaluated_start, limit)
+            ):
+                _ = drg.daterange
+        if evaluated_start < cal.first_session:
+            with pytest.raises(errors.StartOutOfBoundsError, match=match_cal_msg):
+                _ = drg.daterange
+        else:
+            with pytest.raises(
+                errors.StartTooEarlyError, match=match_msg(evaluated_start, limit)
+            ):
+                _ = drg.daterange
 
     @hyp.given(data=sthyp.data(), ds_interval=stmp.intervals_non_intraday())
     @hyp.settings(
@@ -549,7 +578,7 @@ class TestGetterDaily:
         pp = get_pp_default()
 
         end = pp["end"] = data.draw(stmp.calendar_session(cal.name, (None, None)))
-        drg = self.get_drg(cal, pp, None, ds_interval, True)
+        drg = self.get_drg(cal, pp, None, ds_interval, True, None)
         start = cal.first_session
 
         if ds_interval.is_daily:
@@ -567,7 +596,10 @@ class TestGetterDaily:
             start_exp, end_exp = self.do_bounds_from_end(
                 ds_interval, end, False, None, start
             )
-            if end_exp < start_exp:
+            if end_exp < cal.first_session:
+                with pytest.raises(errors.EndTooEarlyError):
+                    _ = drg.daterange
+            elif end_exp < start_exp:
                 with pytest.raises(errors.PricesUnavailableDOIntervalPeriodError):
                     _ = drg.daterange
             else:
@@ -619,11 +651,11 @@ class TestGetterDaily:
 
         pp["start"] = today
         pp["days"] = 1
-        drg = self.get_drg(cal, pp)
+        drg = self.get_drg(cal, pp, strict=False)
         assert drg.daterange == ((today, today), today)  # on today
         for days in range(2, 5):  # right of today
             pp["days"] = days
-            drg = self.get_drg(cal, pp)
+            drg = self.get_drg(cal, pp, strict=False)
             assert drg.daterange == ((today, today), today)
 
     @hyp.given(
@@ -693,7 +725,7 @@ class TestGetterDaily:
             "Prices unavailable as start would resolve to an earlier date than"
             f" the earliest date of calendar '{cal.name}'. The calendar's earliest"
             f" date is {helpers.fts(ans.first_session)} (this bound should coincide"
-            " with the earliest date for which daily price data is available)."
+            " with the earliest date for which price data is available)."
         )
         for _ in range(3):  # left of bound
             days += 1
@@ -720,9 +752,10 @@ class TestGetterDaily:
             assert drg.daterange == ((limit, end), end)
             start = ans.sessions[50 - i]
             error_msg = re.escape(
-                f"Prices unavailable as start ({helpers.fts(start)}) is earlier than"
-                " the earliest session for which price data is available. The earliest"
-                f" session for which prices are available is {helpers.fts(limit)}."
+                f"Prices unavailable as start evaluates to {helpers.fts(start)} which"
+                " is earlier than the earliest session for which price data is"
+                " available. The earliest session for which prices are available is"
+                f" {helpers.fts(limit)}."
             )
             drg = self.get_drg(cal, pp, limit=limit, strict=True)
             with pytest.raises(errors.StartTooEarlyError, match=error_msg):
@@ -757,7 +790,7 @@ class TestGetterDaily:
         assert drg.daterange == ((start, end), end)
 
         # Verify for nature of interval
-        drg = self.get_drg(cal, pp, None, ds_interval, True)
+        drg = self.get_drg(cal, pp, None, ds_interval, False)
         if isinstance(ds_interval, DOInterval):
             today = get_today(cal)
             start, end = self.do_bounds_from_start(ds_interval, start, duration, today)
@@ -781,11 +814,11 @@ class TestGetterDaily:
 
         pp["start"] = start = today - pd.Timedelta(6, "D")
         pp["weeks"] = 1
-        drg = self.get_drg(cal, pp)
+        drg = self.get_drg(cal, pp, strict=False)
         assert drg.daterange == ((start, today), today)  # on today
 
         pp["weeks"] = 2  # right of today
-        drg = self.get_drg(cal, pp)
+        drg = self.get_drg(cal, pp, strict=False)
         assert drg.daterange == ((start, today), today)
 
     @hyp.given(
@@ -867,14 +900,27 @@ class TestGetterDaily:
         assert drg.daterange == ((limit, end), end)
 
         start = end - pd.Timedelta(6, "D")
+        if start not in ans.sessions:
+            idx = ans.sessions.searchsorted(start)
+            start = ans.sessions[idx]
         error_msg = re.escape(
-            f"Prices unavailable as start ({helpers.fts(start)}) is earlier than"
-            " the earliest session for which price data is available. The earliest"
-            f" session for which prices are available is {helpers.fts(limit)}."
+            f"Prices unavailable as start evaluates to {helpers.fts(start)} which is"
+            " earlier than the earliest session for which price data is available. The"
+            f" earliest session for which prices are available is {helpers.fts(limit)}."
+        )
+        error_msg_cal = re.escape(
+            "Prices unavailable as start would resolve to an earlier date than the"
+            f" earliest date of calendar '{cal.name}'. The calendar's earliest date is"
+            f" {helpers.fts(cal.first_session)} (this bound should coincide with the"
+            " earliest date for which price data is available)."
         )
         drg = self.get_drg(cal, pp, limit=limit, strict=True)
-        with pytest.raises(errors.StartTooEarlyError, match=error_msg):
-            _ = drg.daterange
+        if limit_idx > 0:
+            with pytest.raises(errors.StartTooEarlyError, match=error_msg):
+                _ = drg.daterange
+        else:
+            with pytest.raises(errors.StartOutOfBoundsError, match=error_msg_cal):
+                _ = drg.daterange
 
 
 class TestGetterIntraday:
@@ -905,7 +951,10 @@ class TestGetterIntraday:
         ds_interval: TDInterval | None = None,
         anchor: Anchor = Anchor.OPEN,
         end_alignment: Alignment = Alignment.BI,
-        strict=True,
+        strict: bool = True,
+        limit_right: pd.Timestamp
+        | abc.Callable[[intervals.BI], pd.Timestamp | None]
+        | None = None,
     ) -> m.GetterIntraday:
         """Get m.GetterIntraday with default arguments unless otherwise passed."""
         if composite_calendar is None:
@@ -923,6 +972,7 @@ class TestGetterIntraday:
             anchor,
             end_alignment,
             strict,
+            limit_right,
         )
 
     def test_constructor_properties(self, xlon_calendar, pp_default, one_min):
@@ -1263,16 +1313,20 @@ class TestGetterIntraday:
         # --out-of-limit--
         session = ans.sessions[len(ans.sessions) // 2]
         limit = ans.opens[session]
-        too_early = limit - one_min
+        too_early = ans.closes[ans.get_prev_session(session)] - one_min
         drg = self.get_drg(cal, pp, limit=limit, strict=False)
+        drg.interval = intervals.BI_ONE_MIN
         assert drg.get_start(too_early) == limit
 
         match = re.escape(
-            f"Prices unavailable as start ({helpers.fts(too_early)}) is earlier"
-            " than the earliest minute for which price data is available. The earliest"
-            f" minute for which prices are available is {helpers.fts(limit)}."
+            f"Prices unavailable as start evaluates to {helpers.fts(too_early)} which is"
+            " earlier than the earliest minute for which price data is available. The"
+            f" earliest minute for which prices are available is {helpers.fts(limit)}."
         )
         drg = self.get_drg(cal, pp, limit=limit, strict=True)
+        drg.interval = intervals.BI_ONE_MIN
+        # assert returns on true limit (earliest value that will evaluate to limit)
+        assert drg.get_start(too_early + one_min) == limit
         with pytest.raises(errors.StartTooEarlyError, match=match):
             _ = drg.get_start(too_early)
 
@@ -1351,14 +1405,14 @@ class TestGetterIntraday:
         pp["start"] = start + one_min
         drg = self.get_drg(cal, pp, **drg_kwargs)
         match = re.escape(
-            f"`start` must evaluate to an earlier time than the latest time for which"
+            f"`start` cannot evaluate to a later time than the latest time for which"
             f" prices are available.\nThe latest time for which prices are available"
-            f" for calendar '{cal.name}' is {helpers.fts(latest_valid_start)}, although"
+            f" for interval '{interval}' is {helpers.fts(latest_valid_start)}, although"
             f" `start` evaluates to"
         )
         with pytest.raises(errors.StartTooLateError, match=match) as err:
             _ = drg.daterange
-            assert err.value.start >= end_now
+            assert err.value.ts >= end_now
 
     @pytest.mark.parametrize("end_alignment", [Alignment.BI, Alignment.FINAL])
     def test_get_end(
@@ -1592,6 +1646,7 @@ class TestGetterIntraday:
                 ignore_breaks=ignore_breaks,
                 ds_interval=ds_interval,
                 end_alignment=end_alignment,
+                strict=False,
             )
             drg.interval = bi
 
@@ -1657,14 +1712,14 @@ class TestGetterIntraday:
                     else:
                         right = end_of_unaligned_indice(session)
                         expected = (right, close)
-                    assert drg.get_end(minute) == expected
+                    assert drg.get_end(minute, limit=False) == expected
 
             # -- break minutes --
             # -1 for same reasons as for get_start (see comment there)
             for minutes, session in ans.break_minutes[:-1]:
                 close = ans.break_starts[session]
                 for minute in minutes:
-                    assert drg.get_end(minute) == (close, close)
+                    assert drg.get_end(minute, limit=False) == (close, close)
 
     def test_get_end_high_interval(
         self, calendars_with_answers_extended, pp_default, one_min
@@ -1711,6 +1766,7 @@ class TestGetterIntraday:
                 ds_interval=ds_interval,
                 end_alignment=Alignment.FINAL,
             )
+            drg.interval = intervals.BI_ONE_MIN
 
             # test bounds that are expected to resolve to right of interval
 
@@ -1760,7 +1816,9 @@ class TestGetterIntraday:
             ignore_breaks=ignore_breaks,
             ds_interval=ds_interval,
             end_alignment=Alignment.FINAL,
+            limit_right=cal.last_minute,
         )
+        drg.interval = intervals.BI_ONE_MIN
 
         # earliest minute that will resolve to right of interval is session close.
         prev_close = cal.session_close(cal.previous_session(session))
@@ -1784,7 +1842,10 @@ class TestGetterIntraday:
             ignore_breaks=ignore_breaks,
             ds_interval=ds_interval,
             end_alignment=Alignment.FINAL,
+            limit_right=cal.last_minute,
         )
+        drg.interval = intervals.BI_ONE_MIN
+
         # assert ds_interval would take last interval into xlon session
         assert open_ + ds_interval > open_xlon
 
@@ -1802,14 +1863,15 @@ class TestGetterIntraday:
         """Test `get_end` with ool input."""
         cal, ans = calendars_with_answers_extended
         limit = ans.opens.iloc[len(ans.sessions) // 2]
-        too_early = limit - one_min
+        too_early = cal.minute_to_trading_minute(limit - one_min, "previous")
         match = re.escape(
-            f"Prices unavailable as end ({helpers.fts(too_early)}) is earlier"
-            " than the earliest minute for which price data is available. The earliest"
-            f" minute for which prices are available is {helpers.fts(limit)}."
+            f"Prices unavailable as end evaluates to {helpers.fts(too_early)} which is"
+            " earlier than the earliest minute for which price data is available. The"
+            f" earliest minute for which prices are available is {helpers.fts(limit)}."
         )
         for strict in [True, False]:
             drg = self.get_drg(cal, pp_default, limit=limit, strict=strict)
+            drg.interval = intervals.BI_ONE_MIN
             with pytest.raises(errors.EndTooEarlyError, match=match):
                 _ = drg.get_end(too_early)
 
@@ -2199,15 +2261,25 @@ class TestGetterIntraday:
 
         drg = self.get_drg(cal, pp, strict=True, **drg_kwargs)
 
-        match = re.escape(
-            "Prices unavailable as start would resolve to an earlier minute than"
-            " the earliest minute for which price data is available. The earliest"
-            f" minute for which prices are available is {helpers.fts(limit)}.\nNB"
-            " range start falls earlier than first available minute due only to"
-            " 'add_a_row=True'."
+        match = (
+            f"Prices unavailable as start evaluates to \d\d\d\d-\d\d-\d\d \d\d:\d\d UTC"
+            " which is earlier than the earliest minute for which price data is"
+            f" available. The earliest minute for which prices are available is"
+            f" {helpers.fts(limit)}.\nNB The evaluated start falls earlier than first"
+            " available minute due only to 'add_a_row=True'."
         )
-        with pytest.raises(errors.StartTooEarlyError, match=match):
-            _ = drg.daterange
+        match_cal = re.escape(
+            "Prices unavailable as start would resolve to an earlier minute than the"
+            f" earliest minute of calendar '{cal.name}'. The calendar's earliest minute"
+            f" is {helpers.fts(cal.first_minute)} (this bound should coincide with the"
+            " earliest minute or date for which price data is available)."
+        )
+        if session_limit_idx:
+            with pytest.raises(errors.StartTooEarlyError, match=match):
+                _ = drg.daterange
+        else:
+            with pytest.raises(errors.StartOutOfBoundsError, match=match_cal):
+                _ = drg.daterange
 
     @hyp.given(
         data=sthyp.data(),
@@ -2331,7 +2403,7 @@ class TestGetterIntraday:
         assert drg.daterange == ((start, end), end_accuracy)  # on now, or near abouts
 
         pp["weeks"] = 2  # right of now
-        drg = self.get_drg(cal, pp, interval=bi)
+        drg = self.get_drg(cal, pp, interval=bi, strict=False)
         assert drg.daterange == ((start, now), now_accuracy)
 
     @hyp.given(data=sthyp.data())
@@ -2394,14 +2466,28 @@ class TestGetterIntraday:
         assert drg.daterange == ((limit, end), end)
 
         start = end - pd.DateOffset(weeks=2)
-        error_msg = re.escape(
-            f"Prices unavailable as start ({helpers.fts(start)}) is earlier than"
-            " the earliest minute for which price data is available. The earliest"
-            f" minute for which prices are available is {helpers.fts(limit)}."
-        )
+        idx = ans.first_minutes.searchsorted(start)
+        start_evaluted = ans.first_minutes.iloc[idx]
         drg = self.get_drg(cal, pp, interval=bi, limit=limit, strict=True)
-        with pytest.raises(errors.StartTooEarlyError, match=error_msg):
-            _ = drg.daterange
+        if not limit_idx:
+            error_msg = re.escape(
+                "Prices unavailable as start would resolve to an earlier minute than"
+                f" the earliest minute of calendar '{cal.name}'. The calendar's"
+                f" earliest minute is {helpers.fts(cal.first_minute)} (this bound"
+                " should coincide with the earliest minute or date for which price data"
+                " is available)."
+            )
+            with pytest.raises(errors.StartOutOfBoundsError, match=error_msg):
+                _ = drg.daterange
+        else:
+            error_msg = re.escape(
+                f"Prices unavailable as start evaluates to {helpers.fts(start_evaluted)}"
+                " which is earlier than the earliest minute for which price data is"
+                " available. The earliest minute for which prices are available is"
+                f" {helpers.fts(limit)}."
+            )
+            with pytest.raises(errors.StartTooEarlyError, match=error_msg):
+                _ = drg.daterange
 
     @hyp.given(data=sthyp.data())
     @hyp.settings(
@@ -2414,7 +2500,7 @@ class TestGetterIntraday:
         cal, ans = calendars_with_answers_extended
         pp = data.draw(stmp.pp_days_start_minute(cal.name))
 
-        drg = self.get_drg(cal, pp, interval=TDInterval.T1)
+        drg = self.get_drg(cal, pp, interval=TDInterval.T1, strict=False)
 
         start = pp["start"]
         start_session = cal.minute_to_session(start)
@@ -2470,12 +2556,12 @@ class TestGetterIntraday:
 
         pp["start"] = start = ans.opens[today]
         pp["days"] = 1
-        drg = self.get_drg(cal, pp, interval=bi)
+        drg = self.get_drg(cal, pp, interval=bi, strict=False)
         expected = ((start, now), now_accuracy)
         assert drg.daterange == expected  # on now
         for days in range(2, 5):  # right of now
             pp["days"] = days
-            drg = self.get_drg(cal, pp, interval=bi)
+            drg = self.get_drg(cal, pp, interval=bi, strict=False)
             assert drg.daterange == expected
 
     @hyp.given(data=sthyp.data())
@@ -2560,7 +2646,7 @@ class TestGetterIntraday:
                 "Prices unavailable as start would resolve to an earlier minute than"
                 f" the earliest minute of calendar '{cal.name}'. The calendar's earliest"
                 f" minute is {helpers.fts(ans.first_minute)} (this bound should coincide"
-                " with the earliest minute for which daily price data is available)."
+                " with the earliest minute or date for which price data is available)."
             )
             with pytest.raises(errors.StartOutOfBoundsError, match=match):
                 _ = drg.daterange
@@ -2586,9 +2672,10 @@ class TestGetterIntraday:
             start = end - (cal.day * pp["days"])
             start = start if cal.is_trading_minute(start) else cal.previous_close(start)
             error_msg = re.escape(
-                f"Prices unavailable as start ({helpers.fts(start)}) is earlier than"
-                " the earliest minute for which price data is available. The earliest"
-                f" minute for which prices are available is {helpers.fts(limit)}."
+                f"Prices unavailable as start evaluates to {helpers.fts(start)} which"
+                " is earlier than the earliest minute for which price data is"
+                f" available. The earliest minute for which prices are available is"
+                f" {helpers.fts(limit)}."
             )
             with pytest.raises(errors.StartTooEarlyError, match=error_msg):
                 _ = drg.daterange
@@ -2715,12 +2802,12 @@ class TestGetterIntraday:
 
         # on now
         pp["minutes"] = minutes
-        drg = self.get_drg(cal, pp, interval=bi)
+        drg = self.get_drg(cal, pp, interval=bi, strict=False)
         assert drg.daterange == ((start, end), end_accuracy)
 
         # right of now
         pp["hours"] = 72 if not ans.sessions_without_gap_after.empty else 12
-        drg = self.get_drg(cal, pp, interval=bi)
+        drg = self.get_drg(cal, pp, interval=bi, strict=False)
         assert drg.daterange == ((start, end), end_accuracy)
 
     @pytest.mark.parametrize("limit_idx", [0, 100])
@@ -2755,7 +2842,7 @@ class TestGetterIntraday:
                     "Prices unavailable as start would resolve to an earlier minute"
                     f" than the earliest minute of calendar '{cal.name}'. The"
                     f" calendar's earliest minute is {helpers.fts(limit)} (this bound"
-                    " should coincide with the earliest minute for which daily price"
+                    " should coincide with the earliest minute or date for which price"
                     " data is available)."
                 )
                 with pytest.raises(errors.StartOutOfBoundsError, match=match):
