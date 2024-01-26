@@ -801,103 +801,87 @@ class TestSubClasses:
 
 @pytest.fixture(scope="class")
 def daily_limit() -> abc.Iterator[pd.Timestamp]:
-    """Limit of daily price availability for PricesMock."""
+    """Limit of daily price availability for a mock prices class."""
     yield pd.Timestamp("1990-08-27")
 
 
 @pytest.fixture(scope="class")
 def cal_start(daily_limit) -> abc.Iterator[pd.Timestamp]:
-    """Start date for any calendar to be passed to PricesMock."""
+    """Start date for any calendar to be passed to a mock prices class."""
     yield daily_limit - pd.Timedelta(14, "D")
 
 
 @pytest.fixture(scope="class")
 def xnys(cal_start, side) -> abc.Iterator[xcals.ExchangeCalendar]:
-    """XNYS calendar that can be passed to PricesMock.
+    """XNYS calendar that can be passed to a mock prices class.
 
-    Due to xcals caching, if calendar passed to PricesMock as "XNYS" then
-    calendar 'created' by PricesMock will be same object as returned by
-    this fixture.
+    Due to xcals caching, if calendar passed to a mock prices class as
+    "XNYS" then calendar 'created' by that class will be same object as
+    returned by this fixture.
     """
     yield xcals.get_calendar("XNYS", start=cal_start, side=side)
 
 
 @pytest.fixture(scope="class")
 def xlon(cal_start, side) -> abc.Iterator[xcals.ExchangeCalendar]:
-    """XLON calendar that can be passed to PricesMock.
+    """XLON calendar that can be passed to a mock prices class.
 
-    Due to xcals caching, if calendar passed to PricesMock as "XLON" then
-    calendar 'created' by PricesMock will be same object as returned by
-    this fixture.
+    Due to xcals caching, if calendar passed to a mock prices class as
+    "XLON" then calendar 'created' by that class will be same object as
+    returned by this fixture.
     """
     yield xcals.get_calendar("XLON", start=cal_start, side=side)
 
 
 @pytest.fixture(scope="class")
 def xasx(cal_start, side) -> abc.Iterator[xcals.ExchangeCalendar]:
-    """XASX calendar that can be passed to PricesMock.
+    """XASX calendar that can be passed to a mock prices class.
 
-    Due to xcals caching, if calendar passed to PricesMock as "XASX" then
-    calendar 'created' by PricesMock will be same object as returned by
-    this fixture.
+    Due to xcals caching, if calendar passed to a mock prices class as
+    "XASX" then calendar 'created' by that class will be same object as
+    returned by this fixture.
     """
     yield xcals.get_calendar("XASX", start=cal_start, side=side)
 
 
 @pytest.fixture(scope="class")
 def xhkg(cal_start, side) -> abc.Iterator[xcals.ExchangeCalendar]:
-    """XHKG calendar that can be passed to PricesMock.
+    """XHKG calendar that can be passed to a mock prices class.
 
-    Due to xcals caching, if calendar passed to PricesMock as "XHKG" then
-    calendar 'created' by PricesMock will be same object as returned by
-    this fixture.
+    Due to xcals caching, if calendar passed to a mock prices class as
+    "XHKG" then calendar 'created' by that class will be same object as
+    returned by this fixture.
     """
     yield xcals.get_calendar("XHKG", start=cal_start, side=side)
 
 
 @pytest.fixture(scope="class")
 def x247(cal_start, side) -> abc.Iterator[xcals.ExchangeCalendar]:
-    """24/7 calendar that can be passed to PricesMock.
+    """24/7 calendar that can be passed to a mock prices class.
 
-    Due to xcals caching, if calendar passed to PricesMock as "24/7" then
-    calendar 'created' by PricesMock will be same object as returned by
-    this fixture.
+    Due to xcals caching, if calendar passed to a mock prices class as
+    "24/7" then calendar 'created' by that class will be same object as
+    returned by this fixture.
     """
+
     yield xcals.get_calendar("24/7", start=cal_start, side=side)
 
 
 @pytest.fixture(scope="class")
 def cmes(cal_start, side) -> abc.Iterator[xcals.ExchangeCalendar]:
-    """CMES calendar that can be passed to PricesMock.
+    """CMES calendar that can be passed to a mock prices class.
 
-    Due to xcals caching, if calendar passed to PricesMock as "CMES" then
-    calendar 'created' by PricesMock will be same object as returned by
-    this fixture.
+    Due to xcals caching, if calendar passed to a mock prices class as
+    "CMES" then calendar 'created' by that class will be same object as
+    returned by this fixture.
     """
     yield xcals.get_calendar("CMES", start=cal_start, side=side)
 
 
 @pytest.fixture
-def PricesMock(daily_limit) -> abc.Iterator[type[m.PricesBase]]:
-    class PricesMock_(m.PricesBase):
-        """Mock PricesBase class."""
-
-        BaseInterval = intervals._BaseInterval(
-            "BaseInterval",
-            dict(
-                T1=intervals.TIMEDELTA_ARGS["T1"],
-                T5=intervals.TIMEDELTA_ARGS["T5"],
-                H1=intervals.TIMEDELTA_ARGS["H1"],
-                D1=intervals.TIMEDELTA_ARGS["D1"],
-            ),
-        )
-
-        BASE_LIMITS = {
-            BaseInterval.T1: pd.Timedelta(30, "D"),
-            BaseInterval.T5: pd.Timedelta(60, "D"),
-            BaseInterval.H1: pd.Timedelta(365, "D"),
-            BaseInterval.D1: daily_limit,
-        }
+def PricesMockEmpty() -> abc.Iterator[type[m.PricesBase]]:
+    class PricesMockEmpty_(m.PricesBase):
+        """Mock PricesBase class with no base intervals defined."""
 
         def _request_data(self, *_, **__):
             raise NotImplementedError("mock class, method not implemented.")
@@ -905,7 +889,140 @@ def PricesMock(daily_limit) -> abc.Iterator[type[m.PricesBase]]:
         def prices_for_symbols(self, *_, **__):
             raise NotImplementedError("mock class, method not implemented.")
 
+    yield PricesMockEmpty_
+
+
+@pytest.fixture
+def prices_mock_base_intervals(
+    daily_limit,
+) -> abc.Iterator[
+    tuple[
+        type[intervals._BaseInterval],
+        dict[intervals._BaseInterval, pd.Timedelta | pd.Timestamp],
+    ]
+]:
+    """BaseInterval and corresponding BASE_LIMITS for a PricesMock class.
+
+    Defines intraday and daily intervals.
+    """
+    BaseInterval = intervals._BaseInterval(
+        "BaseInterval",
+        dict(
+            T1=intervals.TIMEDELTA_ARGS["T1"],
+            T5=intervals.TIMEDELTA_ARGS["T5"],
+            H1=intervals.TIMEDELTA_ARGS["H1"],
+            D1=intervals.TIMEDELTA_ARGS["D1"],
+        ),
+    )
+
+    LIMITS = {
+        BaseInterval.T1: pd.Timedelta(30, "D"),
+        BaseInterval.T5: pd.Timedelta(60, "D"),
+        BaseInterval.H1: pd.Timedelta(365, "D"),
+        BaseInterval.D1: daily_limit,
+    }
+    yield BaseInterval, LIMITS
+
+
+@pytest.fixture
+def prices_mock_base_intervals_intraday_only() -> (
+    abc.Iterator[
+        tuple[
+            type[intervals._BaseInterval],
+            dict[intervals._BaseInterval, pd.Timedelta],
+        ]
+    ]
+):
+    """BaseInterval and corresponding BASE_LIMITS for a PricesMock class.
+
+    Defines only intraday intervals.
+    """
+    BaseInterval = intervals._BaseInterval(
+        "BaseInterval",
+        dict(
+            T1=intervals.TIMEDELTA_ARGS["T1"],
+            T5=intervals.TIMEDELTA_ARGS["T5"],
+            H1=intervals.TIMEDELTA_ARGS["H1"],
+        ),
+    )
+
+    LIMITS = {
+        BaseInterval.T1: pd.Timedelta(30, "D"),
+        BaseInterval.T5: pd.Timedelta(60, "D"),
+        BaseInterval.H1: pd.Timedelta(365, "D"),
+    }
+    yield BaseInterval, LIMITS
+
+
+@pytest.fixture
+def prices_mock_base_intervals_daily_only(
+    daily_limit,
+) -> abc.Iterator[
+    tuple[
+        type[intervals._BaseInterval],
+        dict[intervals._BaseInterval, pd.Timestamp],
+    ]
+]:
+    """BaseInterval and corresponding BASE_LIMITS for a PricesMock class.
+
+    Defines only daily interval.
+    """
+    BaseInterval = intervals._BaseInterval(
+        "BaseInterval", dict(D1=intervals.TIMEDELTA_ARGS["D1"])
+    )
+    LIMITS = {BaseInterval.D1: daily_limit}
+    yield BaseInterval, LIMITS
+
+
+@pytest.fixture
+def PricesMock(
+    PricesMockEmpty, prices_mock_base_intervals
+) -> abc.Iterator[type[m.PricesBase]]:
+    """Mock PricesBase class with both intraday and daily intervals."""
+    base_interval, limits = prices_mock_base_intervals
+
+    class PricesMock_(PricesMockEmpty):
+        """Mock PricesBase class with both intraday and daily intervals."""
+
+        # pylint: disable=too-few-public-methods
+        BaseInterval = base_interval
+        BASE_LIMITS = limits
+
     yield PricesMock_
+
+
+@pytest.fixture
+def PricesMockIntradayOnly(
+    PricesMockEmpty, prices_mock_base_intervals_intraday_only
+) -> abc.Iterator[type[m.PricesBase]]:
+    """Mock PricesBase class with only intraday intervals."""
+    base_interval, limits = prices_mock_base_intervals_intraday_only
+
+    class PricesMockIntradayOnly_(PricesMockEmpty):  # type: ignore[valid-type, misc]
+        """Mock PricesBase class with only intraday intervals."""
+
+        # pylint: disable=too-few-public-methods
+        BaseInterval = base_interval
+        BASE_LIMITS = limits
+
+    yield PricesMockIntradayOnly_
+
+
+@pytest.fixture
+def PricesMockDailyOnly(
+    PricesMockEmpty, prices_mock_base_intervals_daily_only
+) -> abc.Iterator[type[m.PricesBase]]:
+    """Mock PricesBase with only a daily interval."""
+    base_interval, limits = prices_mock_base_intervals_daily_only
+
+    class PricesMockDailyOnly_(PricesMockEmpty):  # type: ignore[valid-type, misc]
+        """Mock PricesBase with only a daily interval."""
+
+        # pylint: disable=too-few-public-methods
+        BaseInterval = base_interval
+        BASE_LIMITS = limits
+
+    yield PricesMockDailyOnly_
 
 
 @pytest.fixture
@@ -917,6 +1034,12 @@ def PricesMockBreakendPmOrigin(PricesMock) -> abc.Iterator[type[m.PricesBase]]:
         PM_SUBSESSION_ORIGIN = "break_end"
 
     yield PricesMockBreakendPmOrigin_
+
+
+@pytest.fixture(scope="class")
+def symbols() -> abc.Iterator[list[str]]:
+    """Fictitious symbols for a mock prices class."""
+    yield ["ONE.1", "TWO.22", "THREE3.3"]
 
 
 def get_pp(
@@ -1019,12 +1142,43 @@ def GetterMock(xnys, xlon) -> abc.Iterator[type[daterange.GetterIntraday]]:
     yield GetterMock_
 
 
+class TestPricesBaseConstructor:
+    """Verify expected errors raised during PricesBase instantiation."""
+
+    def test_base_intervals_and_limits_defined(
+        self, PricesMockEmpty, prices_mock_base_intervals, symbols, xnys
+    ):
+        """Verify raises error if base intervals or limits not defined."""
+        match = re.escape(
+            "Base intervals are not defined. Subclasses of `PricesBase` must define"
+            " base intervals via the BaseInterval class attribute or the"
+            " `_define_base_intervals` method."
+        )
+        with pytest.raises(AttributeError, match=match):
+            PricesMockEmpty(symbols, xnys)
+
+        base_intervals, limits = prices_mock_base_intervals
+
+        class PricesMockNoLimits(PricesMockEmpty):
+            BaseInterval = base_intervals
+
+        match = re.escape(
+            "Base limits are not defined. Subclasses of `PricesBase` must define"
+            " base limits via the BASE_LIMITS class attribute or the"
+            " `_update_base_limits` method."
+        )
+        with pytest.raises(AttributeError, match=match):
+            PricesMockNoLimits(symbols, xnys)
+
+        # verify minimum requirements satisfied to instantiate subclass
+        class PricesMockAsRequired(PricesMockNoLimits):
+            BASE_LIMITS = limits
+
+        assert PricesMockAsRequired(symbols, xnys)
+
+
 class TestPricesBaseSetup:
     """Verify properties of PricesBase post-instantiation."""
-
-    @pytest.fixture(scope="class")
-    def symbols(self) -> abc.Iterator[list[str]]:
-        yield ["ONE.1", "TWO.22", "THREE3.3"]
 
     @pytest.fixture
     def PricesMockDailyNoLimit(
@@ -1041,34 +1195,6 @@ class TestPricesBaseSetup:
             BASE_LIMITS = BASE_LIMITS_DAILY_NO_LIMIT
 
         yield PricesMockDailyNoLimit_
-
-    @pytest.fixture
-    def PricesMockNoDaily(
-        self, PricesMock: type[m.PricesBase]
-    ) -> abc.Iterator[type[m.PricesBase]]:
-        """As PricesMock with no daily interval."""
-
-        class PricesMockNoDaily_(PricesMock):  # type: ignore[valid-type, misc]
-            """Mock PricesBase class with no daily bi."""
-
-            # pylint: disable=too-few-public-methods
-
-            BaseInterval = intervals._BaseInterval(
-                "BaseInterval",
-                dict(
-                    T1=intervals.TIMEDELTA_ARGS["T1"],
-                    T5=intervals.TIMEDELTA_ARGS["T5"],
-                    H1=intervals.TIMEDELTA_ARGS["H1"],
-                ),
-            )
-
-            BASE_LIMITS = {
-                BaseInterval.T1: pd.Timedelta(30, "D"),
-                BaseInterval.T5: pd.Timedelta(60, "D"),
-                BaseInterval.H1: pd.Timedelta(365, "D"),
-            }
-
-        yield PricesMockNoDaily_
 
     def test_single_calendar(self, PricesMock, symbols, xnys, xasx, zero_td):
         """Verify post-setup properties when passing single calendar.
@@ -1506,7 +1632,7 @@ class TestPricesBaseSetup:
     def test_limits(
         self,
         PricesMock,
-        PricesMockNoDaily,
+        PricesMockIntradayOnly,
         PricesMockDailyNoLimit,
         daily_limit,
         symbols,
@@ -1587,11 +1713,11 @@ class TestPricesBaseSetup:
         assert len(prices.limits_sessions) == len(PricesMockDailyNoLimit.BaseInterval)
         assert prices.limits_sessions[bi_daily] == (limit_daily, today)
 
-        prices = PricesMockNoDaily(symbols, calendars)
+        prices = PricesMockIntradayOnly(symbols, calendars)
         # only test for differences to PricesMock
 
-        assert set(prices.limits.keys()) == set(PricesMockNoDaily.BaseInterval)
-        assert len(prices.limits) == len(PricesMockNoDaily.BaseInterval)
+        assert set(prices.limits.keys()) == set(PricesMockIntradayOnly.BaseInterval)
+        assert len(prices.limits) == len(PricesMockIntradayOnly.BaseInterval)
         assert pd.Timedelta(1, "T") in prices.bis
         assert not pd.Timedelta(1, "D") in prices.bis
 
@@ -1601,12 +1727,12 @@ class TestPricesBaseSetup:
             assert prices.limit_intraday(cal) == expected_limit_intraday
         assert prices.limit_intraday() == expected_latest_intraday_limit
         assert prices.limit_intraday(None) == expected_latest_intraday_limit
-        assert len(prices.limits_sessions) == len(PricesMockNoDaily.BaseInterval)
+        assert len(prices.limits_sessions) == len(PricesMockIntradayOnly.BaseInterval)
 
     def test_earliest(
         self,
         PricesMock,
-        PricesMockNoDaily,
+        PricesMockIntradayOnly,
         PricesMockDailyNoLimit,
         daily_limit,
         symbols,
@@ -1660,7 +1786,7 @@ class TestPricesBaseSetup:
         minute = max(cal.first_minute for cal in calendars)
         assert prices.earliest_requestable_minute == minute
 
-        prices = PricesMockNoDaily(symbols, calendars)
+        prices = PricesMockIntradayOnly(symbols, calendars)
         expected = pd.Timestamp("2021-12-17")  # based on 5T data, delta 60 days
         # all calendars opwn
         for cal in calendars:
@@ -2047,6 +2173,24 @@ class TestPricesBaseSetup:
         )
         with pytest.raises(errors.NoGetPricesParams, match=match):
             _ = prices.gpp
+
+    def test_method_unavailable_no_daily_data(
+        self, PricesMockIntradayOnly, symbols, xnys
+    ):
+        """Verify methods requiring daily data raise.
+
+        Verifies methods requiring daily data raise error when daily
+        interval is not included to base intervals.
+        """
+        prices = PricesMockIntradayOnly(symbols, xnys)
+        for name in ("session_prices", "close_at"):
+            method = getattr(prices, name)
+            match = re.escape(
+                f"`{name}` is not available as this method requires daily data although"
+                " a daily base interval is not available to this prices class."
+            )
+            with pytest.raises(errors.MethodUnavailableNoDailyInterval, match=match):
+                method("2000-01-06")
 
 
 def test__minute_to_session(PricesMock, cal_start, side, one_min, monkeypatch):
@@ -3110,7 +3254,7 @@ def test_get_prices_params_cls(PricesMock, xnys, xhkg):
         assert drg._delay == gpp.delay
         assert drg._cc is prices.cc
         if no_limit:
-            assert drg._limit == prices._earliest_requestable_calendar_minute(drg.cal)
+            assert drg._limit == prices.cc.first_minute
         else:
             for bi in gpp.prices.bis_intraday:
                 assert drg._limit(bi) == gpp.intraday_limit(bi)
