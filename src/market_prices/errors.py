@@ -323,6 +323,28 @@ class DatetimeTooLateError(PricesUnavailableError):
         self._msg = _datetime_ool_msg(ts, limit, "right", param_name)
 
 
+class PricesDailyIntervalError(PricesUnavailableError):
+    """Raises if request daily price table when daily not a base interval."""
+
+    _msg = (
+        "Daily and monthly prices unavailable as prices class does not have a"
+        " daily base interval defined."
+    )
+
+    def __init__(self, msg: str | None = None):
+        if msg is not None:
+            self._msg = msg
+
+
+class PricesIntradayIntervalError(PricesUnavailableError):
+    """Raises if request intraday price table although no intraday base intervals."""
+
+    _msg = (
+        "Intraday prices unavailable as prices class does not have any intraday"
+        " base intervals defined."
+    )
+
+
 class PricesIntradayUnavailableError(PricesUnavailableError):
     """Prices unavailable to evaluate at an intraday interval."""
 
@@ -706,6 +728,20 @@ class CalendarTooShortError(CalendarError):
         )
 
 
+class MethodUnavailableNoDailyInterval(PricesUnavailableError):
+    """Called method requires daily data.
+
+    Raised by a method that requires daily data although daily interval is
+    not available for the prices subclass.
+    """
+
+    def __init__(self, name: str):
+        self._msg = (
+            f"`{name}` is not available as this method requires daily data although"
+            " a daily base interval is not available to this prices class."
+        )
+
+
 class PriceAtUnavailableError(PricesUnavailableError):
     """Prices unavailable to serve a `price_at` request."""
 
@@ -716,6 +752,17 @@ class PriceAtUnavailableError(PricesUnavailableError):
             " continuously overlap (it is not possible to evaluate prices"
             f" at any specific minute during a period covering the {num_sessions}"
             f" composite sessions that immediately preceed '{minute}')."
+        )
+
+
+class PriceAtUnavailableDailyIntervalError(PricesUnavailableError):
+    """To serve `price_at` daily prices required but not available."""
+
+    def __init__(self, minute: pd.Timestamp):
+        self._msg = (
+            "`price_at` cannot return prices as intraday data is not available"
+            f" at '{minute}' (for at least one symbol) and daily data is not"
+            " available to the prices class."
         )
 
 

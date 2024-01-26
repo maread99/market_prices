@@ -668,6 +668,7 @@ class PricesBase(metaclass=abc.ABCMeta):
                     value: int
                         Delay corresponding with symbol.
         """
+        self.verify_base_intervals()
         self._symbols = helpers.symbols_to_list(symbols)
         self._base_intervals: _BaseIntervalMeta
         self._base_limits: dict[BI, pd.Timedelta | pd.Timestamp | None]
@@ -783,7 +784,18 @@ class PricesBase(metaclass=abc.ABCMeta):
         try:
             return self._base_limits
         except AttributeError:
+            pass
+
+        try:
             return self.BASE_LIMITS
+        except AttributeError:
+            pass
+
+        raise AttributeError(
+            "Base limits are not defined. Subclasses of `PricesBase` must define"
+            " base limits via the BASE_LIMITS class attribute or the"
+            " `_update_base_limits` method."
+        )
 
     @property
     def base_limits_right(self) -> dict[BI, pd.Timestamp | None]:
@@ -792,16 +804,17 @@ class PricesBase(metaclass=abc.ABCMeta):
 
     # Parsing methods
 
-    def _verify_lead_symbol(self, symbol: str | None):
-        """Verify public input to a `lead_symbol` parameter."""
-        if symbol is None:
+    def verify_base_intervals(self):
+        """Verify that base intervals have been defined."""
+        if getattr(self, "_base_intervals", None) is not None:
             return
-        elif symbol not in self.symbols:
-            msg = (
-                f"`lead_symbol` received as '{symbol}' although must be None"
-                f" or in {self.symbols}."
-            )
-            raise ValueError(msg)
+        elif getattr(self, "BaseInterval", None) is not None:
+            return
+        raise AttributeError(
+            "Base intervals are not defined. Subclasses of `PricesBase` must define"
+            " base intervals via the BaseInterval class attribute or the"
+            " `_define_base_intervals` method."
+        )
 
     def _verify_base_limits(self):
         """Verify type of base limits values."""
@@ -916,6 +929,17 @@ class PricesBase(metaclass=abc.ABCMeta):
             self._base_limits_right = prev_limits
             raise
 
+    def _verify_lead_symbol(self, symbol: str | None):
+        """Verify public input to a `lead_symbol` parameter."""
+        if symbol is None:
+            return
+        elif symbol not in self.symbols:
+            msg = (
+                f"`lead_symbol` received as '{symbol}' although must be None"
+                f" or in {self.symbols}."
+            )
+            raise ValueError(msg)
+
     # Calendars
     def _set_calendars(self, calendars: mptypes.Calendars):
         """Set and verify calendars."""
@@ -942,15 +966,16 @@ class PricesBase(metaclass=abc.ABCMeta):
             if cal.last_minute < required_bound:
                 raise errors.CalendarExpiredError(cal, cal.last_minute, required_bound)
 
-            # raise error if calendar does not cover period over which intraday
+            # raise error if calendar does not cover period over which any intraday
             # prices are available. Could lose this restriction although would add
             # complexity. Cleaner to restrict the calendars here.
-            intraday_ll = self.base_limits[self.bis_intraday[-1]]
-            if isinstance(intraday_ll, pd.Timedelta):
-                intraday_ll = helpers.now() - intraday_ll
-            if cal.first_minute > intraday_ll:
-                assert isinstance(intraday_ll, pd.Timestamp)
-                raise errors.CalendarTooShortError(cal, intraday_ll)
+            if self.bis_intraday:
+                intraday_ll = self.base_limits[self.bis_intraday[-1]]
+                if isinstance(intraday_ll, pd.Timedelta):
+                    intraday_ll = helpers.now() - intraday_ll
+                if cal.first_minute > intraday_ll:
+                    assert isinstance(intraday_ll, pd.Timestamp)
+                    raise errors.CalendarTooShortError(cal, intraday_ll)
 
             assert isinstance(ll, pd.Timestamp) or ll is None
             if ll is not None and cal.first_session > ll:
@@ -1426,10 +1451,14 @@ class PricesBase(metaclass=abc.ABCMeta):
     @property
     def _minute_for_last_requestable_session(self) -> pd.Timestamp:
         """Return minute that can be used to get last requestable session."""
-        minute_ = pd.Timestamp(
-            self.limit_right_daily + helpers.ONE_DAY - helpers.ONE_MIN, tz=helpers.UTC
-        )
-        return min(helpers.now(), minute_)
+        if self.bi_daily is not None:
+            minute = pd.Timestamp(
+                self.limit_right_daily + helpers.ONE_DAY - helpers.ONE_MIN,
+                tz=helpers.UTC,
+            )
+        else:
+            minute = self.limit_right_intraday
+        return min(helpers.now(), minute)
 
     @property
     def last_requestable_session_all(self) -> pd.Timestamp:
@@ -1585,6 +1614,10 @@ class PricesBase(metaclass=abc.ABCMeta):
         return self._indices_aligned[drg.interval][slice(start, end)].all()
 
     def _set_indexes_status(self):
+        if not self.bis_intraday:
+            self._indexes_status_ = {}
+            return
+
         # pylint: disable=too-many-locals
         highest_intraday_bi = self.bis_intraday[-1]
         start, end = self.limits_sessions[highest_intraday_bi]
@@ -2560,6 +2593,9 @@ class PricesBase(metaclass=abc.ABCMeta):
         force_ds_daily
             True: override gpp downsample interval with 'one day'.
         """
+        if self.bi_daily is None:
+            raise errors.PricesDailyIntervalError()
+
         drg = self.gpp.drg_daily_raw if force_ds_daily else self.gpp.drg_daily
         daterange = drg.daterange[0]
         df_bi = self._get_bi_table(intervals.BI_ONE_DAY, daterange)
@@ -2914,6 +2950,11 @@ class PricesBase(metaclass=abc.ABCMeta):
                 if self.prices.live_prices
                 else self.prices.latest_requestable_minute
             )
+            mr_session = (
+                None
+                if self.prices.live_prices
+                else self.prices.last_requestable_session_any
+            )
             pp_["start"], pp_["end"] = parsing.parse_start_end(
                 pp_["start"],
                 pp_["end"],
@@ -2922,7 +2963,7 @@ class PricesBase(metaclass=abc.ABCMeta):
                 self.delay,
                 self.strict,
                 gregorian,
-                self.daily_limit_right,
+                mr_session,
                 mr_minute,
             )
             return pp_
@@ -3027,8 +3068,7 @@ class PricesBase(metaclass=abc.ABCMeta):
             """
             kwargs = self._drg_intraday_params
             # pylint: disable=protected-access
-            limit = self.prices._earliest_requestable_calendar_minute(self.calendar)
-            kwargs["limit"] = limit
+            kwargs["limit"] = self.prices.cc.first_minute
             kwargs["limit_right"] = None
             kwargs["strict"] = False
             drg = self._drg(**kwargs)
@@ -3968,10 +4008,12 @@ class PricesBase(metaclass=abc.ABCMeta):
             # get a daily table
             if self.gpp.intraday_duration:
                 raise errors.PricesUnvailableDurationConflict()
-            # TODO WHAT HAPPENS IF DAILY DATA NOT AVAILABLE? INCLUDE TEST.
             table = self._get_table_daily()
+        elif not self.bis_intraday:
+            if interval_ is not None:
+                raise errors.PricesIntradayIntervalError()
+            table = self._get_table_daily(force_ds_daily=True)
         else:
-            # TODO WHAT HAPPENS IF INTRADAY DATA NOT AVAILABLE? INCLUDE TEST.
             # get an intraday table
             # if composite, only interested in a non-composite table if end
             # represented with max posible accuracy and can serve full period.
@@ -3998,7 +4040,7 @@ class PricesBase(metaclass=abc.ABCMeta):
                                 bis_acc = self._bis_end_most_accurate
                             except errors.PricesIntradayUnavailableError:
                                 # intraday prices not available at end of period,
-                                # try t6 fulfill from daily (which now represents
+                                # try to fulfill from daily (which now represents
                                 # greatest end accuracy)
                                 pass
                             else:
@@ -4017,15 +4059,16 @@ class PricesBase(metaclass=abc.ABCMeta):
                 try:
                     table = self._get_table_composite()
                 except errors.PricesIntradayUnavailableError:
-                    # intraday prices unavailable, can only serve request from daily
+                    # intraday prices unavailable, serve request from daily if available
                     pass
+                except errors.PricesDailyIntervalError:
+                    raise orig_err from None
 
             if table is None:
                 # interval inferred, intraday table unavailable at a single
                 # interval to fulfil request, composite either not wanted or
                 # not available, so try to serve from daily.
                 try:
-                    # TODO WHAT IF DAILY DATA NOT AVAILABLE?
                     table = self._get_table_daily(force_ds_daily=True)
                 except errors.PricesUnavailableError:
                     raise orig_err from None
@@ -4145,8 +4188,10 @@ class PricesBase(metaclass=abc.ABCMeta):
         # pylint: disable=missing-param-doc, differing-type-doc
         if TYPE_CHECKING:
             assert session is None or isinstance(session, pd.Timestamp)
-        # TODO THIS daily assert REQUIRES BETTER HANDLING...
-        assert self.bi_daily is not None
+
+        if self.bi_daily is None:
+            raise errors.MethodUnavailableNoDailyInterval("session_prices")
+
         mr_session = self.last_requestable_session_any
         if session is None:
             table = self._get_bi_table(self.bi_daily, (mr_session, mr_session))
@@ -4216,8 +4261,10 @@ class PricesBase(metaclass=abc.ABCMeta):
         # pylint: disable=missing-param-doc, differing-type-doc
         if TYPE_CHECKING:
             assert date is None or isinstance(date, pd.Timestamp)
-        # TODO THIS daily assert REQUIRES BETTER HANDLING...
-        assert self.bi_daily is not None
+
+        if self.bi_daily is None:
+            raise errors.MethodUnavailableNoDailyInterval("close_at")
+
         mr_session = self.last_requestable_session_any
         if date is None:
             date = mr_session
@@ -4359,8 +4406,17 @@ class PricesBase(metaclass=abc.ABCMeta):
 
         `minute` will be assumed as 'now' if receieved as None.
         """
-        # TODO change exception when provide dedicated no daily interval error
-        assert self.bi_daily is not None
+        if self.bi_daily is None:
+            # In theory this should never raise as if there's no daily interval
+            # then the limits will be based on available intraday data and an
+            # error should already have raised based on `minute` lying outside of
+            # these limits. However, there's at least a small gap to the right of
+            # `limit_intraday` which can't be served from intraday data and hence
+            # the code path ends up here.
+            # NB there's no test for this raising given that it's very edge and
+            # considered to be have negligible consequences - raises this error
+            # instead of a 'TooEarly' or 'TooLate' one.
+            raise errors.PriceAtUnavailableDailyIntervalError(minute)
 
         now = helpers.now()
         if minute is not None and minute < now - self.min_delay:
@@ -4408,7 +4464,8 @@ class PricesBase(metaclass=abc.ABCMeta):
 
         if not indice:
             # Considered unlikely that this would ever raise, but it could
-            # if the sessions of the underlying calendars continuously overlap
+            # if the sessions of the underlying calendars continuously overlap.
+            # NB There's no test for this raising.
             raise errors.PriceAtUnavailableError(minute, itr_limit)
 
         not_represented = set(self.calendars_unique)
@@ -4424,7 +4481,8 @@ class PricesBase(metaclass=abc.ABCMeta):
             if j == 5:
                 # Considered even more unlikely that would raise here, but
                 # not impossible if the sessions of the underlying calendars
-                # start to continuously overlap as work backwards
+                # start to continuously overlap as work backwards.
+                # NB There's no test for this raising.
                 raise errors.PriceAtUnavailableError(minute, itr_limit + j)
 
         table = self._get_bi_table(self.bi_daily, (sessions[-1], sessions[0]))
@@ -4557,8 +4615,8 @@ class PricesBase(metaclass=abc.ABCMeta):
 
             if minute < self.limit_intraday():
                 return self._price_at_from_daily(minute, tz)
-            # serve from daily now and any timestamp within delay
-            if minute is None or minute > helpers.now() - self.min_delay:
+            # serve from daily any timestamp within delay, if daily available
+            if self.bi_daily is not None and minute > helpers.now() - self.min_delay:
                 return self._price_at_from_daily(minute, tz)
 
         # get bis for which indices are not misaligned

@@ -150,8 +150,9 @@ class PricesBaseTst(m.PricesBase):
             # verify that prices_tables are for symbols
             assert set(prices_tables["T1"].pt.symbols) == set(symbols)
 
-        earliest = min(TST_SYMBOLS[symbol].earliest_date for symbol in symbols)
-        self._update_base_limits({self.BaseInterval.D1: earliest})
+        if getattr(self.BaseInterval, "D1", False):
+            earliest = min(TST_SYMBOLS[symbol].earliest_date for symbol in symbols)
+            self._update_base_limits({self.BaseInterval.D1: earliest})
         calendars = [TST_SYMBOLS[symbol].calendar for symbol in symbols]
         delays = [TST_SYMBOLS[symbol].delay for symbol in symbols]
         super().__init__(symbols, calendars, lead_symbol, delays)
@@ -178,6 +179,42 @@ class PricesBaseTst(m.PricesBase):
 
     def prices_for_symbols(self, symbols: str):
         raise NotImplementedError()
+
+
+class PricesBaseIntradayTst(PricesBaseTst):
+    """PricesBase class for tests with only intraday base intervals.
+
+    As `PricesBaseTst` except has no daily interval.
+    """
+
+    BaseInterval = intervals._BaseInterval(
+        "BaseInterval",
+        dict(
+            T1=intervals.TIMEDELTA_ARGS["T1"],
+            T2=intervals.TIMEDELTA_ARGS["T2"],
+            T5=intervals.TIMEDELTA_ARGS["T5"],
+            H1=intervals.TIMEDELTA_ARGS["H1"],
+        ),
+    )
+
+    BASE_LIMITS = {
+        BaseInterval.T1: pd.Timedelta(30, "D"),
+        BaseInterval.T2: pd.Timedelta(43, "D"),
+        BaseInterval.T5: pd.Timedelta(60, "D"),
+        BaseInterval.H1: pd.Timedelta(730, "D"),
+    }
+
+
+class PricesBaseDailyTst(PricesBaseTst):
+    """PricesBase class for tests with only intraday base intervals.
+
+    As `PricesBaseTst` except only has daily interval.
+    """
+
+    BaseInterval = intervals._BaseInterval(
+        "BaseInterval", {"D1": intervals.TIMEDELTA_ARGS["D1"]}
+    )
+    BASE_LIMITS = {BaseInterval.D1: None}
 
 
 def mock_now(monkeypatch, now: pd.Timestamp):
@@ -221,6 +258,38 @@ def prices_us(monkeypatch, res_us_only: ResourcePBT) -> abc.Iterator[PricesBaseT
     prices_tables, now = res_us_only
     mock_now(monkeypatch, now)
     yield PricesBaseTst("MSFT", prices_tables, "MSFT")
+
+
+@pytest.fixture
+def prices_us_intraday(
+    monkeypatch, res_us_only: ResourcePBT
+) -> abc.Iterator[PricesBaseIntradayTst]:
+    """PricesBaseIntradayTst for single us equity.
+
+    symbols: "MSFT"
+    lead_symbol: "MSFT"
+
+    Price data provided by fixture `res_us_only`.
+    """
+    prices_tables, now = res_us_only
+    mock_now(monkeypatch, now)
+    yield PricesBaseIntradayTst("MSFT", prices_tables, "MSFT")
+
+
+@pytest.fixture
+def prices_us_daily(
+    monkeypatch, res_us_only: ResourcePBT
+) -> abc.Iterator[PricesBaseDailyTst]:
+    """PricesBaseDailyTst for single us equity.
+
+    symbols: "MSFT"
+    lead_symbol: "MSFT"
+
+    Price data provided by fixture `res_us_only`.
+    """
+    prices_tables, now = res_us_only
+    mock_now(monkeypatch, now)
+    yield PricesBaseDailyTst("MSFT", prices_tables, "MSFT")
 
 
 @pytest.fixture
@@ -4283,6 +4352,62 @@ class TestGet:
         )
         with pytest.raises(errors.PricesUnavailableInferredIntervalError, match=msg):
             prices.get(start=start, end=start_H1_oob)
+
+    def test_raises_daily_only_direct_errors(self, prices_us_daily):
+        """Test get() directly raises expected errors when no intraday interval.
+
+        Tests expected errors that are raised directly by get() when the
+        no intraday base interval is defined.
+        """
+        prices = prices_us_daily
+        limit = prices.limit_daily
+        match = re.escape(
+            "Intraday prices unavailable as prices class does not have any"
+            " intraday base intervals defined."
+        )
+        with pytest.raises(errors.PricesIntradayIntervalError, match=match):
+            prices_us_daily.get("5T", limit, days=2)
+
+    def test_raises_intraday_only_direct_errors(self, prices_us, prices_us_intraday):
+        """Test get() directly raises expected errors when no daily interval.
+
+        Tests expected errors that are raised directly by get() when the
+        daily base interval is not defined.
+        """
+        prices = prices_us_intraday
+        xnys = prices.calendar_default
+        start_T5 = th.get_sessions_range_for_bi(prices, prices.bis.T5)[0]
+        match = re.escape(
+            "Daily and monthly prices unavailable as prices class does not"
+            " have a daily base interval defined."
+        )
+        with pytest.raises(errors.PricesDailyIntervalError, match=match):
+            prices.get("1D", start_T5, days=10)
+
+        start = th.get_sessions_range_for_bi(prices, prices.bis.H1)[0]
+
+        # test raises when cannot fulfill inferred intraday interval
+        with pytest.raises(errors.PricesIntradayUnavailableError):
+            prices.get(end=start, days=4, strict=True, priority="period")
+        # verify that if daily interval available then will advise of such
+        with pytest.raises(errors.PricesUnavailableInferredIntervalError):
+            prices_us.get(end=start, days=4, strict=True, priority="period")
+
+        # test raises when cannot fulfill inferred daily interval as no daily data
+        with pytest.raises(errors.PricesDailyIntervalError, match=match):
+            prices.get(end=start, days=10, strict=True, priority="period")
+        # verify that if daily interval available then will return
+        df = prices_us.get(end=start, days=10, strict=True, priority="period")
+        assert df.pt.interval == prices_us.bis.D1
+
+        # test raises when cannot create composite as no daily data
+        with pytest.raises(errors.PricesIntradayUnavailableError):
+            prices.get(end=start, days=4, composite=True)
+        # verify that if daily interval available then will return composite table
+        df = prices_us.get(end=start, days=4, composite=True)
+        assert df.index[0].left == df.index[0].right
+        assert xnys.is_session(df.index[0].left.tz_convert(None))
+        assert df.index[-1].length == prices.bis.H1
 
     # -------------- Tests related to post-processing options -------------
 

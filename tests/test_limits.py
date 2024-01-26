@@ -1319,11 +1319,19 @@ class TestOutsideLimits:
         # to left of intraday data and daily data
 
         # interval intraday and inferred as intraday
-        match = re.escape(
-            "Prices unavailable as end would resolve to an earlier minute than the earliest minute of calendar 'XNYS'. The calendar's earliest minute is 1986-01-02 14:30 UTC (this bound should coincide with the earliest minute or date for which price data is available)."
-        )
+        # match = re.escape(
+        #     "Prices unavailable as end would resolve to an earlier minute than the earliest minute of calendar 'XNYS'. The calendar's earliest minute is 1986-01-02 14:30 UTC (this bound should coincide with the earliest minute or date for which price data is available)."
+        # )
         for intrvl, priority, strict in itertools.product(intrvls, priorities, stricts):
-            with pytest.raises(errors.EndOutOfBoundsError, match=match):
+            if intrvl is None:
+                match = re.escape(
+                    "The end of the requested period is earlier than the earliest timestamp at which intraday data is available for any base interval.\nBase intervals for which timestamps of all calendars are synchronised:\n\t[<BaseInterval.T1: datetime.timedelta(seconds=60)>, <BaseInterval.T2: datetime.timedelta(seconds=120)>, <BaseInterval.T5: datetime.timedelta(seconds=300)>].\nThe period over which data is available at 0:05:00 is (Timestamp('2022-04-18 16:00:00+0000', tz='UTC'), Timestamp('2022-06-15 16:00:00+0000', tz='UTC')), although at this base interval the requested period evaluates to (Timestamp('1986-02-28 14:30:00+0000', tz='UTC'), Timestamp('1986-02-28 21:00:00+0000', tz='UTC')).\nPeriod evaluated from parameters: {'minutes': 0, 'hours': 0, 'days': 0, 'weeks': 0, 'months': 0, 'years': 0, 'start': Timestamp('1986-02-28 00:00:00'), 'end': Timestamp('1986-03-02 00:00:00'), 'add_a_row': False}."
+                )
+            else:
+                match = re.escape(
+                    "The end of the requested period is earlier than the earliest timestamp at which intraday data is available for any base interval.\nBase intervals that are a factor of 0:05:00 and for which timestamps of all calendars are synchronised:\n\t[<BaseInterval.T1: datetime.timedelta(seconds=60)>, <BaseInterval.T5: datetime.timedelta(seconds=300)>].\nThe period over which data is available at 0:05:00 is (Timestamp('2022-04-18 16:00:00+0000', tz='UTC'), Timestamp('2022-06-15 16:00:00+0000', tz='UTC')), although at this base interval the requested period evaluates to (Timestamp('1986-02-28 14:30:00+0000', tz='UTC'), Timestamp('1986-02-28 21:00:00+0000', tz='UTC')).\nPeriod evaluated from parameters: {'minutes': 0, 'hours': 0, 'days': 0, 'weeks': 0, 'months': 0, 'years': 0, 'start': Timestamp('1986-02-28 00:00:00'), 'end': Timestamp('1986-03-02 00:00:00'), 'add_a_row': False}."
+                )
+            with pytest.raises(errors.PricesIntradayUnavailableError, match=match):
                 prices.get(
                     intrvl,
                     start=loll_daily,
@@ -1331,11 +1339,11 @@ class TestOutsideLimits:
                     priority=priority,
                     strict=strict,
                 )
-            with pytest.raises(errors.EndOutOfBoundsError, match=match):
+            with pytest.raises(errors.PricesIntradayUnavailableError):
                 prices.get(
                     intrvl, start=loll_daily, days=2, priority=priority, strict=strict
                 )
-            with pytest.raises(errors.EndOutOfBoundsError, match=match):
+            with pytest.raises(errors.PricesIntradayUnavailableError):
                 prices.get(
                     intrvl, end=loll_daily, days=2, priority=priority, strict=strict
                 )
