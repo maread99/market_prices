@@ -893,17 +893,38 @@ def PricesMockEmpty() -> abc.Iterator[type[m.PricesBase]]:
 
 
 @pytest.fixture
+def right_limits() -> abc.Iterator[tuple[pd.Timestamp, pd.Timestamp]]:
+    """Use for an intrday / daily interval with a fixed right limit."""
+    yield pd.Timestamp("2021-10-20 18:22", tz=UTC), pd.Timestamp("2021-10-20")
+
+
+@pytest.fixture
+def left_limits() -> abc.Iterator[dict[intervals.TDInterval, pd.Timestamp]]:
+    """Use to define an intrday interval left limits as a timestamp."""
+    yield {
+        intervals.TDInterval.T1: pd.Timestamp("2021-09-20 18:23:00+0000", tz="UTC"),
+        intervals.TDInterval.T5: pd.Timestamp("2021-08-21 18:23:00+0000", tz="UTC"),
+        intervals.TDInterval.H1: pd.Timestamp("2020-10-20 18:23:00+0000", tz="UTC"),
+    }
+
+
+@pytest.fixture
 def prices_mock_base_intervals(
-    daily_limit,
+    daily_limit, right_limits, left_limits
 ) -> abc.Iterator[
     tuple[
         type[intervals._BaseInterval],
         dict[intervals._BaseInterval, pd.Timedelta | pd.Timestamp],
+        dict[intervals._BaseInterval, pd.Timestamp],
+        dict[intervals._BaseInterval, pd.Timestamp],
     ]
 ]:
-    """BaseInterval and corresponding BASE_LIMITS for a PricesMock class.
+    """BaseInterval and corresponding limits for a PricesMock class.
 
-    Defines intraday and daily intervals.
+    Defines left and right limits for both intraday and daily intervals.
+
+    Left intervals defined as pd.Timedelta and pd.Timestamp, use that
+    which required.
     """
     BaseInterval = intervals._BaseInterval(
         "BaseInterval",
@@ -921,21 +942,39 @@ def prices_mock_base_intervals(
         BaseInterval.H1: pd.Timedelta(365, "D"),
         BaseInterval.D1: daily_limit,
     }
-    yield BaseInterval, LIMITS
+
+    LIMITS_FIXED = {
+        BaseInterval.T1: left_limits[intervals.TDInterval.T1],
+        BaseInterval.T5: left_limits[intervals.TDInterval.T5],
+        BaseInterval.H1: left_limits[intervals.TDInterval.H1],
+        BaseInterval.D1: daily_limit,
+    }
+
+    RIGHT_LIMITS = {
+        BaseInterval.T1: right_limits[0],
+        BaseInterval.T5: right_limits[0],
+        BaseInterval.H1: right_limits[0],
+        BaseInterval.D1: right_limits[1],
+    }
+
+    yield BaseInterval, LIMITS, LIMITS_FIXED, RIGHT_LIMITS
 
 
 @pytest.fixture
-def prices_mock_base_intervals_intraday_only() -> (
-    abc.Iterator[
-        tuple[
-            type[intervals._BaseInterval],
-            dict[intervals._BaseInterval, pd.Timedelta],
-        ]
+def prices_mock_base_intervals_intraday_only(
+    left_limits, right_limits
+) -> abc.Iterator[
+    tuple[
+        type[intervals._BaseInterval],
+        dict[intervals._BaseInterval, pd.Timedelta],
+        dict[intervals._BaseInterval, pd.Timestamp],
+        dict[intervals._BaseInterval, pd.Timestamp],
     ]
-):
-    """BaseInterval and corresponding BASE_LIMITS for a PricesMock class.
+]:
+    """BaseInterval and corresponding left and right limits for a PricesMock class.
 
-    Defines only intraday intervals.
+    Defines only intraday intervals. Defines left limits as both timedelta
+    and fixed timestamp.
     """
     BaseInterval = intervals._BaseInterval(
         "BaseInterval",
@@ -951,19 +990,33 @@ def prices_mock_base_intervals_intraday_only() -> (
         BaseInterval.T5: pd.Timedelta(60, "D"),
         BaseInterval.H1: pd.Timedelta(365, "D"),
     }
-    yield BaseInterval, LIMITS
+
+    LIMITS_FIXED = {
+        BaseInterval.T1: left_limits[intervals.TDInterval.T1],
+        BaseInterval.T5: left_limits[intervals.TDInterval.T5],
+        BaseInterval.H1: left_limits[intervals.TDInterval.H1],
+    }
+
+    RIGHT_LIMITS = {
+        BaseInterval.T1: right_limits[0],
+        BaseInterval.T5: right_limits[0],
+        BaseInterval.H1: right_limits[0],
+    }
+
+    yield BaseInterval, LIMITS, LIMITS_FIXED, RIGHT_LIMITS
 
 
 @pytest.fixture
 def prices_mock_base_intervals_daily_only(
-    daily_limit,
+    daily_limit, right_limits
 ) -> abc.Iterator[
     tuple[
         type[intervals._BaseInterval],
         dict[intervals._BaseInterval, pd.Timestamp],
+        dict[intervals._BaseInterval, pd.Timestamp],
     ]
 ]:
-    """BaseInterval and corresponding BASE_LIMITS for a PricesMock class.
+    """BaseInterval and corresponding left and right limits for a PricesMock class.
 
     Defines only daily interval.
     """
@@ -971,7 +1024,12 @@ def prices_mock_base_intervals_daily_only(
         "BaseInterval", dict(D1=intervals.TIMEDELTA_ARGS["D1"])
     )
     LIMITS = {BaseInterval.D1: daily_limit}
-    yield BaseInterval, LIMITS
+
+    RIGHT_LIMITS = {
+        BaseInterval.D1: right_limits[1],
+    }
+
+    yield BaseInterval, LIMITS, RIGHT_LIMITS
 
 
 @pytest.fixture
@@ -979,7 +1037,7 @@ def PricesMock(
     PricesMockEmpty, prices_mock_base_intervals
 ) -> abc.Iterator[type[m.PricesBase]]:
     """Mock PricesBase class with both intraday and daily intervals."""
-    base_interval, limits = prices_mock_base_intervals
+    base_interval, limits, _, _ = prices_mock_base_intervals
 
     class PricesMock_(PricesMockEmpty):
         """Mock PricesBase class with both intraday and daily intervals."""
@@ -996,7 +1054,7 @@ def PricesMockIntradayOnly(
     PricesMockEmpty, prices_mock_base_intervals_intraday_only
 ) -> abc.Iterator[type[m.PricesBase]]:
     """Mock PricesBase class with only intraday intervals."""
-    base_interval, limits = prices_mock_base_intervals_intraday_only
+    base_interval, limits, _, _ = prices_mock_base_intervals_intraday_only
 
     class PricesMockIntradayOnly_(PricesMockEmpty):  # type: ignore[valid-type, misc]
         """Mock PricesBase class with only intraday intervals."""
@@ -1013,7 +1071,7 @@ def PricesMockDailyOnly(
     PricesMockEmpty, prices_mock_base_intervals_daily_only
 ) -> abc.Iterator[type[m.PricesBase]]:
     """Mock PricesBase with only a daily interval."""
-    base_interval, limits = prices_mock_base_intervals_daily_only
+    base_interval, limits, _ = prices_mock_base_intervals_daily_only
 
     class PricesMockDailyOnly_(PricesMockEmpty):  # type: ignore[valid-type, misc]
         """Mock PricesBase with only a daily interval."""
@@ -1034,6 +1092,60 @@ def PricesMockBreakendPmOrigin(PricesMock) -> abc.Iterator[type[m.PricesBase]]:
         PM_SUBSESSION_ORIGIN = "break_end"
 
     yield PricesMockBreakendPmOrigin_
+
+
+@pytest.fixture
+def PricesMockFixedLimits(
+    PricesMockEmpty, prices_mock_base_intervals
+) -> abc.Iterator[type[m.PricesBase]]:
+    """Mock PricesBase class with fixed limits and both intraday and daily intervals."""
+    base_interval, _, limits, limits_right = prices_mock_base_intervals
+
+    class PricesMockFixedLimits_(PricesMockEmpty):
+        """Mock PricesBase class with both intraday and daily intervals."""
+
+        # pylint: disable=too-few-public-methods
+        BaseInterval = base_interval
+        BASE_LIMITS = limits
+        BASE_LIMITS_RIGHT = limits_right
+
+    yield PricesMockFixedLimits_
+
+
+@pytest.fixture
+def PricesMockIntradayOnlyFixedLimits(
+    PricesMockEmpty, prices_mock_base_intervals_intraday_only
+) -> abc.Iterator[type[m.PricesBase]]:
+    """Mock PricesBase class with fixed limits and only intraday intervals."""
+    base_interval, _, limits, limits_right = prices_mock_base_intervals_intraday_only
+
+    class PricesMockIntradayOnlyFixedLimits_(PricesMockEmpty):  # type: ignore[valid-type, misc]
+        """Mock PricesBase class with only intraday intervals."""
+
+        # pylint: disable=too-few-public-methods
+        BaseInterval = base_interval
+        BASE_LIMITS = limits
+        BASE_LIMITS_RIGHT = limits_right
+
+    yield PricesMockIntradayOnlyFixedLimits_
+
+
+@pytest.fixture
+def PricesMockDailyOnlyFixedLimits(
+    PricesMockEmpty, prices_mock_base_intervals_daily_only
+) -> abc.Iterator[type[m.PricesBase]]:
+    """Mock PricesBase with fixed limits and only a daily interval."""
+    base_interval, limits, limits_right = prices_mock_base_intervals_daily_only
+
+    class PricesMockDailyOnlyFixedLimits_(PricesMockEmpty):  # type: ignore[valid-type, misc]
+        """Mock PricesBase with only a daily interval."""
+
+        # pylint: disable=too-few-public-methods
+        BaseInterval = base_interval
+        BASE_LIMITS = limits
+        BASE_LIMITS_RIGHT = limits_right
+
+    yield PricesMockDailyOnlyFixedLimits_
 
 
 @pytest.fixture(scope="class")
@@ -1083,6 +1195,7 @@ def GetterMock(xnys, xlon) -> abc.Iterator[type[daterange.GetterIntraday]]:
             delay: pd.Timedelta = pd.Timedelta(0),
             limit: pd.Timestamp | None = None,
             ignore_breaks: bool | dict[intervals.BI, bool] = False,
+            limit_right: pd.Timestamp | None = None,
         ):
             """Constructor.
 
@@ -1109,6 +1222,9 @@ def GetterMock(xnys, xlon) -> abc.Iterator[type[daterange.GetterIntraday]]:
             limit : default: xnys.first_minute
                 Passed to base class constructor `limit` parameter.
 
+            limit_right: default: None
+                Passed to base class constructor `limit_right` parameter.
+
             ignore_breaks : default: False for all intervals
                 Passed to base class constructor `ignore_breaks` parameter.
             """
@@ -1127,6 +1243,7 @@ def GetterMock(xnys, xlon) -> abc.Iterator[type[daterange.GetterIntraday]]:
                 limit=xnys.first_minute,
                 interval=interval,
                 ignore_breaks=ignore_breaks,
+                limit_right=limit_right,
             )
 
         @property
@@ -1157,7 +1274,7 @@ class TestPricesBaseConstructor:
         with pytest.raises(AttributeError, match=match):
             PricesMockEmpty(symbols, xnys)
 
-        base_intervals, limits = prices_mock_base_intervals
+        base_intervals, limits, _, _ = prices_mock_base_intervals
 
         class PricesMockNoLimits(PricesMockEmpty):
             BaseInterval = base_intervals
@@ -1642,7 +1759,10 @@ class TestPricesBaseSetup:
         one_min,
         monkeypatch,
     ):
-        """Test limits properties."""
+        """Test limits properties.
+
+        Test default right intrday / daily limit is 'now' / 'today'.
+        """
 
         def mock_now(tz=None) -> pd.Timestamp:
             return pd.Timestamp("2022-02-14 21:21:05", tz=tz)
@@ -1668,6 +1788,8 @@ class TestPricesBaseSetup:
 
         # verify `limit_daily`
         assert prices.limit_daily == daily_limit
+        # verify `limit_right_daily` defaults to today
+        assert prices.limit_right_daily == today
 
         # verify `limit_intraday`
         delta = PricesMock.BASE_LIMITS[PricesMock.BaseInterval.T5]  # unaligned at H1
@@ -1680,6 +1802,8 @@ class TestPricesBaseSetup:
         expected_latest_intraday_limit = max(limits_intraday)
         assert prices.limit_intraday() == expected_latest_intraday_limit
         assert prices.limit_intraday(None) == expected_latest_intraday_limit
+        # verify `limit_right_intraday`
+        assert prices.limit_right_intraday == now.floor("T")
 
         # verify 'limit_sessions'
         assert len(prices.limits_sessions) == len(PricesMock.BaseInterval)
@@ -1705,6 +1829,7 @@ class TestPricesBaseSetup:
         assert prices.limits[bi_daily] == (limit_daily, today)
 
         assert prices.limit_daily == limit_daily
+        assert prices.limit_right_daily == today
         for cal in calendars:
             expected_limit_intraday = cal.minute_to_trading_minute(limit_raw, "next")
             assert prices.limit_intraday(cal) == expected_limit_intraday
@@ -1722,12 +1847,159 @@ class TestPricesBaseSetup:
         assert not pd.Timedelta(1, "D") in prices.bis
 
         assert prices.limit_daily is None
+        assert prices.limit_right_daily is None  # verify None when no daily interval
         for cal in calendars:
             expected_limit_intraday = cal.minute_to_trading_minute(limit_raw, "next")
             assert prices.limit_intraday(cal) == expected_limit_intraday
         assert prices.limit_intraday() == expected_latest_intraday_limit
         assert prices.limit_intraday(None) == expected_latest_intraday_limit
         assert len(prices.limits_sessions) == len(PricesMockIntradayOnly.BaseInterval)
+
+    def test_limits_fixed(
+        self,
+        PricesMock,
+        PricesMockFixedLimits,
+        PricesMockIntradayOnlyFixedLimits,
+        PricesMockDailyOnlyFixedLimits,
+        daily_limit,
+        right_limits,
+        left_limits,
+        symbols,
+        xnys,
+        xlon,
+        xhkg,
+    ):
+        """Test limit properties when class has fixed left and right limits."""
+        right_limit, right_limit_daily = right_limits
+
+        calendars = [xnys, xhkg, xlon]
+        prices = PricesMockFixedLimits(symbols, calendars)
+
+        # verify `limits`.
+        assert set(prices.limits.keys()) == set(PricesMockFixedLimits.BaseInterval)
+        assert len(prices.limits) == len(PricesMockFixedLimits.BaseInterval)
+
+        for bi in PricesMockFixedLimits.BaseInterval:
+            if bi.is_daily:
+                assert prices.limits[bi] == (daily_limit, right_limit_daily)
+            else:
+                assert prices.limits[bi] == (left_limits[bi], right_limit)
+
+        # verify `limit_daily` and `limit_right_daily`
+        assert prices.limit_daily == daily_limit
+        assert prices.limit_right_daily == right_limit_daily
+
+        # verify `limit_intraday`
+        limit_raw = left_limits[intervals.TDInterval.T5]  # unaligned at H1
+        limits_intraday = []
+        for cal in calendars:
+            expected_limit_intraday = cal.minute_to_trading_minute(limit_raw, "next")
+            limits_intraday.append(expected_limit_intraday)
+            assert prices.limit_intraday(cal) == expected_limit_intraday
+
+        expected_latest_intraday_limit = max(limits_intraday)
+        assert prices.limit_intraday() == expected_latest_intraday_limit
+        assert prices.limit_intraday(None) == expected_latest_intraday_limit
+
+        # verify `limit_right_intraday`
+        assert prices.limit_right_intraday == right_limits[0]
+
+        # verify 'limit_sessions'
+        assert len(prices.limits_sessions) == len(PricesMock.BaseInterval)
+
+        # from manual inspection:
+        lefts = {
+            PricesMock.BaseInterval.T1: pd.Timestamp("2021-09-20"),
+            PricesMock.BaseInterval.T5: pd.Timestamp("2021-08-23"),  # 21 is a Saturday
+            PricesMock.BaseInterval.H1: pd.Timestamp("2020-10-20"),
+            PricesMock.BaseInterval.D1: daily_limit,
+        }
+
+        for bi in PricesMock.BaseInterval:
+            assert prices.limits_sessions[bi] == (lefts[bi], right_limits[1])
+
+        prices = PricesMockDailyOnlyFixedLimits(symbols, calendars)
+        assert set(prices.limits.keys()) == set(
+            PricesMockDailyOnlyFixedLimits.BaseInterval
+        )
+        assert len(prices.limits) == len(PricesMockDailyOnlyFixedLimits.BaseInterval)
+        bi_daily = PricesMockDailyOnlyFixedLimits.BaseInterval.D1
+        assert prices.limits[bi_daily] == (daily_limit, right_limits[1])
+
+        assert prices.limit_daily == daily_limit
+        assert prices.limit_right_daily == right_limits[1]
+
+        match = re.escape(
+            "`limit_intraday` is not implemented when no intraday interval is defined."
+        )
+        with pytest.raises(NotImplementedError, match=match):
+            prices.limit_intraday()
+
+        # verify `limit_right_intraday`
+        match = re.escape(
+            "`limit_right_intraday` is not implemented when no intraday interval"
+            " is defined."
+        )
+        with pytest.raises(NotImplementedError, match=match):
+            prices.limit_right_intraday()
+
+        assert len(prices.limits_sessions) == len(
+            PricesMockDailyOnlyFixedLimits.BaseInterval
+        )
+        assert prices.limits_sessions[bi_daily] == (daily_limit, right_limits[1])
+
+        prices = PricesMockIntradayOnlyFixedLimits(symbols, calendars)
+
+        assert set(prices.limits.keys()) == set(
+            PricesMockIntradayOnlyFixedLimits.BaseInterval
+        )
+        assert len(prices.limits) == len(PricesMockIntradayOnlyFixedLimits.BaseInterval)
+        assert pd.Timedelta(1, "T") in prices.bis
+        assert not pd.Timedelta(1, "D") in prices.bis
+
+        assert prices.limit_daily is None
+        assert prices.limit_right_daily is None  # verify None when no daily interval
+        for cal in calendars:
+            expected_limit_intraday = cal.minute_to_trading_minute(limit_raw, "next")
+            assert prices.limit_intraday(cal) == expected_limit_intraday
+        assert prices.limit_intraday() == expected_latest_intraday_limit
+        assert prices.limit_intraday(None) == expected_latest_intraday_limit
+        assert len(prices.limits_sessions) == len(
+            PricesMockIntradayOnlyFixedLimits.BaseInterval
+        )
+
+    def test_live_prices(
+        self,
+        PricesMock,
+        PricesMockDailyOnly,
+        PricesMockIntradayOnly,
+        PricesMockFixedLimits,
+        PricesMockIntradayOnlyFixedLimits,
+        PricesMockDailyOnlyFixedLimits,
+        symbols,
+        xnys,
+        xlon,
+        xhkg,
+    ):
+        """Test `live_prices` property."""
+
+        calendars = [xnys, xhkg, xlon]
+
+        # verifications against manual inspection of calendars' schedules.
+
+        prices = PricesMock(symbols, calendars)
+        assert prices.live_prices
+        prices = PricesMockDailyOnly(symbols, calendars)
+        assert prices.live_prices
+        prices = PricesMockIntradayOnly(symbols, calendars)
+        assert prices.live_prices
+
+        prices = PricesMockFixedLimits(symbols, calendars)
+        assert not prices.live_prices
+        prices = PricesMockDailyOnlyFixedLimits(symbols, calendars)
+        assert not prices.live_prices
+        prices = PricesMockIntradayOnlyFixedLimits(symbols, calendars)
+        assert not prices.live_prices
 
     def test_earliest(
         self,
@@ -1799,7 +2071,7 @@ class TestPricesBaseSetup:
         expected_minute = xnys.session_open("2021-12-17")
         assert prices.earliest_requestable_minute == expected_minute
 
-    def test_last_requestable(
+    def test_last_requestable_session_(
         self, PricesMock, symbols, xnys, xlon, xhkg, one_min, monkeypatch
     ):
         """Test `last_requestable_session*` methods.
@@ -1830,6 +2102,43 @@ class TestPricesBaseSetup:
 
         patch_now(xhkg_open)
         assert prices.last_requestable_session_any == prev_session
+
+    def test_latest_requestable_minute(
+        self,
+        PricesMock,
+        PricesMockFixedLimits,
+        PricesMockIntradayOnlyFixedLimits,
+        PricesMockDailyOnlyFixedLimits,
+        symbols,
+        right_limits,
+        xnys,
+        xlon,
+        xhkg,
+        monkeypatch,
+    ):
+        """Test `latest_requestable_minute` property."""
+
+        def mock_now(tz=None) -> pd.Timestamp:
+            return pd.Timestamp("2022-02-14 21:21:05", tz=tz)
+
+        monkeypatch.setattr("pandas.Timestamp.now", mock_now)
+        calendars = [xnys, xhkg, xlon]
+
+        now = mock_now(tz="UTC")
+
+        # verifications against manual inspection of calendars' schedules.
+
+        prices = PricesMock(symbols, calendars)
+        assert prices.latest_requestable_minute == now.floor("min")
+
+        prices = PricesMockDailyOnlyFixedLimits(symbols, calendars)
+        assert prices.latest_requestable_minute == xnys.closes[right_limits[1]]
+
+        prices = PricesMockIntradayOnlyFixedLimits(symbols, calendars)
+        assert prices.latest_requestable_minute == right_limits[0]
+
+        prices = PricesMockFixedLimits(symbols, calendars)
+        assert prices.latest_requestable_minute == xnys.closes[right_limits[1]]
 
     def test__indices_aligned(
         self,
@@ -2375,6 +2684,60 @@ def test__minute_to_latest_next_trading_minute(PricesMock, cal_start, side, one_
         assert f(minute) == xnys_next_session_open
 
 
+def test__minute_to_earliest_previous_trading_minute(
+    PricesMock, cal_start, side, one_min
+):
+    """Test `_minute_to_latest_next_trading_minute`."""
+    xnys = xcals.get_calendar("XNYS", start=cal_start, side=side)
+    xlon = xcals.get_calendar("XLON", start=cal_start, side=side)
+    xhkg = xcals.get_calendar("XHKG", start=cal_start, side=side)
+
+    symbols = "LON, NY, HK"
+    prices = PricesMock(symbols, [xlon, xnys, xhkg])
+    f = prices._minute_to_earliest_previous_trading_minute
+
+    # two consecutive sessions for all calendars (from knowledge of schedule)
+    session = pd.Timestamp("2021-12-22")
+    next_session = pd.Timestamp("2021-12-23")
+
+    # verify from xnys close to xnys open of next session
+    xhkg_next_session_last_min = xhkg.last_minutes[next_session]
+    for minute in (
+        xnys.closes[next_session],
+        xlon.closes[next_session],
+        xnys.opens[next_session],
+    ):
+        assert f(minute) == xhkg_next_session_last_min
+    assert f(xnys.opens[next_session] - one_min) != xhkg_next_session_last_min
+
+    # verify from xnys open to xlon open of next session
+    xnys_session_last_min = xnys.last_minutes[session]
+    for minute in (
+        xnys.opens[next_session] - one_min,
+        xlon.opens[next_session],
+    ):
+        assert f(minute) == xnys_session_last_min
+    assert f(xlon.opens[next_session] - one_min) != xhkg_next_session_last_min
+
+    # verify from xlon open to xhkg open of next session
+    xlon_session_last_min = xlon.last_minutes[session]
+    for minute in (
+        xlon.opens[next_session] - one_min,
+        xhkg.opens[next_session],
+    ):
+        assert f(minute) == xlon_session_last_min
+    assert f(xhkg.opens[next_session] - one_min) != xlon_session_last_min
+
+    # verify from xhkg open of next session to xnys open of session
+    xhkg_session_last_min = xhkg.last_minutes[session]
+    for minute in (
+        xhkg.opens[next_session] - one_min,
+        xnys.opens[session],
+    ):
+        assert f(minute) == xhkg_session_last_min
+    assert f(xnys.opens[session] - one_min) != xhkg_session_last_min
+
+
 def test__get_trading_index(
     PricesMock,
     PricesMockBreakendPmOrigin,
@@ -2433,7 +2796,7 @@ def test__get_trading_index(
 
 
 class TestBis:
-    """Tests methods and properties that return base interval/s."""
+    """Test methods and properties that return base interval/s."""
 
     _now = pd.Timestamp("2022", tz=UTC)
 
@@ -2527,11 +2890,52 @@ class TestBis:
 
                     @property
                     def request_all_available_data(self) -> bool:
-                        return True
+                        return False
 
                 self._gpp = GetPricesParamsMock(drg, drg, ds_interval, anchor)
 
         yield PricesMockBis_
+
+    @pytest.fixture
+    def right_limits(self) -> abc.Iterator[tuple[pd.Timestamp, pd.Timestamp]]:
+        """Use for an intrday / daily interval with a fixed right limit."""
+        yield pd.Timestamp("2021-12-20 18:22", tz=UTC), pd.Timestamp("2021-12-20")
+
+    @pytest.fixture
+    def PricesRightLimitMockBis(
+        self, PricesMockBis, right_limits
+    ) -> abc.Iterator[type[m.PricesBase]]:
+        right_limit_intraday, right_limit_daily = right_limits
+
+        class PricesRightLimitMockBis_(PricesMockBis):  # type: ignore[valid-type, misc]
+            """As PricesMockBis with right limit defined earlier than now."""
+
+            BaseInterval = intervals._BaseInterval(
+                "BaseInterval",
+                dict(
+                    T1=intervals.TIMEDELTA_ARGS["T1"],
+                    T2=intervals.TIMEDELTA_ARGS["T2"],
+                    T5=intervals.TIMEDELTA_ARGS["T5"],
+                    T10=intervals.TIMEDELTA_ARGS["T10"],
+                    T15=intervals.TIMEDELTA_ARGS["T15"],
+                    T30=intervals.TIMEDELTA_ARGS["T30"],
+                    H1=intervals.TIMEDELTA_ARGS["H1"],
+                    D1=intervals.TIMEDELTA_ARGS["D1"],
+                ),
+            )
+
+            BASE_LIMITS_RIGHT = {
+                BaseInterval.T1: right_limit_intraday,
+                BaseInterval.T2: right_limit_intraday,
+                BaseInterval.T5: right_limit_intraday,
+                BaseInterval.T10: right_limit_intraday,
+                BaseInterval.T15: right_limit_intraday,
+                BaseInterval.T30: right_limit_intraday,
+                BaseInterval.H1: right_limit_intraday,
+                BaseInterval.D1: right_limit_daily,
+            }
+
+        yield PricesRightLimitMockBis_
 
     @staticmethod
     def get_start_end_sessions(
@@ -2587,12 +2991,46 @@ class TestBis:
             Frame: set end of datearange to now.
 
         delta_end
-            start of daterange will be displaced by `delta_end` mintues.
+            end of daterange will be displaced by `delta_end` mintues.
         """
         start = prices.BASE_LIMITS[bi]
         assert isinstance(start, pd.Timestamp)
         end = (start if limit_end else self._now) + pd.Timedelta(delta_end, "T")
         start += pd.Timedelta(delta, "T")
+        return self.get_mock_drg(GetterMock, prices.cc, start, end)
+
+    def get_mock_drg_limit_right_available(
+        self,
+        prices: m.PricesBase,
+        GetterMock: type[daterange.GetterIntraday],
+        bi: intervals.BI,
+        delta: int = 0,
+        limit_start: bool = False,
+        delta_start: int = 0,
+    ) -> daterange.GetterIntraday:
+        """Return drg representing right limit of availability at `bi`.
+
+        Parameters
+        ----------
+        bi
+            drg will be set to reflect a daterange that covers period that
+            data is availabile at `bi`.
+
+        delta
+            start of daterange will be displaced by `delta` mintues.
+
+        limit_start
+            True: set start of daterange as end (unadjusted for `delta`)
+            Frame: set start of datearange to left limit for `bi`.
+
+        delta_end
+            end of daterange will be displaced by `delta_end` mintues.
+        """
+        end = prices.BASE_LIMITS_RIGHT[bi]
+        start = end if limit_start else prices.BASE_LIMITS[bi]
+        assert isinstance(start, pd.Timestamp)
+        start += pd.Timedelta(delta_start, "T")
+        end += pd.Timedelta(delta, "T")
         return self.get_mock_drg(GetterMock, prices.cc, start, end)
 
     def get_drg(
@@ -2640,7 +3078,7 @@ class TestBis:
         prices.gpp.drg_intraday = drg
         prices.gpp.drg_intraday_no_limit = drg
 
-    def test__bis_valid(self, PricesMockBis, GetterMock, symbols, xlon, xnys):
+    def test__bis_valid(self, PricesMockBis, GetterMock, symbols, xlon, xnys, one_min):
         """Test `_bis_valid`."""
         # pylint: disable=too-complex
         prices = PricesMockBis(symbols, [xlon, xnys])
@@ -2733,8 +3171,15 @@ class TestBis:
         prices.gpp.drg_intraday = drg
         assert prices._bis_valid == prices.bis_intraday[:-3]
 
-    def test__bis_available(self, PricesMockBis, GetterMock, symbols, xlon, xnys):
-        """Test `_bis_available_all` and `_bis_available_end`."""
+    def test__bis_available(
+        self,
+        PricesMockBis,
+        GetterMock,
+        symbols,
+        xlon,
+        xnys,
+    ):
+        """Test `_bis_available_all`, `_bis_available_end` and `_bis_available_any`."""
         prices = PricesMockBis(symbols, [xlon, xnys])
         get_drg_args = (prices, GetterMock)
 
@@ -2748,11 +3193,17 @@ class TestBis:
             self.set_prices_gpp_drg_properties(prices, drg)
             return prices._bis_available_end
 
+        def bis_available_any(interval: int, drg) -> list[intervals.BI]:
+            prices.gpp.ds_interval = intervals.to_ptinterval(str(interval) + "T")
+            self.set_prices_gpp_drg_properties(prices, drg)
+            return prices._bis_available_any
+
         for i, bi in enumerate(prices.bis_intraday[:-1]):
             # start at limit for bi, end now
             drg = self.get_mock_drg_limit_available(*get_drg_args, bi)
             assert bis_available_all(30, drg) == prices.bis_intraday[i:-1]
             assert bis_available_end(30, drg) == prices.bis_intraday[:-1]
+            assert bis_available_any(30, drg) == prices.bis_intraday[:-1]
 
             assert bis_available_all(bi.as_minutes, drg) == [bi]
 
@@ -2760,6 +3211,7 @@ class TestBis:
             drg = self.get_mock_drg_limit_available(*get_drg_args, bi, -1)
             assert bis_available_all(30, drg) == prices.bis_intraday[i + 1 : -1]
             assert bis_available_end(30, drg) == prices.bis_intraday[:-1]
+            assert bis_available_any(30, drg) == prices.bis_intraday[:-1]
 
             assert bis_available_all(bi.as_minutes, drg) == []
 
@@ -2767,8 +3219,11 @@ class TestBis:
             drg = self.get_mock_drg_limit_available(*get_drg_args, bi, limit_end=True)
             assert bis_available_all(30, drg) == prices.bis_intraday[i:-1]
             assert bis_available_end(30, drg) == prices.bis_intraday[i:-1]
+            assert bis_available_any(30, drg) == prices.bis_intraday[i:-1]
 
+            assert bis_available_all(bi.as_minutes, drg) == [bi]
             assert bis_available_end(bi.as_minutes, drg) == [bi]
+            assert bis_available_any(bi.as_minutes, drg) == [bi]
 
             # start and end beyond limit for bi
             match = re.escape(  # start of message only
@@ -2778,18 +3233,116 @@ class TestBis:
             drg = self.get_mock_drg_limit_available(
                 *get_drg_args, bi, -1, limit_end=True, delta_end=-1
             )
-            assert bis_available_all(30, drg) == prices.bis_intraday[i + 1 : -1]
+
             if bi.as_minutes == 30:
                 # Not even T30 data available to meet
                 with pytest.raises(errors.PricesIntradayUnavailableError, match=match):
+                    bis_available_all(30, drg)
+                with pytest.raises(errors.PricesIntradayUnavailableError, match=match):
                     bis_available_end(30, drg)
+                with pytest.raises(errors.PricesIntradayUnavailableError, match=match):
+                    bis_available_any(30, drg)
             else:
                 assert bis_available_end(30, drg) == prices.bis_intraday[i + 1 : -1]
+                assert bis_available_any(30, drg) == prices.bis_intraday[i + 1 : -1]
+                assert bis_available_all(30, drg) == prices.bis_intraday[i + 1 : -1]
 
             # Can only be met by this interval or a lower interval, i.e. can only be
             # met by intervals for which data not available
             with pytest.raises(errors.PricesIntradayUnavailableError, match=match):
                 bis_available_end(bi.as_minutes, drg)
+            with pytest.raises(errors.PricesIntradayUnavailableError, match=match):
+                bis_available_any(bi.as_minutes, drg)
+
+    def test__bis_available_fixed_right(
+        self,
+        PricesRightLimitMockBis,
+        GetterMock,
+        symbols,
+        xlon,
+        xnys,
+    ):
+        """Test `_bis_available_all`, `_bis_available_end` and `_bis_available_any`.
+
+        Tests with Prices class that has a fixed right limit.
+        """
+        prices = PricesRightLimitMockBis(symbols, [xlon, xnys])
+        get_drg_args = (prices, GetterMock)
+
+        def bis_available_all(interval: int, drg) -> list[intervals.BI]:
+            prices.gpp.ds_interval = intervals.to_ptinterval(str(interval) + "T")
+            self.set_prices_gpp_drg_properties(prices, drg)
+            return prices._bis_available_all
+
+        def bis_available_end(interval: int, drg) -> list[intervals.BI]:
+            prices.gpp.ds_interval = intervals.to_ptinterval(str(interval) + "T")
+            self.set_prices_gpp_drg_properties(prices, drg)
+            return prices._bis_available_end
+
+        def bis_available_any(interval: int, drg) -> list[intervals.BI]:
+            prices.gpp.ds_interval = intervals.to_ptinterval(str(interval) + "T")
+            self.set_prices_gpp_drg_properties(prices, drg)
+            return prices._bis_available_any
+
+        for i, bi in enumerate(prices.bis_intraday[:-1]):
+            # start at left limit, end at right limit for bi
+            drg = self.get_mock_drg_limit_right_available(*get_drg_args, bi)
+            assert bis_available_all(30, drg) == prices.bis_intraday[i:-1]
+            assert bis_available_end(30, drg) == prices.bis_intraday[:-1]
+            assert bis_available_any(30, drg) == prices.bis_intraday[:-1]
+
+            assert bis_available_all(bi.as_minutes, drg) == [bi]
+
+            # start and end at right limit for bi
+            drg = self.get_mock_drg_limit_right_available(
+                *get_drg_args, bi, limit_start=True
+            )
+            assert bis_available_all(30, drg) == prices.bis_intraday[:-1]
+            assert bis_available_end(30, drg) == prices.bis_intraday[:-1]
+            assert bis_available_any(30, drg) == prices.bis_intraday[:-1]
+
+            assert bis_available_all(bi.as_minutes, drg)
+            assert bis_available_end(bi.as_minutes, drg)
+            assert bis_available_any(bi.as_minutes, drg)
+
+            # start before left limit for bi, end at right_limit
+            drg = self.get_mock_drg_limit_right_available(
+                *get_drg_args, bi, delta_start=-1
+            )
+            assert bis_available_all(30, drg) == prices.bis_intraday[i + 1 : -1]
+            assert bis_available_end(30, drg) == prices.bis_intraday[:-1]
+            assert bis_available_any(30, drg) == prices.bis_intraday[:-1]
+
+            assert bis_available_all(bi.as_minutes, drg) == []
+
+            # start at left limit for bi, end after right_limit
+            drg = self.get_mock_drg_limit_right_available(*get_drg_args, bi, 1)
+            assert bis_available_all(30, drg) == []
+            assert bis_available_end(30, drg) == []
+            assert bis_available_any(30, drg) == prices.bis_intraday[:-1]
+
+            # start before left limit for bi, end after right_limit
+            drg = self.get_mock_drg_limit_right_available(
+                *get_drg_args, bi, 1, delta_start=-1
+            )
+            assert bis_available_all(30, drg) == []
+            assert bis_available_end(30, drg) == []
+            assert bis_available_any(30, drg) == prices.bis_intraday[:-1]
+
+            # start and end beyond limit for bi
+            match = re.escape(  # start of message only
+                "The start of the requested period is later than the latest"
+                " timestamp at which intraday data is available for any base interval."
+            )
+            drg = self.get_mock_drg_limit_right_available(
+                *get_drg_args, bi, 1, limit_start=True, delta_start=1
+            )
+            with pytest.raises(errors.PricesIntradayUnavailableError, match=match):
+                bis_available_all(30, drg)
+            with pytest.raises(errors.PricesIntradayUnavailableError, match=match):
+                bis_available_end(30, drg)
+            with pytest.raises(errors.PricesIntradayUnavailableError, match=match):
+                bis_available_any(30, drg)
 
     def test_bis_stored_methods(self, PricesMockBis, GetterMock, symbols, xlon, xnys):
         """Tests `_bis_stored` and `_get_stored_bi_from_bis`."""
@@ -3296,6 +3849,7 @@ def test_get_prices_params_cls(PricesMock, xnys, xhkg):
     assert not gpp.intraday_duration
     assert gpp.duration
     assert not gpp.request_earliest_available_data
+    assert not gpp.request_all_available_data
 
     # assert parameters being passed through to drg.
     drg = gpp.drg_intraday
@@ -3353,6 +3907,7 @@ def test_get_prices_params_cls(PricesMock, xnys, xhkg):
     assert gpp.intraday_duration
     assert gpp.duration
     assert not gpp.request_earliest_available_data
+    assert not gpp.request_all_available_data
 
     drg = gpp.drg_intraday
     assert_drg_intraday_properties(drg, gpp, strict, ds_interval)
@@ -3377,3 +3932,11 @@ def test_get_prices_params_cls(PricesMock, xnys, xhkg):
     assert not gpp.intraday_duration
     assert not gpp.duration
     assert gpp.request_earliest_available_data
+    assert not gpp.request_all_available_data
+
+    # alternative parameters just to verify request_all_available_data True
+    pp = get_pp()
+    gpp = f(prices, pp, ds_interval, lead_symbol, anchor, openend, strict, priority)
+    assert not gpp.intraday_duration
+    assert not gpp.duration
+    assert gpp.request_all_available_data

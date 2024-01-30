@@ -28,7 +28,7 @@ from market_prices import data
 from market_prices import daterange as dr
 from market_prices import errors, helpers, intervals, mptypes, parsing, pt
 from market_prices.helpers import UTC
-from market_prices.mptypes import Anchor, OpenEnd, Alignment, Priority
+from market_prices.mptypes import Anchor, OpenEnd, Alignment, Priority, Symbols
 from market_prices.intervals import BI, TDInterval, _BaseIntervalMeta
 from market_prices.utils import calendar_utils as calutils
 from market_prices.utils import pandas_utils as pdutils
@@ -366,18 +366,32 @@ class PricesBase(metaclass=abc.ABCMeta):
             Note: On base class BaseInterval is implemented as a type only.
             This type is not enforced at runtime.
 
+            Note: Alternatively, if available base intervals can only be
+            ascertained at runtime, the `_define_base_intervals` can be
+            called from the subclasses constructor to define the base
+            intervals for the specific instance. If base intervals will be
+            defined in this way for all instances then it is not necessary
+            to separately define a `BaseInterval` class attribute.
+
         BASE_LIMITS :
         dict[BI, pd.Timestamp | pd.Timedelta | None]
             key: BaseInterval
                 Every base interval should be represented.
 
             value : pd.Timedelta | pd.Timestamp, optional
-                Limit of availability of historal data for the base
-                interval, as either timedelta to now or absolute timestamp
-                (utc). If interval is daily then timedelta / timestamp
-                should be day accurate (no time component) or None if limit
-                is unknown. Note: A limit must be defined for all intraday
-                base intervals.
+                Limit of earliest availability of historal data for the
+                base interval, as either timedelta to now or absolute
+                timestamp.
+
+                For a daily interval:
+                    The timedelta / timestamp must be day accurate (no
+                        time component).
+                    If defined as a timestamp then must be timezone naive.
+                    If limit is unknown then value can take None.
+
+                For intraday intervals:
+                    Timestamps must have timezone as UTC.
+                    Limits must be defined for all intraday base intervals.
 
             Example, if only 60 days of data are available for data at the
                 5 minute base interval, although there is no limit on daily
@@ -385,14 +399,53 @@ class PricesBase(metaclass=abc.ABCMeta):
                     {BaseInterval.T5: pd.Timedelta(days=60),
                      BaseInterval.D1: None}
 
+            Note: Subclass instances can call `_update_base_limits` to
+            override BASE_LIMITS with instance-specific limits for one,
+            many or all intervals. This can be used when the limit for an
+            interval can only be ascertained at runtime, for example if
+            data availability for the daily interval is dependent on the
+            specific set of symbols. It can alternatively be used to define
+            the limits for all intervals. If used to define the limits for
+            all intervals for all instances then it is not necessary to
+            define the BASE_LIMITS class attribute.
+                If used, `_update_base_limits` must be called from the
+                subclass constructor before executing the constructor as
+                defined on the base class.
+
             Note: Instance specific base limits are exposed via the
-            `base_limits` property. By default the `base_limits` property
-            returns a copy of BASE_LIMITS. Subclass instances can use
-            `_update_base_limits` to define instance-specific limits, for
-            example if for a particular interval data availability differs
-            for specific symbols. `_update_base_limits` should be called
-            from the subclass constructor before executing the constructor
-            as defined on the base class.
+            `base_limits` property.
+
+        BASE_LIMITS_RIGHT :
+        dict[BI, pd.Timestamp | None]
+            Note: If price data is available through to 'now' for all base
+            intervals then it is NOT necessary to define BASE_LIMITS_RIGHT.
+
+            key: BaseInterval
+                If BASE_LIMITS_RIGHT is defined then every base interval
+                must be represented.
+
+            value : pd.Timestamp, optional
+                Limit of most recent availability of historal data for the
+                base interval, as either an absolute timestamp or None
+                if price data is available through to 'now'. If the
+                interval is daily then the timestamp should be day accurate
+                (no time component) and be timezone naive, otherwise the
+                timestamp should have timezone as UTC.
+
+            Note: Subclass instances can call `_update_base_limits_right`
+            to override BASE_LIMITS_RIGHT with instance-specific limits for
+            one, many or all intervals. This can be used when the limit for
+            an interval can only be ascertained at runtime, for example if
+            the data source are local .csv files. If the method is used to
+            define the right limits for all intervals for all instances
+            then it is not necessary to define the BASE_LIMITS_RIGHT class
+            attribute.
+                If used, `_update_base_limits_right` must be called from
+                the subclass constructor before executing the constructor
+                as defined on the base class.
+
+            Note: Instance specific base limits are exposed via the
+            `base_limits` property.
 
         - Abstract Methods -
 
@@ -414,9 +467,6 @@ class PricesBase(metaclass=abc.ABCMeta):
 
             Parameters as abstract method doc.
 
-        prices_for_symbols(self, symbols: str): Type[PricesBase]
-            Instance of subclass itself for one or more symbols.
-
     Subclasses can optionally override the following class attributes:
 
         PM_SUBSESSION_ORIGIN : Literal["open", "break_end"]: default "open"
@@ -433,9 +483,26 @@ class PricesBase(metaclass=abc.ABCMeta):
             All attributes and properties created by the base constructor
             should be preserved.
 
-    All private methods (prefixed with single underscore) are internal to
-    the base class. It is not intended that private methods are overriden
-    or extended by subclasses.
+    Subclasses can optionally override or extend the following methods:
+
+        prices_for_symbols(self, symbols: str) -> Type[PricesBase]
+            Returns an instance of the prices class for a received subset
+            of symbols.
+
+            Can be overriden by subclass if the default implementation is
+            not vaiable. (Also, see `_get_class_instance`.)
+
+        _get_class_instance(self, symbols: list[str], **kwargs)
+            Called by `prices_for_symbols` to create instance of subclass.
+
+            If subclass needs to make changes to implement
+            `prices_for_symbols` then it may be possible to simply extend
+            this method to pass through any additional arguments that the
+            constructor requires.
+
+    Other than any noted above, it is not intended that private methods
+    (prefixed with single underscore) are overriden or extended by
+    subclasses.
 
     The base class also defines a host of public properties and methods.
     Use `help(PricesBase)` for a listing.
@@ -674,7 +741,7 @@ class PricesBase(metaclass=abc.ABCMeta):
         self._base_limits: dict[BI, pd.Timedelta | pd.Timestamp | None]
         self._verify_base_limits()
         self._base_limits_right: dict[BI, pd.Timestamp | None]
-        self._set_dflt_base_limits_right()
+        self._set_base_limits_right()
         self._verify_base_limits_right()
         self._verify_lead_symbol(lead_symbol)
         self._calendars: dict[str, xcals.ExchangeCalendar]
@@ -850,11 +917,14 @@ class PricesBase(metaclass=abc.ABCMeta):
                 f" {base_limits_keys}."
             )
 
-    def _set_dflt_base_limits_right(self):
-        """Set default `_base_limits_right` if not otherwise defined."""
+    def _set_base_limits_right(self):
+        """Set `_base_limits_right` to default if not otherwise defined."""
         if getattr(self, "_base_limits_right", None) is not None:
             return
-        self._base_limits_right = {bi: None for bi in self.bis}
+        if getattr(self, "BASE_LIMITS_RIGHT", None) is not None:
+            self._base_limits_right = self.BASE_LIMITS_RIGHT.copy()
+        else:
+            self._base_limits_right = {bi: None for bi in self.bis}
 
     def _verify_base_limits_right(self):
         """Verify type of right base limits values."""
@@ -896,7 +966,10 @@ class PricesBase(metaclass=abc.ABCMeta):
         on the base class.
         """
         if getattr(self, "_base_limits", None) is None:
-            self._base_limits = self.BASE_LIMITS.copy()
+            if getattr(self, "BASE_LIMITS", None) is None:
+                self._base_limits = {}
+            else:
+                self._base_limits = self.BASE_LIMITS.copy()
         prev_limits = self._base_limits.copy()
         self._base_limits.update(update)
         try:
@@ -920,7 +993,7 @@ class PricesBase(metaclass=abc.ABCMeta):
         on the base class.
         """
         if getattr(self, "_base_limits_right", None) is None:
-            self._set_dflt_base_limits_right()
+            self._set_base_limits_right()
         prev_limits = self._base_limits_right.copy()
         self._base_limits_right.update(update)
         try:
@@ -1109,7 +1182,7 @@ class PricesBase(metaclass=abc.ABCMeta):
         """Daily base interval, or None if all base intervals intraday."""
         return self.bis.daily_bi()
 
-    @property
+    @functools.cached_property
     def bis_intraday(self) -> list[BI]:
         """Intraday base intervals."""
         return self.bis.intraday_bis()
@@ -1144,7 +1217,6 @@ class PricesBase(metaclass=abc.ABCMeta):
             )
         self._pdata = d
 
-    # TODO would need simple test
     @property
     def live_prices(self) -> bool:
         """Query if live prices are avaiable (as opposed to only historic).
@@ -1256,10 +1328,14 @@ class PricesBase(metaclass=abc.ABCMeta):
             return None
         return self._pdata[self.bi_daily].ll
 
-    # TODO INCLUDE SIMPLE TEST based on any for limit_daily
     @property
-    def limit_right_daily(self) -> pd.Timestamp:
-        """Latest date for which daily prices can be requested."""
+    def limit_right_daily(self) -> pd.Timestamp | None:
+        """Latest date for which daily prices can be requested.
+
+        None if no daily interval.
+        """
+        if not self.bi_daily:
+            return None
         return self._pdata[self.bi_daily].rl
 
     def limit_intraday(
@@ -1279,6 +1355,11 @@ class PricesBase(metaclass=abc.ABCMeta):
             By default (None) intraday prices will be available for all
             calendars from the returned timestamp.
         """
+        if not self.bis_intraday:
+            raise NotImplementedError(
+                "`limit_intraday` is not implemented when no intraday interval is"
+                " defined."
+            )
         limits_raw = []
         for bi in self.bis_intraday:
             limit_minute = self.limits[bi][0]
@@ -1292,7 +1373,6 @@ class PricesBase(metaclass=abc.ABCMeta):
             return calendar.minute_to_trading_minute(limit_raw, "next")
         return self._minute_to_latest_next_trading_minute(limit_raw)
 
-    # TODO will need a test, perhaps using limit_intraday as template
     @property
     def limit_right_intraday(self) -> pd.Timestamp:
         """Latest minute that intraday prices can be requested.
@@ -1303,6 +1383,12 @@ class PricesBase(metaclass=abc.ABCMeta):
         base interval for which indices are not aligned over the full
         period for which intraday data is available at that interval.
         """
+        if not self.bis_intraday:
+            raise NotImplementedError(
+                "`limit_right_intraday` is not implemented when no intraday interval"
+                " is defined."
+            )
+
         if self.live_prices:
             return helpers.now()
         limits_raw = []
@@ -1478,8 +1564,6 @@ class PricesBase(metaclass=abc.ABCMeta):
         minute = self._minute_for_last_requestable_session
         return self._minute_to_session(minute, "latest", "previous")
 
-    # TODO currently no test, possibly base one on test for earliest_requestable_minute?
-    # ... although they are implemented notably differently
     @property
     def latest_requestable_minute(self) -> pd.Timestamp:
         """Latest minute for which prices can be requested.
@@ -1958,7 +2042,7 @@ class PricesBase(metaclass=abc.ABCMeta):
         period as defined by the current gpp parameters.
         """
         bis_valid = self._bis_valid
-        if not self.gpp.request_all_available_data:
+        if self.gpp.request_all_available_data:
             return bis_valid
 
         # Why use the 'no_limit' drg? Becuase do not want dateranges to be
@@ -1985,12 +2069,15 @@ class PricesBase(metaclass=abc.ABCMeta):
             elif end < self.limits[bi][0]:
                 ends_too_early += 1
 
-        if rtrn or not interval_period_errors:
+        if rtrn:
             return rtrn
 
         len_bis = len(bis_valid)
         if starts_too_late == len_bis or ends_too_early == len_bis:
             raise errors.PricesIntradayUnavailableError(self)
+
+        if not interval_period_errors:
+            return rtrn  # return empty list
 
         # no rtrn and interval_period_errors. Should an interval error
         # be raised or data availability error? If a no_limit drg with T1
@@ -2014,7 +2101,7 @@ class PricesBase(metaclass=abc.ABCMeta):
         returned bis.
         """
         bis_valid = self._bis_valid
-        if not self.gpp.request_all_available_data:
+        if self.gpp.request_all_available_data:
             return bis_valid
 
         # Why use the 'no_limit' drg? See comment to `_bis_available_all`
@@ -2061,7 +2148,7 @@ class PricesBase(metaclass=abc.ABCMeta):
         some point during the period).
         """
         bis_valid = self._bis_valid
-        if not self.gpp.request_all_available_data:
+        if self.gpp.request_all_available_data:
             return bis_valid
 
         # Why use the 'no_limit' drg? See comment to `_bis_available_all`
@@ -3119,12 +3206,10 @@ class PricesBase(metaclass=abc.ABCMeta):
             """Query if params represent request for earliest available data."""
             return self.pp_raw["start"] is None and not self.duration
 
-        # TODO INCLUDE TEST FOR ADDED PROPERTY, probably alongside the test that includes
-        # effect of request_earliest_available_data
         @property
         def request_all_available_data(self) -> bool:
             """Query if params represent request for all available data."""
-            return not (
+            return (
                 self.pp_raw["start"] is None
                 and self.pp_raw["end"] is None
                 and not self.duration
@@ -4887,15 +4972,61 @@ class PricesBase(metaclass=abc.ABCMeta):
             return res, df
         return res
 
-    @abc.abstractmethod
-    def prices_for_symbols(self, symbols: str) -> "PricesBase":
-        """Instance of subclass itself for one or more symbols.
+    @staticmethod
+    def _remove_non_trading_indices(
+        df: pd.DataFrame, cals: list[xcals.ExchangeCalendar]
+    ) -> pd.DataFrame:
+        """Remove indices that include no minutes of any of `cals`."""
+        non_trading = df.pt.indices_non_trading(cals[0])
+        for cal in cals[1:]:
+            non_trading = non_trading.intersection(df.pt.indices_non_trading(cal))
+        return df.drop(labels=non_trading)
 
-        Subclass should implement to populate instance with any pre-existing
-            price data.
+    def _get_class_instance(self, symbols: list[str], **kwargs) -> "PricesBase":
+        """Return an instance of the prices class with the same parameters as self.
+
+        Notes
+        -----
+        If required, subclass should override or extend this method.
+        """
+        cals_all = {s: self.calendars[s] for s in symbols}
+        delays_all = {s: self.delays[s].components.minutes for s in symbols}
+        if self.lead_symbol_default in symbols:
+            kwargs.setdefault("lead_symbol", self.lead_symbol_default)
+        return type(self)(
+            symbols=symbols, calendars=cals_all, delays=delays_all, **kwargs
+        )
+
+    def prices_for_symbols(self, symbols: Symbols) -> "PricesBase":
+        """Return instance of prices class for one or more symbols.
+
+        Populates instance with any pre-existing price data.
 
         Parameters
         ----------
-        symbols: str
-            Symbols to be carried into new instance.
+        symbols
+            Symbols to include to the new instance. Passed as class'
+            'symbols' parameter.
         """
+        # pylint: disable=protected-access
+        symbols = helpers.symbols_to_list(symbols)
+        difference = set(symbols).difference(set(self.symbols))
+        if difference:
+            msg = (
+                "symbols must be a subset of Prices' symbols although"
+                f" received the following symbols which are not:"
+                f" {difference}.\nPrices symbols are {self.symbols}."
+            )
+            raise ValueError(msg)
+        prices_obj = self._get_class_instance(symbols)
+        cals = list(prices_obj.calendars_unique)
+        fewer_cals = len(cals) < len(self.calendars_unique)
+        for bi in self.bis:
+            new_pdata = copy.deepcopy(self._pdata[bi])
+            if new_pdata._table is not None:
+                table = new_pdata._table[symbols].copy()
+                if fewer_cals:
+                    table = self._remove_non_trading_indices(table, cals)
+                new_pdata._table = table
+            prices_obj._pdata[bi] = new_pdata
+        return prices_obj

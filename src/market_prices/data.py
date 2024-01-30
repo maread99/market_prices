@@ -13,7 +13,7 @@ from pandas import DataFrame
 
 from market_prices import errors, helpers, intervals
 from market_prices.utils import calendar_utils as calutils
-from market_prices.mptypes import DateRange, DateRangeReq
+from market_prices.mptypes import DateRangeReq
 
 from .utils.pandas_utils import (
     interval_contains,
@@ -286,7 +286,6 @@ class Data:
 
         return avail
 
-    # TODO ADD TEST
     def available_any(self, daterange: DateRangeReq) -> bool | None:
         """Query if data is available for any timestamp within a range.
 

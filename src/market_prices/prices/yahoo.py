@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import copy
 import datetime
 import functools
 import warnings
@@ -18,7 +17,7 @@ from market_prices import errors, helpers, intervals, mptypes
 from market_prices.helpers import UTC
 from market_prices.prices import base
 
-from ..mptypes import Calendar, Symbols
+from ..mptypes import Calendar
 from .config import config_yahoo
 
 
@@ -872,51 +871,3 @@ class PricesYahoo(base.PricesBase):
                 end_ += pd.Timedelta(22, "H")
             prices = self._request_yahoo(interval=interval, start=start, end=end_)
         return self._tidy_yahoo(prices, interval, start, end)
-
-    @staticmethod
-    def _remove_non_trading_indices(
-        df: pd.DataFrame, cals: list[xcals.ExchangeCalendar]
-    ) -> pd.DataFrame:
-        """Remove indices that include no minutes of any of `cals`."""
-        non_trading = df.pt.indices_non_trading(cals[0])
-        for cal in cals[1:]:
-            non_trading = non_trading.intersection(df.pt.indices_non_trading(cal))
-        return df.drop(labels=non_trading)
-
-    def prices_for_symbols(self, symbols: Symbols) -> base.PricesBase:
-        """Return PricesYahoo instance for one or more symbols.
-
-        Populates instance with any pre-existing price data.
-
-        Parameters
-        ----------
-        symbols
-            Symbols to include to the new instance. Passed as class'
-            'symbols' parameter.
-        """
-        # pylint: disable=protected-access
-        symbols = helpers.symbols_to_list(symbols)
-        difference = set(symbols).difference(set(self.symbols))
-        if difference:
-            msg = (
-                "symbols must be a subset of Prices' symbols although"
-                f" received the following symbols which are not:"
-                f" {difference}.\nPrices symbols are {self.symbols}."
-            )
-            raise ValueError(msg)
-
-        cals_all = {s: self.calendars[s] for s in symbols}
-        delays_all = {s: self.delays[s].components.minutes for s in symbols}
-        prices_obj = type(self)(symbols=symbols, calendars=cals_all, delays=delays_all)
-
-        cals = list(prices_obj.calendars_unique)
-        fewer_cals = len(cals) < len(self.calendars_unique)
-        for bi in self.bis:
-            new_pdata = copy.deepcopy(self._pdata[bi])
-            if new_pdata._table is not None:
-                table = new_pdata._table[symbols].copy()
-                if fewer_cals:
-                    table = self._remove_non_trading_indices(table, cals)
-                new_pdata._table = table
-            prices_obj._pdata[bi] = new_pdata
-        return prices_obj

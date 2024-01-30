@@ -12,7 +12,6 @@ import warnings
 from collections import defaultdict
 from datetime import timedelta
 from pathlib import Path
-from typing import Any
 
 from exchange_calendars import ExchangeCalendar
 import numpy as np
@@ -796,8 +795,8 @@ class PricesCsv(base.PricesBase):
     ----------
     path : str | pathlib.Path
         Path to directory containing .csv files and/or a hierarchy of
-        subdirectories containing .csv files that comply with the
-        requirements detailed to the 'Notes' section.
+        subdirectories containing .csv files. Files and folders should
+        conform with requirements detailed here and to the 'Notes' section.
 
         The constructor will search for .csv files in this directory and
         all directories under it. All files without the .csv extension will
@@ -806,7 +805,7 @@ class PricesCsv(base.PricesBase):
         Each csv file must contain data for a single symbol and for a
         single interval. The symbol and interval should be included within
         the filename and separated from each other and/or any other parts
-        of the filename with the '_' separator. The following are examples
+        of the filename with a '_' separator. The following are examples
         of valid filenames:
             MSFT_5T.csv
             5T_MSFT.csv
@@ -815,10 +814,9 @@ class PricesCsv(base.PricesBase):
             whatever_MSFT_5T_whatever.csv
             whatever_MSFT_whatever_5T_whatever.csv
             whatever_whatever_5T_whatever_MSFT_whatever.csv
-            ...
 
         The interval part expresses the duration of the period corresonding
-        with each row of data. The interval comprises two parts a unit and
+        with each row of data. The interval comprises two parts, a unit and
         a value. Valid units are:
             MIN - to describe mintues
             T - to describe mintues
@@ -853,9 +851,9 @@ class PricesCsv(base.PricesBase):
         the file being ignored:
             MSFT_p5T_else.csv (malformed interval)
             MSFT_5T_15T,csv (ambiguous interval)
-            MSFT_5T_TSLA.csv (two symbols included to `symbols` parameter)
-            MSFT_2D.csv (if interval unit day value cannot be greater than
-                one)
+            MSFT_5T_TSLA.csv (two symbols)
+            MSFT_2D.csv (if interval unit is day then value cannot be
+                greater than one)
             MSFT.txt (not a .csv file)
 
         The `csv_paths` property shows all the csv files that have been
@@ -883,7 +881,8 @@ class PricesCsv(base.PricesBase):
             `str` of ISO Code of an exchange for which the
             `exchange_calendars` package maintains a calendar. See
             https://github.com/gerrymanoim/exchange_calendars#calendars
-            or call market_prices.get_exchange_info`.
+            or call market_prices.get_exchange_info`. For example:
+                calendars="XLON",
 
             `str` of any other calendar name supported by
             `exchange_calendars`, as returned by
@@ -895,14 +894,14 @@ class PricesCsv(base.PricesBase):
             calendar). List should have same length as `symbols` with each
             element relating to the symbol at the corresponding index.
 
-            Dictionary with items representing only those symbols for which
-            wish to define a calendar. Any symbol not included to keys will
-            be assigned, if possible, the default calendar assigned for the
-            symbol.
+            Dictionary mapping each symbol with a calendar.
                 key: str
                     symbol.
                 value: mptypes.Calendar (i.e. as for a single calendar)
                     Calendar corresponding with symbol.
+
+                For example:
+                    calendars = {"MSFT": "XNYS", "AZN.L": "XLON"}
 
         Each Calendar should have a first session no later than the first
         session from which prices are available for any symbol
@@ -911,16 +910,18 @@ class PricesCsv(base.PricesBase):
     lead_symbol : str
         Symbol with calendar that should be used as the default calendar to
         evaluate period from period parameters. If not passed default
-        calendar will be defined as the most common calendar.
+        calendar will be defined as the most common calendar (and if more
+        than one calendar is the most common then of those the the calendar
+        that's defined 'first' in the list or dictionary).
 
     read_csv_kwargs : Optional[dict[str, Any]]
         Keyword argumnets to pass to `pandas.read_csv` to parse a csv file
-        to a pandas DataFrame. The 'Notes' section covers how a csv file
-        can be formatted such that it parses with the default
-        `read_csv_kwargs`.
+        to a pandas DataFrame. See the 'Notes' section for how a csv file
+        can be formatted such that it parses under the default
+        implementation.
 
-        market-prices requires that the DataFrame parses with:
-            index as a pd.DatetimeIndex named 'date'.
+        market_prices requires that the DataFrame parses with:
+            index as a `pd.DatetimeIndex` named 'date'.
 
             columns labelled 'open', 'high', 'low', 'close' and optionally
             'volume', each with dtype "float64".
@@ -938,8 +939,8 @@ class PricesCsv(base.PricesBase):
         See help(pandas.read_csv) for all available kwargs.
 
         Note that the following arguments will always be passed by
-        market_prices to `pandas.read_csv` with the following values which
-        cannot be overriden by `read_csv_kwargs`:
+        market_prices to `pandas.read_csv` with the following values (these
+        values cannot be overriden by `read_csv_kwargs`):
             "filepath_or_buffer": <csv file path>
             "dtype": {
                 'open': "float64",
@@ -962,14 +963,14 @@ class PricesCsv(base.PricesBase):
             }
         This would override the names as defined in the csv file's first
         row with the required values. Note that all references to column
-        names in other kwargs, such as 'usecols' and 'dtype', will now look
-        at the overridden names (as required), not the names as defined in
-        the csv files.
+        names in other kwargs, such as 'usecols' and 'dtype', will now
+        refer to the overridden names (as required), not the names as
+        defined in the csv files.
 
     ohlc_thres : float, default: 0.08
-        Threshold to reject incongrument ohlc data, in terms of percentage
-        of incongrument rows. For example, pass as 0.1 to reject data if
-        more than 10% of rows exhibit incongruent data.
+        Threshold to reject incongruent ohlc data, in terms of maximum
+        percentage of incongrument rows to permit. For example, pass as 0.1
+        to reject data if more than 10% of rows exhibit incongruent data.
 
         If the number of incongruent rows are below the threshold then
         adjustements will be made to force congruence.
@@ -984,9 +985,9 @@ class PricesCsv(base.PricesBase):
             open is higher than high
                 within threshold, open will be forced to high
 
-        NOTE Data will always be rejected if any row has a high value
-        lower than the low value. No provision is made for setting a
-        threshold in this circumstance.
+        Note: Data will always be rejected if any row has a high value
+        lower than the low value. No provision is made to permit this
+        circumstance.
 
     pm_subsession_origin : Literal["open", "break_end"], default: "open"
         How to evaluate indices of sessions that include a break. (The
@@ -1019,9 +1020,7 @@ class PricesCsv(base.PricesBase):
     represented (it's common for data sources to exclude intraday data for
     periods during which a symbol did not register a trade). The price data
     will be reindexed against expected indices as evaluated from the
-    corresponding calendar of `calendars`. This complies with the
-    `base.PricesBase` implementation's requirement that all indices are
-    included over all periods of regular trading.
+    corresponding calendar of `calendars`.
 
     For daily price data values in the 'date' column should represent a
     date, for example '2023-11-16'.
@@ -1044,7 +1043,7 @@ class PricesCsv(base.PricesBase):
     is aligned with the interval, based on the (sub)session open, and which
     falls before the corresonding (sub)session close. See the
     `pm_subsession_origin` parameter for how to determine how indices are
-    evaluated for for sessions that include a break.
+    evaluated for sessions that include a break.
 
     Examples
     If a session opens at 10:00 and the interval is 15T then
@@ -1058,12 +1057,6 @@ class PricesCsv(base.PricesBase):
     15 minutes following the session close. All values that lie outside of
     regular trading hours will be ignored.
     """
-
-    # TODO HAVE A READ THROUGH / final revision of DOC
-
-    # These are defined dynamically by constructor
-    BASE_LIMITS: dict[BI, pd.Timedelta | pd.Timestamp | None] = {}
-    BASE_LIMITS_RIGHT: dict[BI, pd.Timestamp | None] = {}
 
     @parse
     def __init__(
@@ -1085,6 +1078,14 @@ class PricesCsv(base.PricesBase):
                 "'path' must represent an existing local directory, although"
                 f" received {path}."
             )
+
+        self._receieved_kwargs = dict(
+            path=path,
+            read_csv_kwargs=read_csv_kwargs,
+            ohlc_thres=ohlc_thres,
+            pm_subsession_origin=pm_subsession_origin,
+        )  # for `prices_for_symbols`
+
         root = path
         self.PM_SUBSESSION_ORIGIN = pm_subsession_origin  # override class attr
         symbols_ = helpers.symbols_to_list(symbols)
@@ -1113,11 +1114,9 @@ class PricesCsv(base.PricesBase):
 
         super().__init__(symbols_, calendars, lead_symbol, delays)
 
-        # TODO following attrs are temporary affairs
-        # for _tables don't duplicate any data - needs to go through to the pdata or what/wherever
         self._tables, reindexing_warnings = self._compile_tables(parsed_data)
         all_errors_warnings.extend(reindexing_warnings)
-        self.all_errors_warnings = all_errors_warnings
+
         if not self._tables:
             raise CsvNoDataError(symbols_, all_errors_warnings, verbose)
 
@@ -1263,6 +1262,44 @@ class PricesCsv(base.PricesBase):
             )
         return self._tables[interval]
 
-    def prices_for_symbols():
-        # TODO
-        pass
+    def _get_class_instance(self, symbols: list[str], **kwargs) -> "PricesCsv":
+        """Return an instance of PricesCsv with same arguments as self.
+
+        Notes
+        -----
+        If required, subclass should override or extend this method.
+        """
+        cals = {s: self.calendars[s] for s in symbols}
+        if self.lead_symbol_default in symbols:
+            kwargs.setdefault("lead_symbol", self.lead_symbol_default)
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            rtrn = type(self)(
+                symbols=symbols, calendars=cals, **self._receieved_kwargs, **kwargs
+            )
+
+        return rtrn
+
+    def prices_for_symbols(self, symbols: mptypes.Symbols) -> "PricesCsv":
+        """Return instance of prices class for one or more symbols.
+
+        Creates new instance for `symbols` with freshly retrieved price data.
+
+        Parameters
+        ----------
+        symbols
+            Symbols to include to the new instance. Passed as class'
+            'symbols' parameter.
+        """
+        # pylint: disable=protected-access
+        symbols = helpers.symbols_to_list(symbols)
+        difference = set(symbols).difference(set(self.symbols))
+        if difference:
+            msg = (
+                "symbols must be a subset of Prices' symbols although"
+                f" received the following symbols which are not:"
+                f" {difference}.\nPrices symbols are {self.symbols}."
+            )
+            raise ValueError(msg)
+        return self._get_class_instance(symbols)
