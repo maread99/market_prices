@@ -110,36 +110,41 @@ class TestGetterDaily:
             limit = calendar.first_session
         return m.GetterDaily(calendar, limit, pp, ds_interval, strict, limit_right)
 
-    def test_constructor_properties(self, xlon_calendar, pp_default):
+    def test_constructor_properties(self, xlon_calendar_extended, pp_default, today):
         """Test properties that expose constructor parameters."""
-        cal = xlon_calendar
+        cal = xlon_calendar_extended
         limit = cal.first_session
 
         # required arguments only, options as default
         for drg in (
             m.GetterDaily(cal, limit, pp_default),  # options as default
             # explicitly pass arguments as default values
-            m.GetterDaily(cal, limit, pp_default, None, True),
+            m.GetterDaily(cal, limit, pp_default, None, True, None),
         ):
             assert drg.cal == cal
             assert drg.pp == pp_default
             assert drg.limit == limit
+            assert drg.limit_right is None
             assert drg.interval is TDInterval.D1
             assert drg.ds_interval is None
             assert drg.strict
+            assert drg.end_limit == (today, today)
 
-        pp = pp_default["start"] = cal.minutes[333]
-        limit = cal.minutes[222]
+        pp = pp_default["start"] = cal.sessions[33]
+        limit = cal.sessions[22]
+        limit_right = cal.sessions[44]
         ds_interval = TDInterval.D5
         strict = False
 
-        drg = self.get_drg(cal, pp, limit, ds_interval, strict)
+        drg = self.get_drg(cal, pp, limit, ds_interval, strict, limit_right)
 
         assert drg.pp == pp
         assert drg.limit == limit
+        assert drg.limit_right == limit_right
         assert drg.interval is TDInterval.D1
         assert drg.ds_interval is ds_interval
         assert drg.strict == strict
+        assert drg.end_limit == (limit_right, limit_right)
 
     def test_intervals(self, xlon_calendar, pp_default):
         """Test interval, ds_interval and final_interval properties."""
@@ -177,7 +182,7 @@ class TestGetterDaily:
             session = answers.date_to_session(non_session, "previous")
             assert drg.end_now == (session, session)
 
-    def test_get_start(self, calendars_with_answers, pp_default):
+    def test_get_start(self, calendars_with_answers, pp_default, one_day):
         """Test `get_start`.
 
         Notes
@@ -201,10 +206,26 @@ class TestGetterDaily:
 
         limit = ans.sessions[len(ans.sessions) // 2]
         too_early = ans.get_prev_session(limit)
-        drg = self.get_drg(cal, pp_default, limit=limit, strict=False)
+        limit_right = ans.sessions[int(len(ans.sessions) * (3 / 4))]
+        too_late = ans.get_next_session(limit_right)
+        drg = self.get_drg(
+            cal, pp_default, limit=limit, strict=False, limit_right=limit_right
+        )
         assert drg.get_start(too_early) == limit
+        assert drg.get_start(too_early, limit=True) == limit
+        assert drg.get_start(too_early, limit=False) == too_early
+        oob = cal.first_session - one_day
+        assert drg.get_start(oob, limit=True) == limit
 
-        drg = self.get_drg(cal, pp_default, limit=limit, strict=True)
+        # should raise regardless of strict
+        with pytest.raises(errors.StartTooLateError):
+            drg.get_start(too_late, limit=True)
+        with pytest.raises(errors.StartTooLateError):
+            drg.get_start(too_late, limit=False)  # limit should have no effect
+
+        drg = self.get_drg(
+            cal, pp_default, limit=limit, strict=True, limit_right=limit_right
+        )
         match = re.escape(
             f"Prices unavailable as start evaluates to {helpers.fts(too_early)} which"
             " is earlier than the earliest session for which price data is available."
@@ -213,6 +234,20 @@ class TestGetterDaily:
         )
         with pytest.raises(errors.StartTooEarlyError, match=match):
             _ = drg.get_start(too_early)
+        with pytest.raises(errors.StartTooEarlyError, match=match):
+            _ = drg.get_start(too_early, limit=True)
+        with pytest.raises(errors.StartTooEarlyError, match=match):
+            drg.get_start(too_early, limit=False)  # NB limit ignored if strict is True
+
+        with pytest.raises(errors.StartOutOfBoundsError):
+            _ = drg.get_start(oob, limit=False)
+        with pytest.raises(errors.StartOutOfBoundsError):
+            _ = drg.get_start(oob, limit=True)  # limit should have no effect as strict
+
+        with pytest.raises(errors.StartTooLateError):
+            drg.get_start(too_late, limit=True)
+        with pytest.raises(errors.StartTooLateError):
+            drg.get_start(too_late, limit=False)  # limit should have no effect
 
     def test_get_end(self, calendars_with_answers, pp_default, one_day):
         """Test `get_end`.
@@ -238,6 +273,7 @@ class TestGetterDaily:
 
         limit = ans.sessions[len(ans.sessions) // 2]
         too_early = cal.date_to_session(limit - one_day, "previous")
+
         match = re.escape(
             f"Prices unavailable as end evaluates to {helpers.fts(too_early)} which is"
             " earlier than the earliest session for which price data is available. The"
@@ -245,8 +281,52 @@ class TestGetterDaily:
         )
         for strict in [True, False]:
             drg = self.get_drg(cal, pp_default, limit=limit, strict=strict)
-            with pytest.raises(errors.EndTooEarlyError, match=match):
-                _ = drg.get_end(too_early)
+            for limit_, strict_ in itertools.product([True, False], [True, False]):
+                with pytest.raises(errors.EndTooEarlyError, match=match):
+                    _ = drg.get_end(too_early, limit=limit_, strict=strict_)
+
+        limit_right = session = ans.sessions[int(len(ans.sessions) * (3 / 4))]
+        too_late = ans.get_next_session(limit_right)
+
+        drg = self.get_drg(
+            cal, pp_default, limit=limit, strict=False, limit_right=limit_right
+        )
+        for limit_, strict_ in itertools.product([True, False], [True, False]):
+            assert drg.get_end(session, limit=limit_, strict=strict_) == (
+                session,
+                session,
+            )
+
+        assert drg.get_end(too_late, limit=True) == (limit_right, limit_right)
+        assert drg.get_end(too_late, limit=False) == (too_late, too_late)
+        assert drg.get_end(too_late, limit=True, strict=False) == (
+            limit_right,
+            limit_right,
+        )
+        assert drg.get_end(too_late, limit=False, strict=False) == (too_late, too_late)
+        for limit_ in (True, False):
+            with pytest.raises(errors.EndTooLateError):
+                drg.get_end(too_late, limit=limit_, strict=True)  # limit has no effect
+
+        # strict True
+        drg = self.get_drg(
+            cal, pp_default, limit=limit, strict=True, limit_right=limit_right
+        )
+        for limit_, strict_ in itertools.product([True, False], [True, False]):
+            assert drg.get_end(session, limit=limit_, strict=strict_) == (  # on limit
+                session,
+                session,
+            )
+
+        for limit_ in [True, False]:
+            with pytest.raises(errors.EndTooLateError):
+                drg.get_end(too_late, limit=limit_)
+            with pytest.raises(errors.EndTooLateError):
+                drg.get_end(too_late, limit=limit_, strict=True)  # limit has no effect
+
+        expected = (limit_right, limit_right)
+        assert drg.get_end(too_late, limit=True, strict=False) == expected
+        assert drg.get_end(too_late, limit=False, strict=False) == (too_late, too_late)
 
     def test_get_end_none(self, calendars_extended, pp_default):
         """Test `get_end` with None input."""
@@ -254,6 +334,9 @@ class TestGetterDaily:
         drg = self.get_drg(cal, pp_default)
         today = get_today(cal)
         assert drg.get_end(None) == (today, today)
+        limit_right = today - cal.day * 10
+        drg = self.get_drg(cal, pp_default, limit_right=limit_right)
+        assert drg.get_end(None) == (limit_right, limit_right)
 
     def verify_add_a_row(self, cal, ans, ds_interval, start, end, pp):
         """Test 'add_a_row' as True."""
@@ -975,9 +1058,11 @@ class TestGetterIntraday:
             limit_right,
         )
 
-    def test_constructor_properties(self, xlon_calendar, pp_default, one_min):
+    def test_constructor_properties(
+        self, xlon_calendar_extended, pp_default, one_min, today
+    ):
         """Test properties that expose constructor parameters."""
-        cal = xlon_calendar
+        cal = xlon_calendar_extended
         cc = calutils.CompositeCalendar([cal])
         delay = pd.Timedelta(0)
         limit = cal.first_minute
@@ -1000,6 +1085,7 @@ class TestGetterIntraday:
                 Anchor.OPEN,
                 Alignment.BI,
                 True,
+                None,
             ),
         ):
             assert drg.cal == cal
@@ -1010,6 +1096,7 @@ class TestGetterIntraday:
             assert drg.anchor is Anchor.OPEN
             assert drg.alignment is Alignment.FINAL
             assert drg.end_alignment is Alignment.BI
+            assert drg.limit_right is None
             assert not drg.ignore_breaks
             with pytest.raises(ValueError, match="`interval` has not been set."):
                 _ = drg.interval is None
@@ -1017,6 +1104,8 @@ class TestGetterIntraday:
             drg.interval = interval
             assert drg.interval is interval
             assert drg.ds_factor == 1
+            end_limit = cal.closes[today]
+            assert drg.end_limit == (end_limit, end_limit)
 
         pp = pp_default["start"] = cal.minutes[333]
         cc = calutils.CompositeCalendar([cal])
@@ -1031,6 +1120,8 @@ class TestGetterIntraday:
         anchor = Anchor.WORKBACK
         end_alignment = Alignment.FINAL
         strict = False
+        # trading minute by inspection...
+        limit_right = pd.Timestamp("2020-04-29 11:22", tz=helpers.UTC)
 
         drg = self.get_drg(
             cal,
@@ -1044,6 +1135,7 @@ class TestGetterIntraday:
             anchor,
             end_alignment,
             strict,
+            limit_right,
         )
 
         assert drg.pp == pp
@@ -1054,12 +1146,15 @@ class TestGetterIntraday:
         assert drg.anchor == anchor
         assert drg.alignment == Alignment.BI  # because anchor workback
         assert drg.end_alignment == end_alignment
+        assert drg.limit_right == limit_right
         assert drg.ds_factor == ds_interval // interval
         assert not drg.ignore_breaks
         drg.interval = intervals.TDInterval.H1
         assert drg.ignore_breaks
+        exp = pd.Timestamp("2020-04-29 11:00", tz=helpers.UTC)  # for H1 data
+        assert drg.end_limit == (exp, exp)
 
-        # verify can pass limit as callable
+        # verify can pass limits as callables
         limit_T1 = limit + one_min
 
         def mock_limit(interval: intervals.TDInterval) -> pd.Timestamp:
@@ -1067,11 +1162,22 @@ class TestGetterIntraday:
                 return limit_T1
             return limit
 
-        drg = m.GetterIntraday(cal, cc, delay, mock_limit, False, pp_default)
+        limit_T1_right = limit_right - one_min
+
+        def mock_limit_right(interval: intervals.TDInterval) -> pd.Timestamp:
+            if interval is TDInterval.T1:
+                return limit_T1_right
+            return limit_right
+
+        drg = m.GetterIntraday(
+            cal, cc, delay, mock_limit, False, pp_default, limit_right=mock_limit_right
+        )
         drg.interval = TDInterval.T1
         assert drg.limit == limit_T1
+        assert drg.limit_right == limit_T1_right
         drg.interval = TDInterval.T2
         assert drg.limit == limit
+        assert drg.limit_right == limit_right
 
     def test_intervals(self, xlon_calendar, pp_default):
         """Test interval, ds_interval and final_interval properties."""
@@ -1217,6 +1323,10 @@ class TestGetterIntraday:
     ):
         """Test `get_start`.
 
+        Also tests raises when start later than a right limit. NB test to
+        verify raises when start is too late when end is 'now' is covered
+        by separate `test_get_start_too_late` test.
+
         Notes
         -----
         Test assumes value passed to `get_start` will be a time that
@@ -1314,21 +1424,52 @@ class TestGetterIntraday:
         session = ans.sessions[len(ans.sessions) // 2]
         limit = ans.opens[session]
         too_early = ans.closes[ans.get_prev_session(session)] - one_min
-        drg = self.get_drg(cal, pp, limit=limit, strict=False)
+        session_limit_right = ans.sessions[int(len(ans.sessions) * (3 / 4))]
+        limit_right = ans.opens[session_limit_right] + pd.Timedelta(95, "min")
+        drg = self.get_drg(cal, pp, limit=limit, strict=False, limit_right=limit_right)
         drg.interval = intervals.BI_ONE_MIN
         assert drg.get_start(too_early) == limit
+        assert drg.get_start(too_early, limit=True) == limit
+        assert drg.get_start(too_early, limit=False) == too_early
+
+        bound = cal.first_minute
+        assert drg.get_start(bound, limit=False) == bound
+        oob = cal.first_minute - one_min
+        assert drg.get_start(oob, limit=True) == limit
+        assert drg.get_start(oob, limit=False) == limit  # limit should have no effect
+
+        assert drg.get_start(limit_right - interval)
+        with pytest.raises(errors.StartTooLateError):
+            drg.get_start(limit_right, limit=True)
+        with pytest.raises(errors.StartTooLateError):
+            drg.get_start(limit_right, limit=False)  # limit should have no effect
 
         match = re.escape(
             f"Prices unavailable as start evaluates to {helpers.fts(too_early)} which is"
             " earlier than the earliest minute for which price data is available. The"
             f" earliest minute for which prices are available is {helpers.fts(limit)}."
         )
-        drg = self.get_drg(cal, pp, limit=limit, strict=True)
+        drg = self.get_drg(cal, pp, limit=limit, strict=True, limit_right=limit_right)
         drg.interval = intervals.BI_ONE_MIN
         # assert returns on true limit (earliest value that will evaluate to limit)
         assert drg.get_start(too_early + one_min) == limit
         with pytest.raises(errors.StartTooEarlyError, match=match):
             _ = drg.get_start(too_early)
+        with pytest.raises(errors.StartTooEarlyError, match=match):
+            _ = drg.get_start(too_early, limit=True)
+        with pytest.raises(errors.StartTooEarlyError, match=match):
+            _ = drg.get_start(too_early, limit=False)  # limit will have no effect
+
+        with pytest.raises(errors.StartOutOfBoundsError):
+            drg.get_start(oob, limit=True)
+        with pytest.raises(errors.StartOutOfBoundsError):
+            drg.get_start(oob, limit=False)  # limit should have no effect
+
+        assert drg.get_start(limit_right - interval)
+        with pytest.raises(errors.StartTooLateError):
+            drg.get_start(limit_right, limit=True)
+        with pytest.raises(errors.StartTooLateError):
+            drg.get_start(limit_right, limit=False)  # limit should have no effect
 
     @hyp.given(ds_interval=stmp.intervals_intraday())
     @hyp.example(conftest.base_ds_intervals_dict[TDInterval.T1][0])
@@ -1348,6 +1489,9 @@ class TestGetterIntraday:
         self, calendars_with_answers_extended, one_min, ds_interval
     ):
         """Test `get_start` raises error when evaluates later than now.
+
+        NB does not test that raises when start later than a defined right
+        limit (which is covered within the `test_get_start` test).
 
         Notes
         -----
@@ -1872,8 +2016,49 @@ class TestGetterIntraday:
         for strict in [True, False]:
             drg = self.get_drg(cal, pp_default, limit=limit, strict=strict)
             drg.interval = intervals.BI_ONE_MIN
-            with pytest.raises(errors.EndTooEarlyError, match=match):
-                _ = drg.get_end(too_early)
+            for limit_, strict_ in itertools.product((True, False), (True, False)):
+                with pytest.raises(errors.EndTooEarlyError, match=match):
+                    drg.get_end(too_early, limit=limit_, strict=strict_)
+
+        limit_right = ans.opens.iloc[int(len(ans.sessions) * (3 / 4))] + one_min
+        too_late = limit_right + one_min
+
+        # strict False at drg level
+        drg = self.get_drg(
+            cal, pp_default, limit=limit, strict=False, limit_right=limit_right
+        )
+        drg.interval = intervals.BI_ONE_MIN
+        expected = (limit_right, limit_right)
+        # on limit
+        for limit_, strict_ in itertools.product((True, False), (True, False)):
+            assert drg.get_end(limit_right, limit_, strict_) == expected
+        # too late
+        assert drg.get_end(too_late, limit=True) == expected
+        assert drg.get_end(too_late, limit=False) == (too_late, too_late)
+        assert drg.get_end(too_late, limit=True, strict=False) == expected
+        assert drg.get_end(too_late, limit=False, strict=False) == (too_late, too_late)
+        for limit_ in (True, False):
+            # check raises when strict Ture even when strict False at drg level
+            with pytest.raises(errors.EndTooLateError):
+                drg.get_end(too_late, limit=limit_, strict=True)
+
+        # strict True at drg level
+        drg = self.get_drg(
+            cal, pp_default, limit=limit, strict=True, limit_right=limit_right
+        )
+        drg.interval = intervals.BI_ONE_MIN
+        # on limit
+        for limit_, strict_ in itertools.product((True, False), (True, False)):
+            assert drg.get_end(limit_right, limit_, strict_) == expected
+        # too late
+        for limit_ in (True, False):
+            with pytest.raises(errors.EndTooLateError):
+                drg.get_end(too_late, limit=limit_)
+            with pytest.raises(errors.EndTooLateError):
+                drg.get_end(too_late, limit=limit_, strict=True)
+        # verify does not raise when strict False at method level
+        assert drg.get_end(too_late, limit=True, strict=False) == expected
+        assert drg.get_end(too_late, limit=False, strict=False) == (too_late, too_late)
 
     def test_end_now_and_get_end_none(
         self, calendars_with_answers, monkeypatch, pp_default, one_min
@@ -1912,6 +2097,11 @@ class TestGetterIntraday:
         drg = self.get_drg(cal, pp, interval=TDInterval.T1, delay=delay)
         end = close - pd.Timedelta(5, "T") + one_min  # returns right of live indice
         assert drg.end_now == drg.get_end(None) == (end, now + one_min - delay)
+
+        # verify None input to `get_end` returns any fixed right limit
+        limit_right = now - pd.Timedelta(84, "min")
+        drg = self.get_drg(cal, pp, interval=TDInterval.T1, limit_right=limit_right)
+        assert drg.get_end(None) == (limit_right, limit_right)
 
     def test_get_start_get_end_anchor_effect(
         self, calendars_with_answers_extended, pp_default

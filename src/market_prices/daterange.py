@@ -137,7 +137,6 @@ class _Getter(abc.ABC):
             return self._limit(interval)
         return self._limit
 
-    # TODO one way or another tests will need to verify that can pass through as a callable
     @property
     def limit_right(self) -> pd.Timestamp | None:
         """Right limit."""
@@ -274,12 +273,6 @@ class _Getter(abc.ABC):
         """
         if ts is None:
             return self.end_limit
-
-        # TODO will require a test to ensure limiting when limit is True
-        # Currently revised at least one existing test (test_get_end_non_trading_minutes)
-        # to pass limit as False (NB all daterange tests were passing)
-        # TODO will require a test to ensure treating strict as `strict` if
-        # `strict` passed to override `self.strict`
 
         end, end_acc = self._get_end(ts)
         if end < self.limit:

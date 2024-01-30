@@ -29,7 +29,7 @@ import pytest
 import valimp
 
 import market_prices.prices.base as m
-from market_prices import errors, helpers, intervals, mptypes, pt
+from market_prices import errors, helpers, intervals, mptypes, pt, data
 from market_prices.helpers import UTC
 from market_prices.intervals import TDInterval, DOInterval
 from market_prices.mptypes import Anchor, OpenEnd, Priority
@@ -143,18 +143,23 @@ class PricesBaseTst(m.PricesBase):
         prices_tables: dict[str, pd.DataFrame],
         lead_symbol: str | None = None,
         recon_symbols: bool = True,
+        calendars: list[xcals.ExchangeCalendar]
+        | dict[str, xcals.ExchangeCalendar]
+        | None = None,
+        delays: list[int] | dict[str, int] | None = None,
     ):
         self._prices_tables = prices_tables
         symbols = helpers.symbols_to_list(symbols)
         if recon_symbols:
             # verify that prices_tables are for symbols
             assert set(prices_tables["T1"].pt.symbols) == set(symbols)
-
         if getattr(self.BaseInterval, "D1", False):
             earliest = min(TST_SYMBOLS[symbol].earliest_date for symbol in symbols)
             self._update_base_limits({self.BaseInterval.D1: earliest})
-        calendars = [TST_SYMBOLS[symbol].calendar for symbol in symbols]
-        delays = [TST_SYMBOLS[symbol].delay for symbol in symbols]
+        if calendars is None:
+            calendars = [TST_SYMBOLS[symbol].calendar for symbol in symbols]
+        if delays is None:
+            delays = [TST_SYMBOLS[symbol].delay for symbol in symbols]
         super().__init__(symbols, calendars, lead_symbol, delays)
 
     def _request_data(
@@ -177,8 +182,13 @@ class PricesBaseTst(m.PricesBase):
             end -= helpers.ONE_SEC
         return df.loc[start:end].copy()
 
-    def prices_for_symbols(self, symbols: str):
-        raise NotImplementedError()
+    def _get_class_instance(self, symbols: list[str], **kwargs) -> "PricesBaseTst":
+        """Return an instance of the prices class with the same parameters as self."""
+        diff = list(set(self.symbols) - set(symbols))
+        tables = {
+            bi: df.drop(columns=diff, level=0) for bi, df in self._prices_tables.items()
+        }
+        return super()._get_class_instance(symbols, prices_tables=tables, **kwargs)
 
 
 class PricesBaseIntradayTst(PricesBaseTst):
@@ -6156,3 +6166,106 @@ def test_price_range(prices_us_lon_hk, one_day, monkeypatch):
 
     # verify for no arguments
     test_it({}, to_now=True)
+
+
+def test_prices_for_symbols(prices_us_lon):
+    """Verify `prices_for_symbols`.
+
+    Notes
+    -----
+    H1 interval not tested as not synchronised for xnys/xlon calendars.
+    """
+    prices = prices_us_lon
+    symbols = prices.symbols
+    f = prices.prices_for_symbols
+
+    for s, cal in prices.calendars.items():
+        if cal.name == "XNYS":
+            symb_us = s
+        elif cal.name == "XLON":
+            symb_lon = s
+
+    _ = prices.get("1d", start="2021-12-31", end="2022-01-05")
+
+    # set up inraday data as period within a single session during which
+    # us and lon calendars overlap (from inspection of calendar schedules).
+    cal_us = prices.calendars[symb_us]
+    cal_lon = prices.calendars[symb_lon]
+
+    session = pd.Timestamp("2022-06-08")
+    us_open = cal_us.opens[session]
+    lon_close = cal_lon.closes[session]
+    assert us_open + pd.Timedelta(1, "H") < lon_close  # verify overlap > one hour
+    start = us_open - pd.Timedelta(2, "H")
+    end = lon_close + pd.Timedelta(2, "H")
+
+    _ = prices.get("5T", start, us_open, lead_symbol="AZN.L")
+    _ = prices.get("2T", start, us_open, lead_symbol="AZN.L")
+    _ = prices.get("1T", start, us_open, lead_symbol="AZN.L")
+    _ = prices.get("5T", us_open, end)
+    _ = prices.get("2T", us_open, end)
+    _ = prices.get("1T", us_open, end)
+
+    def assertions(
+        pdata: data.Data,
+        symb: str,
+        interval: intervals.BI,
+        expect_missing: bool = True,
+    ):
+        orig = prices._pdata[interval]
+        assert pdata.ranges == orig.ranges
+
+        orig_table = orig._table[symb]
+        if expect_missing:
+            # Assert that at least one row of original data should be missing
+            # from new table
+            assert orig_table.isna().all(axis=1).any()
+
+        table = pdata._table
+        assert table is not None
+        assert table.pt.symbols == [symb]
+        assert table.notna().all(axis=1).all()
+        assert_frame_equal(table.droplevel(0, axis=1), orig_table.dropna())
+
+    # Verify prices for us symb only
+    us = f(symb_us)
+    assert us.symbols == [symb_us]
+    assert us.calendars_unique == [prices.calendars[symb_us]]
+
+    interval = us.BaseInterval.D1
+    pdata = us._pdata[interval]
+    assertions(pdata, symb_us, interval, expect_missing=False)
+    for interval in us.BaseInterval[:-2]:
+        pdata = us._pdata[interval]
+        assert pdata._table.pt.first_ts == us_open
+        assertions(pdata, symb_us, interval)
+
+    # Verify prices for lon symb only
+    lon = f(symb_lon)
+    assert lon.symbols == [symb_lon]
+    assert lon.calendars_unique == [prices.calendars[symb_lon]]
+
+    for interval in lon.BaseInterval[:-2]:
+        if interval == intervals.TDInterval.H1:
+            continue
+        pdata = lon._pdata[interval]
+        assert pdata._table.pt.last_ts == lon_close
+        assertions(pdata, symb_lon, interval)
+
+    # Verify prices when symbols as original
+    both = f(prices.symbols)
+    assert both.symbols == prices.symbols
+    assert both.calendars_unique == prices.calendars_unique
+
+    for interval in both.BaseInterval:
+        if interval == intervals.TDInterval.H1:
+            continue
+        pdata = both._pdata[interval]
+        table = pdata._table
+        orig = prices._pdata[interval]
+        assert pdata.ranges == orig.ranges
+        assert table.pt.symbols == symbols
+        assert not table.isna().all(axis=1).any()
+        # verify columns same length an order identically to compare
+        assert len(table.columns) == len(orig._table.columns)
+        assert_frame_equal(table[orig._table.columns], orig._table)

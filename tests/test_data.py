@@ -154,7 +154,7 @@ def assert_ts_not_available(data: m.Data, tss: pd.Timestamp | list[pd.Timestamp]
 
 
 def assert_rng_available_unknown(data: m.Data, start: pd.Timestamp, end: pd.Timestamp):
-    """Test that unkonwn if data is available over a range."""
+    """Test that unknown if data is available over a range."""
     delta = get_delta(start)
     tss = [start, start + delta, end - delta, end]
     for ts in tss:
@@ -164,6 +164,7 @@ def assert_rng_available_unknown(data: m.Data, start: pd.Timestamp, end: pd.Time
 
     rng = (tss[0], tss[-1])
     assert data.available_range(rng) is None
+    assert data.available_any(rng) is None
     assert not data.requested_range(rng)
 
 
@@ -180,6 +181,7 @@ def assert_rng_available_not_requested(
 
     rng = (tss[0], tss[-1])
     assert data.available_range(rng)
+    assert data.available_any(rng)
     assert not data.requested_range(rng)
 
 
@@ -199,7 +201,32 @@ def assert_rng_available_requested(
 
     rng = (tss[0], tss[-1])
     assert data.available_range(rng)
+    assert data.available_any(rng)
     assert data.requested_range(rng)
+
+
+def verify_available_any(
+    data: m.Data,
+    left_limit: pd.Timestamp,
+    right_limit: pd.Timestamp,
+):
+    """Tests `available_any`."""
+    delta = helpers.ONE_MIN
+    assert data.available_any((left_limit, right_limit))
+    loll = left_limit - delta
+    rorl = right_limit + delta
+    assert data.available_any((loll, left_limit))
+    assert data.available_any((right_limit, rorl))
+    assert not data.available_any((loll - delta, loll))
+    assert not data.available_any((rorl, rorl + delta))
+
+    delta = helpers.ONE_DAY
+    loll = left_limit - delta
+    rorl = right_limit + delta
+    assert data.available_any((loll, left_limit))
+    assert data.available_any((right_limit, rorl))
+    assert not data.available_any((loll - delta, loll))
+    assert not data.available_any((rorl, rorl + delta))
 
 
 @pytest.mark.parametrize("bi", [TDInterval.T1, TDInterval.H1, TDInterval.D1])
@@ -278,6 +305,7 @@ def test_pre_requests(
 
     assert_rng_available_not_requested(data, left_limit, right_limit)
     assert_ts_not_available(data, [left_limit - delta, right_limit + delta])
+    verify_available_any(data, left_limit, right_limit)
 
 
 def assert_table_matches(

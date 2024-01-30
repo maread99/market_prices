@@ -22,7 +22,7 @@ from .utils import (
     RESOURCES_PATH,
     get_resource_pbt,
 )
-
+ 
 
 @pytest.fixture
 def csv_dir() -> abc.Iterator[Path]:
@@ -751,12 +751,10 @@ def res_us_lon_hk() -> abc.Iterator[tuple[dict[str, pd.DataFrame], pd.Timestamp]
     yield get_resource_pbt("us_lon_hk")
 
 
-# TODO revise test to look at wherever the tables data ends up
 def test_tables(csv_dir, symbols, calendars, res_us_lon_hk):
     with pytest.warns(m.PricesCsvParsingConsolidatedWarning):
         prices = m.PricesCsv(csv_dir, symbols, calendars)
 
-    # TODO revise test to look at wherever the tables data ends up
     for interval, pdata in prices._pdata.items():
         table = pdata._table
         res = res_us_lon_hk[0][interval.as_pdfreq[-1::-1]]  # just reversed freq str
@@ -768,3 +766,26 @@ def test_tables(csv_dir, symbols, calendars, res_us_lon_hk):
             expected = res.loc[table.index.left[0] : table.index.left[-1]]
         for symbol in symbols:
             pd.testing.assert_frame_equal(table[symbol], expected[symbol])
+
+
+def test_prices_for_symbol(csv_dir, symbols, calendars):
+    """Simple verification."""
+    with pytest.warns(m.PricesCsvParsingConsolidatedWarning):
+        prices = m.PricesCsv(csv_dir, symbols, calendars)
+
+    assert_frame_equal = pd.testing.assert_frame_equal
+
+    kwargs_daily = dict(days=20)
+    daily_df = prices.get(**kwargs_daily)
+    kwargs_intraday = dict(minutes=1111, end=prices.limit_right_intraday)
+    intraday_df = prices.get(**kwargs_intraday)
+
+    new = prices.prices_for_symbols("MSFT AZN.L")
+
+    daily_df_new = new.get(**kwargs_daily)
+    intraday_df_new = new.get(**kwargs_intraday)
+
+    assert_frame_equal(daily_df.drop(columns="9988.HK", level=0), daily_df_new)
+    expected = intraday_df.drop(columns="9988.HK", level=0)
+    expected = expected.dropna(axis=0, how="all")
+    assert_frame_equal(expected, intraday_df_new)
