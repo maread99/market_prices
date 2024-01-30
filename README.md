@@ -13,7 +13,7 @@ A python library to create **meaningful** OHLCV datasets for financial instrumen
 
 `market_prices` provides for enhanced querying and post-processing of financial price data.
 
-Works out-the-box with prices from the Yahoo Finance API via [yahooquery][yahooquery] (see [Disclaimers](https://github.com/maread99/market_prices#disclaimers)).
+Works out-the-box with prices from the Yahoo Finance API via [yahooquery][yahooquery] (see [Disclaimers](https://github.com/maread99/market_prices#disclaimers)) or from locally stored .csv files.
 
 ## Installation
 
@@ -206,6 +206,9 @@ symbol                           MSFT     9988.HK       BTC-USD
 The [quickstart.ipynb](https://github.com/maread99/market_prices/blob/master/docs/tutorials/quickstart.ipynb) tutorial offers a fuller introduction. [Here](https://github.com/maread99/market_prices/blob/master/docs/tutorials_docs.md) you'll find links to all the tutorials which collectively cover all that `market_prices` offers.
 
 ## Features include:
+* Get price data out-the-box:
+    * `PricesYahoo` to get live and historic prices from the Yahoo Finance API via [yahooquery][yahooquery] (see [Disclaimers](https://github.com/maread99/market_prices#disclaimers)).
+    * `PricesCsv` to get price data from locally stored .csv files.
 * Include **securities trading on different exchanges** with differing opening hours across different time zones.
 * Request the **period** covered by a dataset in terms of either:
     * trading time (minutes and hours).

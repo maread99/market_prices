@@ -336,7 +336,7 @@ class CsvParsingError(CsvError):
 
         try:
             raise self.source
-        except:
+        except Exception:
             msg += f"\nThe source error's traceback was:\n{traceback.format_exc()}"[:-2]
         return msg
 
@@ -910,9 +910,10 @@ class PricesCsv(base.PricesBase):
     lead_symbol : str
         Symbol with calendar that should be used as the default calendar to
         evaluate period from period parameters. If not passed default
-        calendar will be defined as the most common calendar (and if more
-        than one calendar is the most common then of those the the calendar
-        that's defined 'first' in the list or dictionary).
+        calendar will be defined as the most common calendar (and if there
+        is no single most common calendar then the calendar associated
+        with the first symbol passed that's associated with one of the most
+        common calendars).
 
     read_csv_kwargs : Optional[dict[str, Any]]
         Keyword argumnets to pass to `pandas.read_csv` to parse a csv file
@@ -1220,7 +1221,7 @@ class PricesCsv(base.PricesBase):
 
     def _request_data(
         self,
-        interval: BI,
+        interval: intervals.BI,
         start: pd.Timestamp | None,
         end: pd.Timestamp,
     ) -> pd.DataFrame:

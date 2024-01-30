@@ -700,9 +700,7 @@ class TestParseStartEnd:
         expected_as_time: pd.Timestamp
 
     @pytest.fixture
-    def f_starts_ends(
-        self, f_with_ans, one_min, today
-    ) -> abc.Iterator[
+    def f_starts_ends(self, f_with_ans, one_min, today) -> abc.Iterator[
         tuple[
             Callable,
             list[tuple[pd.Timestamp, pd.Timestamp, pd.Timestamp]],

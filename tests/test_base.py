@@ -909,9 +909,7 @@ def left_limits() -> abc.Iterator[dict[intervals.TDInterval, pd.Timestamp]]:
 
 
 @pytest.fixture
-def prices_mock_base_intervals(
-    daily_limit, right_limits, left_limits
-) -> abc.Iterator[
+def prices_mock_base_intervals(daily_limit, right_limits, left_limits) -> abc.Iterator[
     tuple[
         type[intervals._BaseInterval],
         dict[intervals._BaseInterval, pd.Timedelta | pd.Timestamp],
@@ -961,9 +959,7 @@ def prices_mock_base_intervals(
 
 
 @pytest.fixture
-def prices_mock_base_intervals_intraday_only(
-    left_limits, right_limits
-) -> abc.Iterator[
+def prices_mock_base_intervals_intraday_only(left_limits, right_limits) -> abc.Iterator[
     tuple[
         type[intervals._BaseInterval],
         dict[intervals._BaseInterval, pd.Timedelta],
@@ -1007,9 +1003,7 @@ def prices_mock_base_intervals_intraday_only(
 
 
 @pytest.fixture
-def prices_mock_base_intervals_daily_only(
-    daily_limit, right_limits
-) -> abc.Iterator[
+def prices_mock_base_intervals_daily_only(daily_limit, right_limits) -> abc.Iterator[
     tuple[
         type[intervals._BaseInterval],
         dict[intervals._BaseInterval, pd.Timestamp],
@@ -1186,8 +1180,9 @@ def GetterMock(xnys, xlon) -> abc.Iterator[type[daterange.GetterIntraday]]:
 
         def __init__(
             self,
-            daterange: tuple[tuple[pd.Timestamp, pd.Timestamp], pd.Timestamp]
-            | None = None,
+            daterange: (
+                tuple[tuple[pd.Timestamp, pd.Timestamp], pd.Timestamp] | None
+            ) = None,
             daterange_sessions: tuple[pd.Timestamp, pd.Timestamp] | None = None,
             interval: intervals.BI | None = None,
             calendar: xcals.ExchangeCalendar | None = None,

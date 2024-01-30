@@ -86,8 +86,8 @@ def get_tst_symbol_for_calendar(name: str) -> str:
     name
         Name of calendar for which require a test symbol.
     """
-    for symb, data in TST_SYMBOLS.items():
-        if data.calendar == name:
+    for symb, data_ in TST_SYMBOLS.items():
+        if data_.calendar == name:
             return symb
     raise ValueError(f"There is no test symbol for a calendar with name {name}.")
 
@@ -143,9 +143,9 @@ class PricesBaseTst(m.PricesBase):
         prices_tables: dict[str, pd.DataFrame],
         lead_symbol: str | None = None,
         recon_symbols: bool = True,
-        calendars: list[xcals.ExchangeCalendar]
-        | dict[str, xcals.ExchangeCalendar]
-        | None = None,
+        calendars: (
+            list[xcals.ExchangeCalendar] | dict[str, xcals.ExchangeCalendar] | None
+        ) = None,
         delays: list[int] | dict[str, int] | None = None,
     ):
         self._prices_tables = prices_tables
