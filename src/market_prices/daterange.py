@@ -76,9 +76,9 @@ class _Getter(abc.ABC):
         pp: mptypes.PP | None = None,
         ds_interval: intervals.PTInterval | None = None,
         strict=True,
-        limit_right: pd.Timestamp
-        | Callable[[intervals.BI], pd.Timestamp | None]
-        | None = None,
+        limit_right: (
+            pd.Timestamp | Callable[[intervals.BI], pd.Timestamp | None] | None
+        ) = None,
     ):
         self._cal = calendar
         self._limit = limit
@@ -728,9 +728,9 @@ class GetterIntraday(_Getter):
         anchor: mptypes.Anchor = mptypes.Anchor.OPEN,
         end_alignment: mptypes.Alignment = mptypes.Alignment.BI,
         strict: bool = True,
-        limit_right: pd.Timestamp
-        | Callable[[intervals.BI], pd.Timestamp | None]
-        | None = None,
+        limit_right: (
+            pd.Timestamp | Callable[[intervals.BI], pd.Timestamp | None] | None
+        ) = None,
     ):
         self._cc = composite_calendar
         self._delay = delay

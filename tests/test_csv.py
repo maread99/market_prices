@@ -22,7 +22,7 @@ from .utils import (
     RESOURCES_PATH,
     get_resource_pbt,
 )
- 
+
 
 @pytest.fixture
 def csv_dir() -> abc.Iterator[Path]:

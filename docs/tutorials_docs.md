@@ -13,7 +13,7 @@ To get a good appreciation of what `market_prices` offers and how it works it's 
 These tutorials covers all aspects of the Prices classes `get` method which is used to get a prices dataset.
 
 * [**prices.ipynb**](./tutorials/prices.ipynb)
-    * Create a prices object from `PricesYahoo`.
+    * Create a prices object from `PricesYahoo` or `PricesCsv`.
 * [**intervals.ipynb**](./tutorials/intervals.ipynb)
     * Define the time interval represented by each row of a prices table.
 * [**periods.ipynb**](./tutorials/periods.ipynb)

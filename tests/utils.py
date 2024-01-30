@@ -261,7 +261,6 @@ def get_resource_pbt(key: str) -> tuple[dict[str, pd.DataFrame], pd.Timstamp]:
 # functions to administer _temp folder
 
 TEMP_DIR = TEST_ROOT / r"./_temp"
-assert TEMP_DIR.is_dir()
 ENCODING = "utf-8"
 
 

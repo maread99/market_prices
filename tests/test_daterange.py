@@ -1035,9 +1035,9 @@ class TestGetterIntraday:
         anchor: Anchor = Anchor.OPEN,
         end_alignment: Alignment = Alignment.BI,
         strict: bool = True,
-        limit_right: pd.Timestamp
-        | abc.Callable[[intervals.BI], pd.Timestamp | None]
-        | None = None,
+        limit_right: (
+            pd.Timestamp | abc.Callable[[intervals.BI], pd.Timestamp | None] | None
+        ) = None,
     ) -> m.GetterIntraday:
         """Get m.GetterIntraday with default arguments unless otherwise passed."""
         if composite_calendar is None:
@@ -2452,8 +2452,8 @@ class TestGetterIntraday:
         drg = self.get_drg(cal, pp, strict=True, **drg_kwargs)
 
         match = (
-            f"Prices unavailable as start evaluates to \d\d\d\d-\d\d-\d\d \d\d:\d\d UTC"
-            " which is earlier than the earliest minute for which price data is"
+            rf"Prices unavailable as start evaluates to \d\d\d\d-\d\d-\d\d \d\d:\d\d"
+            " UTC which is earlier than the earliest minute for which price data is"
             f" available. The earliest minute for which prices are available is"
             f" {helpers.fts(limit)}.\nNB The evaluated start falls earlier than first"
             " available minute due only to 'add_a_row=True'."

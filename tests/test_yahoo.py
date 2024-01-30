@@ -16,7 +16,7 @@ import pytest
 import yahooquery as yq
 
 import market_prices.prices.yahoo as m
-from market_prices import data, daterange, helpers, intervals, errors
+from market_prices import daterange, helpers, intervals, errors
 from market_prices.helpers import UTC
 from market_prices.support import tutorial_helpers as th
 from market_prices.utils import calendar_utils as calutils

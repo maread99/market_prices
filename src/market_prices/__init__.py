@@ -1,9 +1,10 @@
 """Market Prices."""
 
 from .prices.yahoo import PricesYahoo
+from .prices.csv import PricesCsv
 from .utils.calendar_utils import get_exchange_info
 
-__all__ = [PricesYahoo, get_exchange_info]
+__all__ = [PricesYahoo, PricesCsv, get_exchange_info]
 
 __copyright__ = "Copyright (c) 2022 Marcus Read"
 
