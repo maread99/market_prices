@@ -252,7 +252,7 @@ def test_create_base_intervals_enum():
     input_intervals.extend([m.TDInterval.D2])
     match = (
         "Base Intervals cannot be greater than 1 day although `intervals`"
-        " included '2 days, 0:00:00'."
+        f" included '{m.TDInterval.D2}'."
     )
     with pytest.raises(ValueError, match=match):
         bis_enum = m.create_base_intervals_enum(input_intervals)

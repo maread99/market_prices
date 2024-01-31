@@ -20,6 +20,7 @@ from valimp import parse, Parser, Coerce
 import market_prices.parsing as m
 from market_prices import errors, helpers, mptypes
 from market_prices.helpers import UTC
+from market_prices.intervals import TDInterval
 
 from .utils import Answers
 
@@ -568,20 +569,20 @@ class TestParseStartEnd:
         match_D = re.escape(
             "`start` cannot be a later date than the latest date for which prices are"
             " available.\nThe latest date for which prices are available for interval"
-            f" '1 day, 0:00:00' is {helpers.fts(session)}, although `start`"
+            f" '{TDInterval.D1}' is {helpers.fts(session)}, although `start`"
             f" received as {helpers.fts(rol_session)}."
         )
         match_T = re.escape(
             "`start` cannot be a later time than the latest time for which prices"
             " are available.\nThe latest time for which prices are available for"
-            f" interval '0:01:00' is {helpers.fts(session_first_minute)}, although"
-            f" `start` received as {helpers.fts(rol_minute)}."
+            f" interval '{TDInterval.T1}' is {helpers.fts(session_first_minute)},"
+            f" although `start` received as {helpers.fts(rol_minute)}."
         )
         match_TT = re.escape(
             "`start` cannot be a later time than the latest time for which prices"
             " are available.\nThe latest time for which prices are available for"
-            f" interval '0:01:00' is {helpers.fts(session_close)}, although"
-            f" `start` received as {helpers.fts(rol_minute)}."
+            f" interval '{TDInterval.T1}' is {helpers.fts(session_close)},"
+            f" although `start` received as {helpers.fts(rol_minute)}."
         )
         with pytest.raises(errors.StartTooLateError, match=match_D):
             f(rol_session, None, as_dates)
