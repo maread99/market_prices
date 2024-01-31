@@ -4076,7 +4076,7 @@ class PricesBase(metaclass=abc.ABCMeta):
 
         interval_: intervals.PTInterval | None
         if interval is None and not self._inferred_intraday_interval(cal, pp):
-            interval_ = intervals.BI_ONE_DAY
+            interval_ = intervals.ONE_DAY
         else:
             if TYPE_CHECKING:
                 assert interval is None or isinstance(
