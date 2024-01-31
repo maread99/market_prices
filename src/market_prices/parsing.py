@@ -20,6 +20,7 @@ import pandas as pd
 
 from market_prices import errors, helpers, mptypes, intervals
 from market_prices.helpers import UTC
+from market_prices.intervals import TDInterval
 
 
 def verify_period_parameters(pp: mptypes.PP):
@@ -226,20 +227,18 @@ def _parse_start_end(
         if start_is_date:
             mrs = mr_session if mr_session is not None else _now_mr_session(cal, delay)
             if start > mrs:
-                raise errors.StartTooLateError(start, mrs, intervals.BI_ONE_DAY, delay)
+                raise errors.StartTooLateError(start, mrs, TDInterval.D1, delay)
         elif not as_times:  # start is time and require as_date
             mrs = mr_session if mr_session is not None else _now_mr_session(cal, delay)
             mrs_start = cal.session_first_minute(mrs)
             if start > mrs_start:
-                raise errors.StartTooLateError(
-                    start, mrs_start, intervals.BI_ONE_MIN, delay
-                )
+                raise errors.StartTooLateError(start, mrs_start, TDInterval.T1, delay)
         else:  # start is time and require as_time
             mrm = (
                 mr_minute if mr_minute is not None else _now_mr_minute_left(cal, delay)
             )
             if start > mrm:
-                raise errors.StartTooLateError(start, mrm, intervals.BI_ONE_MIN, delay)
+                raise errors.StartTooLateError(start, mrm, TDInterval.T1, delay)
 
     # if `start` or `end` earlier than left calendar bound
     end_parsed: pd.Timestamp | None
