@@ -183,7 +183,7 @@ class TestParseStartEnd:
 
     @pytest.fixture(scope="class")
     def delays(self) -> abc.Iterator[tuple[pd.Timedelta, pd.Timedelta]]:
-        yield pd.Timedelta(0), pd.Timedelta(15, "T")
+        yield pd.Timedelta(0), pd.Timedelta(15, "min")
 
     @pytest.fixture(scope="class")
     def as_times(self) -> abc.Iterator[typing.Literal[True]]:

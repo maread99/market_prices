@@ -47,7 +47,7 @@ The above call was made 21 minutes after the NYSE open. Notice that the call ret
 Any interval can be evaluated (limited only by the availability of underlying data).
 ```python
 >>> # prices over a specific session at 68 minute intervals
->>> prices.get("68T", start="2022-06-27", end="2022-06-27", force=True)
+>>> prices.get("68min", start="2022-06-27", end="2022-06-27", force=True)
 ```
 ```
 symbol                                            MSFT
@@ -108,7 +108,7 @@ Although some indices are longer than three calendar days, they all comprise of 
 )
 >>> # lead_symbol determines the exchange against which the period will be evaluated and
 >>> # the default output time zone (which for Bitcoin is UTC).
->>> prices_mult.get("90T", hours=9, lead_symbol="BTC-USD")
+>>> prices_mult.get("90min", hours=9, lead_symbol="BTC-USD")
 ```
 ```
 symbol                                            MSFT                                                    9988.HK                                                       BTC-USD
@@ -127,7 +127,7 @@ By default prices are shown as missing when the exchange is closed (the time zon
 The `get` method has plenty of options to customize the output, including `fill` to fill in indices when an exchange is closed...
 ```python
 >>> # as before, only now filling in prices when exchanges are closed
->>> prices_mult.get("90T", hours=9, lead_symbol="BTC-USD", fill="both")
+>>> prices_mult.get("90min", hours=9, lead_symbol="BTC-USD", fill="both")
 ```
 ```
 symbol                                            MSFT                                                    9988.HK                                                       BTC-USD

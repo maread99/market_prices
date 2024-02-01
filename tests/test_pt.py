@@ -91,7 +91,7 @@ def intraday_cc_overlapping_pt() -> abc.Iterator[pd.DataFrame]:
 
     Recreate table with:
     > symbols = ["BTC-USD", "ES=F"]
-    > prices.get("15T", start="2021-12-21", end="2021-12-23", anchor="open")
+    > prices.get("15min", start="2021-12-21", end="2021-12-23", anchor="open")
     """
     yield get_resource("intraday_cc_overlapping_pt")
 
@@ -154,7 +154,7 @@ def intraday_detached_pt() -> abc.Iterator[pd.DataFrame]:
 
     Recreate table with:
     > symbols = ["MSFT", "9988.HK"]
-    > df = prices.get("30T", start="2022-04-01", end="2022-04-07")
+    > df = prices.get("30min", start="2022-04-01", end="2022-04-07")
     """
     yield get_resource("intraday_detached_pt")
 
@@ -333,7 +333,7 @@ class TestConstructorErrors:
             _ = intraday_df.pt
 
         daily_df = daily_pt.copy()
-        daily_df.index = daily_df.index + pd.Timedelta(1, "T")
+        daily_df.index = daily_df.index + pd.Timedelta(1, "min")
         match = re.escape(
             "PT accessor not available where index is a pd.DatatimeIndex with"
             " one or more indices that have a time component (Index must be"
@@ -799,7 +799,7 @@ class TestIndicesTradingStatus:
         assert_index_equal(df.pt.indices_partial_trading(cal), partial_indices)
 
         # create indices_partial_trading_info
-        delta = pd.Timedelta(30, "T")
+        delta = pd.Timedelta(30, "min")
         d = {}
         for indice in partial_indices:
             non_trading_part = pd.Interval(indice.right - delta, indice.right, side)
@@ -821,14 +821,14 @@ class TestIndicesTradingStatus:
         date = "2021-12-24"
         # First indice is a trading indice
         left = cal.session_open(date)
-        right = left + pd.Timedelta(1, "H")
+        right = left + pd.Timedelta(1, "h")
         indice1 = pd.Interval(left, right, side)
         bv_trading_status.loc[indice1] = True
         bv_partial_trading.loc[indice1] = False
 
         # last indice is a parital trading indice.
-        left = cal.session_close(date) - pd.Timedelta(30, "T")
-        right = left + pd.Timedelta(1, "H")
+        left = cal.session_close(date) - pd.Timedelta(30, "min")
+        right = left + pd.Timedelta(1, "h")
         indice2 = pd.Interval(left, right, side)
         bv_trading_status.loc[indice2] = np.nan
         bv_partial_trading.loc[indice2] = True
@@ -841,7 +841,7 @@ class TestIndicesTradingStatus:
         partial_indices = df.index[bv_partial_trading]
         assert_index_equal(df.pt.indices_partial_trading(cal), partial_indices)
 
-        delta = pd.Timedelta(30, "T")
+        delta = pd.Timedelta(30, "min")
         d = {}
         for indice in partial_indices:
             if indice == indice2:
@@ -908,7 +908,7 @@ class TestIndicesTradingStatus:
         session = "2021-12-16"
         side = "left"
         xasx_open = xasx.session_open(session)
-        right = xasx_open + pd.Timedelta(6, "H")
+        right = xasx_open + pd.Timedelta(6, "h")
         indice = pd.Interval(xasx_open, right, side)
 
         xhkg_non_trading_periods = [
@@ -1968,7 +1968,7 @@ class TestDownsampleDaily:
 
         # test raises expected errors
         match = "Cannot downsample to a `pdfreq` with a unit more precise than 'd'."
-        invalid_freqs = ("5T", "5min", "1ms", "3h", "2H", "120s", "1000ns", "26H")
+        invalid_freqs = ("5min", "1ms", "3h", "120s", "1000ns", "26h")
         for freq in invalid_freqs:
             with pytest.raises(ValueError, match=match):
                 f(freq, calendars[0])
@@ -1981,7 +1981,7 @@ class TestDownsampleDaily:
                 ' than one day. For example "2d", "5d" "QS" etc.'
             )
 
-        invalid_freqs = ("D2", "a_string", "3E", "3")
+        invalid_freqs = ("D2", "astring", "3E", "3")
         for freq in invalid_freqs:
             with pytest.raises(ValueError, match=match_f(freq)):
                 f(freq, calendars[0])
@@ -2295,24 +2295,24 @@ class TestDownsampleIntraday:
         f = df.pt.downsample
 
         minutes = (df.pt.interval - one_min).seconds // 60
-        expected_interval = pd.Timedelta(minutes, "T")
+        expected_interval = pd.Timedelta(minutes, "min")
         match = (
             "Downsampled interval must be higher than table interval, although"
             f" downsample interval evaluated as {expected_interval} whilst table"
             f" interval is {df.pt.interval}."
         )
         with pytest.raises(ValueError, match=match):
-            f(str(minutes) + "T")
+            f(str(minutes) + "min")
 
         minutes = (df.pt.interval + one_min).seconds // 60
-        expected_interval = pd.Timedelta(minutes, "T")
+        expected_interval = pd.Timedelta(minutes, "min")
         match = (
             "Table interval must be a factor of downsample interval, although"
             f" downsampled interval evaluated as {expected_interval} whilst table"
             f" interval is {df.pt.interval}."
         )
         with pytest.raises(ValueError, match=match):
-            f(str(minutes) + "T")
+            f(str(minutes) + "min")
 
         table_freq = df.pt.interval.as_pdfreq
         match = (
@@ -2324,17 +2324,17 @@ class TestDownsampleIntraday:
 
         def match_f(pdfreq) -> str:
             return re.escape(
-                f"The unit of `pdfreq` must be in ['min', 'T', 'h', 'H'] although"
+                f"The unit of `pdfreq` must be in ['min', 'h'] although"
                 f" received `pdfreq` as {pdfreq}."
             )
 
-        invalid_pdfreqs = ["1d", "1s", "1ns", "1ms", "1m", "1y"]
+        invalid_pdfreqs = ["1d", "1s", "1ns", "1ms", "1ME", "1YE"]
         for pdfreq in invalid_pdfreqs:
             with pytest.raises(ValueError, match=match_f(pdfreq)):
                 f(pdfreq)
 
         # verify no error raised for valid units
-        valid_pdfreqs = [table_freq, table_freq[:-1] + "min", "1h", "1H"]
+        valid_pdfreqs = [table_freq, table_freq[:-3] + "min", "1h"]
         for pdfreq in valid_pdfreqs:
             f(pdfreq)
 
@@ -2451,23 +2451,23 @@ class TestDownsampleIntraday:
             return df.pt.downsample(freq, anchor="workback")
 
         base_minutes = (df.pt.interval).seconds // 60
-        base_freq = str(base_minutes) + "T"
+        base_freq = str(base_minutes) + "min"
 
         # assert unchanged if downsample to table frequency
         assert_frame_equal(f(base_freq), df)
 
         test_freqs = [
             (pd.tseries.frequencies.to_offset(base_freq) * 2).freqstr,
-            "30T",
-            "1H",
-            "4H",
-            "8H",
+            "30min",
+            "1h",
+            "4h",
+            "8h",
         ]
 
         excess_rowss = []
         for freq in test_freqs:
             offset = pd.tseries.frequencies.to_offset(freq)
-            freq_minutes = offset.delta.seconds // 60
+            freq_minutes = pd.Timedelta(offset).seconds // 60
             factor = freq_minutes // base_minutes
             excess_rows = len(df) % factor
             excess_rowss.append(excess_rows)
@@ -2664,8 +2664,8 @@ class TestDownsampleIntraday:
 
         factor = 3
         ds_minutes = df.pt.interval.as_minutes * factor
-        ds_freq = str(ds_minutes) + "T"
-        ds_interval = pd.Timedelta(ds_minutes, "T")
+        ds_freq = str(ds_minutes) + "min"
+        ds_interval = pd.Timedelta(ds_minutes, "min")
 
         def f(cal, comp_cal=None) -> pd.DataFrame:
             return df_test.pt.downsample(ds_freq, "open", cal, False, comp_cal)
@@ -2970,7 +2970,7 @@ class TestDownsampleIntraday:
         df = composite_daily_intraday_pt
         match = f"downsample is not implemented for {type(df.pt)}."
         with pytest.raises(NotImplementedError, match=match):
-            df.pt.downsample("10T")
+            df.pt.downsample("10min")
 
 
 class TestPTIntraday:

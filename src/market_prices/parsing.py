@@ -200,12 +200,12 @@ def _parse_start_end(
         start_is_date = helpers.is_date(start)
         if not start_is_date:
             # do not include any incomplete minute
-            start = start.ceil("T")
+            start = start.ceil("min")
     if end is not None:
         end_is_date = helpers.is_date(end)
         if not end_is_date:
             # do not include incomplete minute
-            end = end.floor("T")
+            end = end.floor("min")
         # if end > now, set to None.
         now_interval = intervals.ONE_DAY if end_is_date else intervals.ONE_MIN
         now = helpers.now(now_interval, "left")

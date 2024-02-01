@@ -51,10 +51,10 @@ class _TDIntervalBase(timedelta, enum.Enum):
         return pd.Timedelta(self)
 
     @property
-    def freq_unit(self) -> typing.Literal["T", "H", "D"]:
+    def freq_unit(self) -> typing.Literal["min", "h", "D"]:
         """Return unit of pandas frequency represented by the member.
 
-        Returns either "T", "H" or "D".
+        Returns either "min", "h" or "D".
         """
         return self.as_pdtd.resolution_string
 
@@ -64,7 +64,7 @@ class _TDIntervalBase(timedelta, enum.Enum):
         components = self.as_pdtd.components
         if self.freq_unit == "D":
             return components.days
-        elif self.freq_unit == "H":
+        elif self.freq_unit == "h":
             return components.hours
         else:
             return components.minutes + (components.hours * 60)
@@ -74,7 +74,7 @@ class _TDIntervalBase(timedelta, enum.Enum):
         """Query if a member represents an intraday interval.
 
         An interval is considered to be intraday if it is shorter than one
-        day. The unit of intraday intervals will be either "T" or "H".
+        day. The unit of intraday intervals will be either "min" or "h".
         """
         return self < helpers.ONE_DAY
 
@@ -126,7 +126,7 @@ class _TDIntervalBase(timedelta, enum.Enum):
         calendar
             Calendar against which to evaluate custom business day for
             intervals with `self.freq_unit` as "D". Not required for
-            intervals with `self.freq_unit` as "T" or "H".
+            intervals with `self.freq_unit` as "min" or "h".
 
         one_less
             If `self.freq_unit` is "D" then:
@@ -260,7 +260,7 @@ class DOInterval(enum.Enum):
         """Query if a member represents an intraday interval.
 
         An interval is considered to be intraday if it is shorter than one
-        day. The unit of intraday intervals will be either "T" or "H".
+        day. The unit of intraday intervals will be either "min" or "h".
         """
         return False
 
@@ -376,9 +376,9 @@ def create_base_intervals_enum(intervals: list[TDInterval]) -> _BaseInterval:
     for intrvl in intervals:
         unit, value = intrvl.freq_unit, intrvl.freq_value
         td_args: tuple
-        if unit == "T":
+        if unit == "min":
             td_args = (0, 0, 0, 0, value)
-        elif unit == "H":
+        elif unit == "h":
             td_args = (0, 0, 0, 0, 0, value)
         else:
             if intrvl is not TDInterval.D1:
@@ -432,6 +432,8 @@ def to_ptinterval(interval: str | timedelta | pd.Timedelta) -> PTInterval:
                 f"`interval` unit must by one of {valid_units} (or lower-"
                 f"case) although evaluated to '{unit}'."
             )
+        if unit == "MIN":
+            unit = "T"
 
     else:
         if interval <= timedelta(0):
@@ -448,7 +450,7 @@ def to_ptinterval(interval: str | timedelta | pd.Timedelta) -> PTInterval:
             ' example "1m" for one month.'
         )
 
-        valid_resolutions = ["T", "H", "D"]
+        valid_resolutions = ["min", "h", "D"]
         if interval.resolution_string not in valid_resolutions:
             raise ValueError(error_msg)
 
@@ -476,8 +478,7 @@ def to_ptinterval(interval: str | timedelta | pd.Timedelta) -> PTInterval:
     }
 
     if isinstance(interval, str):
-        if unit == "MIN":
-            unit = "T"
+
         if value > limits[unit]:
             raise_value_oob_error(components[unit], limits[unit])
         if unit == "T" and not value % 60:
@@ -487,10 +488,12 @@ def to_ptinterval(interval: str | timedelta | pd.Timedelta) -> PTInterval:
 
     else:
         unit = interval.resolution_string
-        if unit == "T":
+        if unit in ["min", "T"]:  # "T" for compatibility pandas < 2.2
             value = int(interval.total_seconds() // 60)
-        elif unit == "H":
+            unit = "T"
+        elif unit in ["h", "H"]:  # "H" for compatibility pandas < 2.2
             value = int(interval.total_seconds() // 3600)
+            unit = "H"
         else:
             value = interval.days
 

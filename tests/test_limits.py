@@ -243,7 +243,7 @@ def stricts() -> abc.Iterator[list[bool]]:
 
 @pytest.fixture
 def intrvls() -> abc.Iterator[tuple[None, str]]:
-    yield (None, "5T")
+    yield (None, "5min")
 
 
 @pytest.fixture
@@ -362,7 +362,7 @@ class TestStartEnd:
         # verify as required at the edge
 
         end = ends_T5[0]
-        one_min = pd.Timedelta(1, "T")
+        one_min = pd.Timedelta(1, "min")
         limit_start_5T, _ = prices.limits[prices.bis.T5]
         start_ool = limit_start_5T - prices.bis.T5
         start_valid = start_ool + one_min
@@ -375,7 +375,7 @@ class TestStartEnd:
             check(prices, df, prices.bis.T5, end=expected_end_T5)
             # check when explicitly defining interval
             df = prices.get(
-                "5T", start=start_valid, end=end, priority=priority, strict=strict
+                "5min", start=start_valid, end=end, priority=priority, strict=strict
             )
             check(prices, df, prices.bis.T5, end=expected_end_T5)
 
@@ -400,7 +400,7 @@ class TestStartEnd:
         for priority in priorities:
             with pytest.raises(errors.PricesIntradayUnavailableError, match=match):
                 prices.get(
-                    "5T", start=start_ool, end=end, priority=priority, strict=True
+                    "5min", start=start_ool, end=end, priority=priority, strict=True
                 )
 
         # verify doesn't raise when strict False
@@ -409,7 +409,7 @@ class TestStartEnd:
             check(prices, df, prices.bis.T5, end=expected_end_T5)
             # check when explicitly defining interval
             df = prices.get(
-                "5T", start=start_ool, end=end, priority=priority, strict=False
+                "5min", start=start_ool, end=end, priority=priority, strict=False
             )
             check(prices, df, prices.bis.T5, end=expected_end_T5)
 
@@ -481,21 +481,21 @@ class TestStartEnd:
         for start, priority in itertools.product(all_starts, priorities):
             # as neither period nor end can be met return will be based on highest interval
             df = prices.get(start=start, end=rorl, priority=priority, strict=False)
-            mod = pd.Timedelta((start.time().minute % 5), "T")
+            mod = pd.Timedelta((start.time().minute % 5), "min")
             expected_start = start if not mod else start + (prices.bis.T5 - mod)
             check(prices, df, prices.bis.T5, start=expected_start)
             # verify when explicitly defining interval
             df = prices.get(
-                "5T", start=start, end=rorl, priority=priority, strict=False
+                "5min", start=start, end=rorl, priority=priority, strict=False
             )
             check(prices, df, prices.bis.T5, start=expected_start)
 
         # check when define lower interval that returns at that interval
         for start, priority in itertools.product(starts_T2, priorities):
             df = prices.get(
-                "2T", start=start, end=rorl, priority=priority, strict=False
+                "2min", start=start, end=rorl, priority=priority, strict=False
             )
-            mod = pd.Timedelta((start.time().minute % 2), "T")
+            mod = pd.Timedelta((start.time().minute % 2), "min")
             expected_start = start if not mod else start + (prices.bis.T2 - mod)
             check(prices, df, prices.bis.T2, start=expected_start)
 
@@ -513,7 +513,7 @@ class TestStartEnd:
             check(prices, df, prices.bis.T5, start=expected_start_T5)
             # check when explicitly defining interval
             df = prices.get(
-                "5T", start=start, end=end_valid, priority=priority, strict=strict
+                "5min", start=start, end=end_valid, priority=priority, strict=strict
             )
             check(prices, df, prices.bis.T5, start=expected_start_T5)
 
@@ -559,7 +559,7 @@ class TestStartEnd:
         for priority in priorities:
             with pytest.raises(errors.PricesIntradayUnavailableError, match=match):
                 prices.get(
-                    "5T", start=start, end=end_ool_5, priority=priority, strict=True
+                    "5min", start=start, end=end_ool_5, priority=priority, strict=True
                 )
 
         # verify doesn't raise when False
@@ -571,7 +571,9 @@ class TestStartEnd:
         assert df.index[-1].right == end_ool_1
 
         # will be fulfilled by 1T data within confined of what's available
-        df = prices.get("5T", start=start, end=end_ool_5, priority="end", strict=False)
+        df = prices.get(
+            "5min", start=start, end=end_ool_5, priority="end", strict=False
+        )
         assert isinstance(df, pd.DataFrame)
         assert df.pt.interval == prices.bis.T5
         assert df.index[0].left == prices.limits[prices.bis.T1][0]
@@ -689,13 +691,17 @@ class TestStartEnd:
         )
         with pytest.raises(errors.PricesIntradayUnavailableError, match=match):
             prices.get(
-                "5T", start=start_ool_T5, end=end_ool_T5, priority="period", strict=True
+                "5min",
+                start=start_ool_T5,
+                end=end_ool_T5,
+                priority="period",
+                strict=True,
             )
         with pytest.raises(errors.LastIndiceInaccurateError):  # as prior reasoning
             prices.get(start=start_ool_T5, end=end_ool_T5, priority="end", strict=True)
         with pytest.raises(errors.PricesIntradayUnavailableError):
             prices.get(
-                "5T", start=start_ool_T5, end=end_ool_T5, priority="end", strict=True
+                "5min", start=start_ool_T5, end=end_ool_T5, priority="end", strict=True
             )
 
         # strict False
@@ -711,7 +717,7 @@ class TestStartEnd:
         check(prices, df, prices.bis.T1, end=end_ool_T5)
 
         # will meet with downsampled 1T data that can meet end
-        df = prices.get("5T", start_ool_T5, end_ool_T5, priority="end", strict=False)
+        df = prices.get("5min", start_ool_T5, end_ool_T5, priority="end", strict=False)
         check(prices, df, prices.bis.T5, prices.limits[prices.bis.T1][0], end_ool_T5)
 
         # going way out
@@ -892,7 +898,7 @@ class TestDuration:
         df = prices.get(start=loll, days=days, priority="end", strict=False)
         check(prices, df, prices.bis.T2, end=end)
 
-        mod = pd.Timedelta((end.time().minute % 5), "T")
+        mod = pd.Timedelta((end.time().minute % 5), "min")
         expected_end = end + (prices.bis.T5 - mod)
         for intrvl, priority in itertools.product(intrvls, priorities):
             if intrvl is None and priority == "end":
@@ -910,7 +916,11 @@ class TestDuration:
         for priority in priorities:
             with pytest.raises(errors.PricesIntradayUnavailableError, match=match):
                 prices.get(
-                    "5T", start=loll, days=days_to_T5[0], priority=priority, strict=True
+                    "5min",
+                    start=loll,
+                    days=days_to_T5[0],
+                    priority=priority,
+                    strict=True,
                 )
 
         # end defined ool
@@ -921,7 +931,7 @@ class TestDuration:
         # value such that aligns with 5T. start will then be evaluated off this aligned
         # value, such that falls earlier than what would be the 2T target
         days, start = days_back_to_T2
-        mod = pd.Timedelta((end.time().minute % 5), "T")
+        mod = pd.Timedelta((end.time().minute % 5), "min")
         expected_start = start - (prices.bis.T5 - mod)
         for intrvl, priority in itertools.product(intrvls, priorities):
             df = prices.get(
@@ -1025,7 +1035,7 @@ class TestDuration:
         df = prices.get(end=end, days=days, priority="end", strict=False)
         check(prices, df, prices.bis.T2, end=end)
 
-        mod = pd.Timedelta((end.time().minute % 5), "T")
+        mod = pd.Timedelta((end.time().minute % 5), "min")
         expected_end = end - mod
         for intrvl, priority in itertools.product(intrvls, priorities):
             if intrvl is None and priority == "end":
@@ -1040,7 +1050,7 @@ class TestDuration:
         )
         for priority in priorities:
             with pytest.raises(errors.PricesIntradayUnavailableError, match=match):
-                prices.get("5T", end=end, days=days, priority=priority, strict=True)
+                prices.get("5min", end=end, days=days, priority=priority, strict=True)
 
         # start defined within limits
         # strict True
@@ -1048,7 +1058,7 @@ class TestDuration:
         # priority not important as cannot meet end, will be returned at highest
         # avaialble intraday interval, i.e. 5T
         days, start = days_back_to_T2
-        mod = pd.Timedelta((end.time().minute % 5), "T")
+        mod = pd.Timedelta((end.time().minute % 5), "min")
         expected_start = start + mod
 
         for intrvl, priority in itertools.product(intrvls, priorities):
@@ -1272,16 +1282,16 @@ class TestOutsideLimits:
         for priority, strict in itertools.product(priorities, stricts):
             with pytest.raises(errors.PricesIntradayUnavailableError, match=match):
                 prices.get(
-                    "5T",
+                    "5min",
                     start=loll,
                     end=loll + one_day,
                     priority=priority,
                     strict=strict,
                 )
             with pytest.raises(errors.PricesIntradayUnavailableError):
-                prices.get("5T", start=loll, days=2, priority=priority, strict=strict)
+                prices.get("5min", start=loll, days=2, priority=priority, strict=strict)
             with pytest.raises(errors.PricesIntradayUnavailableError):
-                prices.get("5T", end=loll, days=2, priority=priority, strict=strict)
+                prices.get("5min", end=loll, days=2, priority=priority, strict=strict)
 
         # interval inferred
         match_start = "Given the parameters receieved, the interval was inferred as intraday although the request can only be met with daily data. To return daily prices pass `interval` as a daily interval, for example '1D'.\nNB. The interval will only be inferred as daily if `end` and `start` are defined (if passed) as sessions (timezone naive and with time component as 00:00) and any duration is defined in terms of either `days` or `weeks`, `months` and `years`. Also, if both `start` and `end` are passed then the distance between them should be no less than 6 sessions."
@@ -1429,16 +1439,16 @@ class TestOutsideLimits:
         for priority, strict in itertools.product(priorities, stricts):
             with pytest.raises(errors.StartTooLateError, match=match_stl):
                 prices.get(
-                    "5T",
+                    "5min",
                     start=rorl,
                     end=rorl + one_day * 2,
                     priority=priority,
                     strict=strict,
                 )
             with pytest.raises(errors.StartTooLateError):
-                prices.get("5T", start=rorl, days=2, priority=priority, strict=strict)
+                prices.get("5min", start=rorl, days=2, priority=priority, strict=strict)
             with pytest.raises(errors.PricesIntradayUnavailableError, match=match):
-                prices.get("5T", end=rorl, days=2, priority=priority, strict=strict)
+                prices.get("5min", end=rorl, days=2, priority=priority, strict=strict)
 
         # interval inferred as intraday
         match = re.escape(

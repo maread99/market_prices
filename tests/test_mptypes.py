@@ -38,7 +38,7 @@ def test_pandasfreq():
         return arg
 
     # verify valid input
-    freq = "3H"
+    freq = "3h"
     rtrn = mock_func(freq)
     assert rtrn == freq
     # verify mptype property

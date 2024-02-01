@@ -1123,7 +1123,7 @@ class PricesBase(metaclass=abc.ABCMeta):
 
     def _set_delays(self, delays: int | list[int] | dict[str, int]):
         d = self._dict_for_all_symbols("delays", delays)
-        self._delays = {k: pd.Timedelta(v, "T") for k, v in d.items()}
+        self._delays = {k: pd.Timedelta(v, "min") for k, v in d.items()}
 
     @property
     def delays(self) -> dict[str, pd.Timedelta]:
@@ -1640,8 +1640,8 @@ class PricesBase(metaclass=abc.ABCMeta):
 
             index = self._trading_indexes[bi]
             nano_index = index.left.asi8
-            opens = self.cc.opens[slc].view("int64")
-            closes = self.cc.closes[slc].view("int64")
+            opens = self.cc.opens[slc].astype("int64")
+            closes = self.cc.closes[slc].astype("int64")
 
             sessions = opens.index
             srs = pd.Series(True, index=sessions)
@@ -3444,7 +3444,7 @@ class PricesBase(metaclass=abc.ABCMeta):
                     value:
                         one or more digits.
                     unit:
-                        "min", "t", "MIN" or "T" for minutes
+                        "min", "MIN", "T" or "t" for minutes
                         "h" or "H" for hours
                         "d" or "D' for days
                         'm' or "M" for months
@@ -3452,12 +3452,12 @@ class PricesBase(metaclass=abc.ABCMeta):
             Examples:
                 thirty minutes:
                     "30min", "30T"
-                    pd.Timedelta(30, "T"), pd.Timedelta(minutes=30)
+                    pd.Timedelta(30, "min"), pd.Timedelta(minutes=30)
                     timedelta(minutes=30)
 
                 three hours:
                     "3h", "3H"
-                    pd.Timedelta(3, "H"), pd.Timedelta(hours=3)
+                    pd.Timedelta(3, "h"), pd.Timedelta(hours=3)
                     timedelta(hours=3)
 
                 one day:
@@ -3854,8 +3854,8 @@ class PricesBase(metaclass=abc.ABCMeta):
                     greater than the interval although the indice bounds
                     they evaluate to do not. For example, if a session
                     opens at 09.00, `start` is 09.01 and `end` is 09.09
-                    then a call for data at a "5T" `interval` will evalute
-                    the period bounds as from 09.05 through 09.05.
+                    then a call for data at a "5min" `interval` will
+                    evalute the period bounds as from 09.05 through 09.05.
 
                 errors.PricesUnavailableDOIntervalPeriodError:
                     Monthly `interval` is longer than the evaluated period.

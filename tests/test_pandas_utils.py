@@ -28,7 +28,7 @@ from market_prices.helpers import UTC
 
 @pytest.fixture
 def datetime_index_hourly_freq():
-    yield pd.date_range("2021-05-01 12:00", periods=10, freq="1H")
+    yield pd.date_range("2021-05-01 12:00", periods=10, freq="1h")
 
 
 @pytest.fixture
@@ -43,7 +43,7 @@ def interval_index_non_overlapping(
     datetime_index_hourly_freq,
 ) -> abc.Iterator[pd.IntervalIndex]:
     """1H between indices. Interval 30min. 30min gap from right to next left."""
-    right = datetime_index_hourly_freq + pd.Timedelta(30, "T")
+    right = datetime_index_hourly_freq + pd.Timedelta(30, "min")
     yield pd.IntervalIndex.from_arrays(datetime_index_hourly_freq, right)
 
 
@@ -54,7 +54,7 @@ def interval_index_overlapping(
     """One indice of interval index fully overlaps following indice."""
     index = interval_index_non_overlapping
     i = 3
-    new_indice = pd.Interval(index[i].left, index[i + 1].left + pd.Timedelta(5, "T"))
+    new_indice = pd.Interval(index[i].left, index[i + 1].left + pd.Timedelta(5, "min"))
     index = index.insert(i, new_indice)
     index = index.drop(index[i + 1])
     assert index.is_monotonic_increasing
@@ -70,7 +70,7 @@ def interval_index_fully_overlapping(
     index = interval_index_non_overlapping
     i = 3
     indice = pd.Interval(
-        index[i].left - pd.Timedelta(5, "T"), index[i].right + pd.Timedelta(5, "T")
+        index[i].left - pd.Timedelta(5, "min"), index[i].right + pd.Timedelta(5, "min")
     )
     index = index.insert(i, indice)
     assert index.is_overlapping
@@ -84,8 +84,8 @@ def interval_index_not_monotonoic_increasing(
     index = interval_index_non_overlapping
     i = 3
     new_indice = pd.Interval(
-        index[i].right + pd.Timedelta(5, "T"),
-        index[i + 1].left - pd.Timedelta(5, "T"),
+        index[i].right + pd.Timedelta(5, "min"),
+        index[i + 1].left - pd.Timedelta(5, "min"),
         closed=index.closed,
     )
     index = index.insert(i, new_indice)

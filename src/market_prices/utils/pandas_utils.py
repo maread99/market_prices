@@ -19,14 +19,13 @@ def pdfreq_to_offset(pdfreq: str) -> pd.offsets.BaseOffset:
     Parameters
     ----------
     pdfreq
-        pandas frequency string to convert. For example, '15min',
-            '15T', '3H'.
+        pandas frequency string to convert. For example, '15min', '3h'.
 
     Examples
     --------
-    >>> pdfreq_to_offset('22T')
+    >>> pdfreq_to_offset('22min')
     <22 * Minutes>
-    >>> pdfreq_to_offset('3H')
+    >>> pdfreq_to_offset('3h')
     <3 * Hours>
     >>> pdfreq_to_offset('3MS')
     <3 * MonthBegins>
@@ -93,7 +92,7 @@ def timestamps_in_interval_of_intervals(
 
     >>> intervals = pd.interval_range(start, end, freq="10D", closed=closed)
     >>> intervals
-    IntervalIndex([[2021-03-02, 2021-03-12], [2021-03-12, 2021-03-22]], dtype='interval[datetime64[ns], both]')
+    IntervalIndex([[2021-03-02 00:00:00, 2021-03-12 00:00:00], [2021-03-12 00:00:00, 2021-03-22 00:00:00]], dtype='interval[datetime64[ns], both]')
     >>> timestamps_in_interval_of_intervals(timestamps, intervals)
     True
     """
@@ -140,7 +139,7 @@ def make_non_overlapping(
 
     Examples
     --------
-    >>> left = pd.date_range('2021-05-01 12:00', periods=5, freq='1H')
+    >>> left = pd.date_range('2021-05-01 12:00', periods=5, freq='h')
 
     >>> intervals = [
     ...     pd.Interval(left[0], left[0] + pd.Timedelta(45, 'min')),
@@ -213,7 +212,7 @@ def make_non_overlapping(
 
     # evaluate full_overlap_mask
     # as 'int64' to use expanding, as series to use expanding and shift
-    right = pd.Index(index.right.view("int64")).to_series()
+    right = pd.Index(index.right.astype("int64")).to_series()
     next_right = right.shift(-1)
     max_right_to_date = right.expanding().max()
     # shift 1 to move from overlapping indice to overlapped indice
@@ -257,7 +256,7 @@ def get_interval_index(
         interval.
 
     offset
-        Duration of each interval, for example "15min", "15T", "3H" etc.
+        Duration of each interval, for example "15min", "3h" etc.
 
     closed : default: "left"
         Side on which to close intervals.
@@ -272,8 +271,8 @@ def get_interval_index(
 
     Examples
     --------
-    >>> left = pd.date_range('2021-05-01 12:00', periods=5, freq='1H')
-    >>> index = get_interval_index(left, '33T')
+    >>> left = pd.date_range('2021-05-01 12:00', periods=5, freq='1h')
+    >>> index = get_interval_index(left, '33min')
     >>> index.to_series(index=range(5))
     0    [2021-05-01 12:00:00, 2021-05-01 12:33:00)
     1    [2021-05-01 13:00:00, 2021-05-01 13:33:00)
@@ -314,8 +313,8 @@ def interval_contains(interval: pd.Interval, intervals: pd.IntervalIndex) -> np.
 
     Examples
     --------
-    >>> left = pd.date_range('2021-05-01 12:00', periods=5, freq='1H')
-    >>> right = left + pd.Timedelta(30, 'T')
+    >>> left = pd.date_range('2021-05-01 12:00', periods=5, freq='1h')
+    >>> right = left + pd.Timedelta(30, 'min')
     >>> intervals = pd.IntervalIndex.from_arrays(left, right)
     >>> intervals.to_series(index=range(5))
     0    (2021-05-01 12:00:00, 2021-05-01 12:30:00]
@@ -389,8 +388,8 @@ def remove_intervals_from_interval(
     Examples
     --------
     >>> from pprint import pprint
-    >>> left = pd.date_range('2021-05-01 12:00', periods=5, freq='1H')
-    >>> right = left + pd.Timedelta(30, 'T')
+    >>> left = pd.date_range('2021-05-01 12:00', periods=5, freq='h')
+    >>> right = left + pd.Timedelta(30, 'min')
     >>> intervals = pd.IntervalIndex.from_arrays(left, right)
     >>> intervals.to_series(index=range(5))
     0    (2021-05-01 12:00:00, 2021-05-01 12:30:00]
@@ -406,11 +405,11 @@ def remove_intervals_from_interval(
     ... )
     >>> rtrn = remove_intervals_from_interval(interval, intervals)
     >>> pprint(rtrn)
-    [Interval('2021-05-01 12:30:00', '2021-05-01 13:00:00', closed='left'),
-     Interval('2021-05-01 13:30:00', '2021-05-01 14:00:00', closed='left'),
-     Interval('2021-05-01 14:30:00', '2021-05-01 15:00:00', closed='left'),
-     Interval('2021-05-01 15:30:00', '2021-05-01 16:00:00', closed='left'),
-     Interval('2021-05-01 16:30:00', '2021-05-01 17:30:00', closed='left')]
+    [Interval(2021-05-01 12:30:00, 2021-05-01 13:00:00, closed='left'),
+     Interval(2021-05-01 13:30:00, 2021-05-01 14:00:00, closed='left'),
+     Interval(2021-05-01 14:30:00, 2021-05-01 15:00:00, closed='left'),
+     Interval(2021-05-01 15:30:00, 2021-05-01 16:00:00, closed='left'),
+     Interval(2021-05-01 16:30:00, 2021-05-01 17:30:00, closed='left')]
     """
     if not intervals.is_monotonic_increasing:
         raise ValueError(
@@ -502,9 +501,9 @@ def interval_index_new_tz(
     --------
     >>> tz = ZoneInfo("US/Central")
     >>> left = pd.date_range(
-    ...     '2021-05-01 12:00', periods=5, freq='1H', tz=tz
+    ...     '2021-05-01 12:00', periods=5, freq='h', tz=tz
     ... )
-    >>> right = left + pd.Timedelta(30, 'T')
+    >>> right = left + pd.Timedelta(30, 'min')
     >>> index = pd.IntervalIndex.from_arrays(left, right)
     >>> index.right.tz
     zoneinfo.ZoneInfo(key='US/Central')
@@ -537,7 +536,7 @@ def index_is_normalized(
 
     Examples
     --------
-    >>> index = pd.date_range('2021-05-01 12:00', periods=5, freq='1H')
+    >>> index = pd.date_range('2021-05-01 12:00', periods=5, freq='h')
     >>> index_is_normalized(index)
     False
     >>> index = pd.date_range('2021-05-01', periods=5, freq='1D')
@@ -545,7 +544,7 @@ def index_is_normalized(
     True
 
     >>> index = pd.interval_range(
-    ...     pd.Timestamp('2021-05-01 12:00'), periods=5, freq='1H'
+    ...     pd.Timestamp('2021-05-01 12:00'), periods=5, freq='h'
     ... )
     >>> index_is_normalized(index)
     False
@@ -577,8 +576,8 @@ def indexes_union(indexes: list[pd.Index]) -> pd.Index:
 
     Examples
     --------
-    >>> index1 = pd.date_range('2021-05-01 12:20', periods=2, freq='1H')
-    >>> index2 = pd.date_range('2021-05-02 17:10', periods=2, freq='22T')
+    >>> index1 = pd.date_range('2021-05-01 12:20', periods=2, freq='1h')
+    >>> index2 = pd.date_range('2021-05-02 17:10', periods=2, freq='22min')
     >>> index3 = pd.date_range('2021-05-03', periods=2, freq='1D')
     >>> indexes_union([index1, index2, index3])
     DatetimeIndex(['2021-05-01 12:20:00', '2021-05-01 13:20:00',
@@ -604,8 +603,8 @@ def index_union(indexes: list[Union[pd.Index, pd.Series, pd.DataFrame]]) -> pd.I
 
     Examples
     --------
-    >>> index1 = pd.date_range('2021-05-01 12:20', periods=2, freq='1H')
-    >>> index2 = pd.date_range('2021-05-02 17:10', periods=2, freq='22T')
+    >>> index1 = pd.date_range('2021-05-01 12:20', periods=2, freq='1h')
+    >>> index2 = pd.date_range('2021-05-02 17:10', periods=2, freq='22min')
     >>> index3 = pd.date_range('2021-05-03', periods=2, freq='1D')
     >>> ser = pd.Series(range(2), index=index2)
     >>> df = pd.DataFrame({'col_int': range(2)}, index=index3)

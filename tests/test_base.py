@@ -58,7 +58,7 @@ def t1_us_lon() -> abc.Iterator[pd.DataFrame]:
     Recreate table with:
     > symbols = ["MSFT", "AZN.L"]
     > df = prices.get(
-        "1T",
+        "1min",
         start=pd.Timestamp("2022-02"),
         end=pd.Timestamp("2022-02-09"),
         anchor="open",
@@ -74,7 +74,7 @@ def t5_us_lon() -> abc.Iterator[pd.DataFrame]:
     Recreate table with:
     > symbols = ["MSFT", "AZN.L"]
     > df = prices.get(
-        "5T",
+        "5min",
         start=pd.Timestamp("2022-01"),
         end=pd.Timestamp("2022-02-07"),
         anchor="open",
@@ -388,7 +388,7 @@ def test_fill_reindexed_daily(one_min, monkeypatch):
     columns = pd.Index(["open", "high", "low", "close", "volume"])
     symbol = "AZN.L"
     xlon = xcals.get_calendar("XLON", start="1990-01-01", side="left")
-    delay = pd.Timedelta(15, "T")
+    delay = pd.Timedelta(15, "min")
 
     def f(
         df: pd.DataFrame,
@@ -398,7 +398,7 @@ def test_fill_reindexed_daily(one_min, monkeypatch):
         mindate = cal.first_session if mindate is None else mindate
         return m.fill_reindexed_daily(df, cal, mindate, delay, symbol, "Yahoo")
 
-    def match(sessions: pd.DatetimeIndex) -> str:
+    def match(sessions: pd.DatetimeIndex | list[str]) -> str:
         return re.escape(
             f"Prices from Yahoo are missing for '{symbol}' at the base"
             f" interval '{intervals.TDInterval.D1}' for the following sessions:"
@@ -436,15 +436,13 @@ def test_fill_reindexed_daily(one_min, monkeypatch):
     # and a missing prices warning is raised.
     now = xlon.session_open(index[-1]) + delay + one_min
     mock_now(monkeypatch, now)
-    missing_sessions = pd.DatetimeIndex(
-        [
-            "2021-01-04",
-            "2021-01-07",
-            "2021-01-08",
-            "2021-01-12",
-            "2021-01-14",
-        ]
-    ).format(date_format="%Y-%m-%d")
+    missing_sessions = [
+        "2021-01-04",
+        "2021-01-07",
+        "2021-01-08",
+        "2021-01-12",
+        "2021-01-14",
+    ]
 
     rtrn, warnings_ = f(df.copy(), xlon)
     with pytest.warns(errors.PricesMissingWarning, match=match(missing_sessions)):
@@ -1411,22 +1409,22 @@ class TestPricesBaseSetup:
         assert prices.calendars_symbols == calendars_symbols_expected
 
         expected_delays = {
-            "NY": pd.Timedelta(5, "T"),
-            "LON": pd.Timedelta(10, "T"),
-            "LON2": pd.Timedelta(15, "T"),
+            "NY": pd.Timedelta(5, "min"),
+            "LON": pd.Timedelta(10, "min"),
+            "LON2": pd.Timedelta(15, "min"),
             "OZ": zero_td,
         }
         assert prices.delays == expected_delays
         assert prices.min_delay == zero_td
-        assert prices.max_delay == pd.Timedelta(15, "T")
+        assert prices.max_delay == pd.Timedelta(15, "min")
         assert prices.calendars_min_delay == {
-            xlon: pd.Timedelta(10, "T"),
-            xnys: pd.Timedelta(5, "T"),
+            xlon: pd.Timedelta(10, "min"),
+            xnys: pd.Timedelta(5, "min"),
             xasx: zero_td,
         }
         assert prices.calendars_max_delay == {
-            xlon: pd.Timedelta(15, "T"),
-            xnys: pd.Timedelta(5, "T"),
+            xlon: pd.Timedelta(15, "min"),
+            xnys: pd.Timedelta(5, "min"),
             xasx: zero_td,
         }
 
@@ -1522,7 +1520,7 @@ class TestPricesBaseSetup:
         # verify cannot include an interval that is not a base interval.
         base_limits_copy = PricesMock.BASE_LIMITS.copy()
         not_bi = intervals.TDInterval.T30
-        base_limits_copy[not_bi] = pd.Timedelta(1, "S")
+        base_limits_copy[not_bi] = pd.Timedelta(1, "s")
         limit_keys = base_limits_copy.keys()
         with pytest.raises(ValueError, match=match(prices.bis, limit_keys)):
             prices._update_base_limits({not_bi: pd.Timedelta(100, "D")})
@@ -1594,22 +1592,21 @@ class TestPricesBaseSetup:
         cal2 = xcals.get_calendar("XASX", start=start, side=side)
 
         def match(cal: xcals.ExchangeCalendar) -> str:
-            return re.escape(
+            return (
                 f"Calendar '{cal.name}' is too short to support all available price"
                 f" history. Calendar starts '{cal.first_session}' whilst earliest date"
                 f" for which price history is available is '{daily_limit}'. Prices"
                 f" will not be available for any date prior to {cal.first_session}."
             )
 
-        with pytest.warns(errors.CalendarTooShortWarning, match=match(cal)):
+        with pytest.warns(errors.CalendarTooShortWarning, match=re.escape(match(cal))):
             PricesMock(symbols, cal)
 
-        with pytest.warns(errors.CalendarTooShortWarning, match=match(cal)) as ws:
+        with pytest.warns(errors.CalendarTooShortWarning) as ws:
             PricesMock(symbols, [good_cal, cal, cal2])
         assert len(ws.list) == 2
-
-        with pytest.warns(errors.CalendarTooShortWarning, match=match(cal2)):
-            PricesMock(symbols, [good_cal, cal, cal2])
+        for match in (match(cal), match(cal2)):
+            assert match in str(ws[0].message) or match in str(ws[1].message)
 
     def test_calendar_too_short_error(
         self, PricesMock, symbols, side, xnys, one_day, monkeypatch
@@ -1777,8 +1774,8 @@ class TestPricesBaseSetup:
             if bi.is_daily:
                 assert prices.limits[bi] == (daily_limit, today)
             else:
-                ll = (now - PricesMock.BASE_LIMITS[bi]).ceil("T") + one_min
-                rl = now.floor("T") + bi
+                ll = (now - PricesMock.BASE_LIMITS[bi]).ceil("min") + one_min
+                rl = now.floor("min") + bi
                 assert prices.limits[bi] == (ll, rl)
 
         # verify `limit_daily`
@@ -1788,7 +1785,7 @@ class TestPricesBaseSetup:
 
         # verify `limit_intraday`
         delta = PricesMock.BASE_LIMITS[PricesMock.BaseInterval.T5]  # unaligned at H1
-        limit_raw = (now - delta).ceil("T") + one_min
+        limit_raw = (now - delta).ceil("min") + one_min
         limits_intraday = []
         for cal in calendars:
             expected_limit_intraday = cal.minute_to_trading_minute(limit_raw, "next")
@@ -1798,7 +1795,7 @@ class TestPricesBaseSetup:
         assert prices.limit_intraday() == expected_latest_intraday_limit
         assert prices.limit_intraday(None) == expected_latest_intraday_limit
         # verify `limit_right_intraday`
-        assert prices.limit_right_intraday == now.floor("T")
+        assert prices.limit_right_intraday == now.floor("min")
 
         # verify 'limit_sessions'
         assert len(prices.limits_sessions) == len(PricesMock.BaseInterval)
@@ -1838,7 +1835,7 @@ class TestPricesBaseSetup:
 
         assert set(prices.limits.keys()) == set(PricesMockIntradayOnly.BaseInterval)
         assert len(prices.limits) == len(PricesMockIntradayOnly.BaseInterval)
-        assert pd.Timedelta(1, "T") in prices.bis
+        assert pd.Timedelta(1, "min") in prices.bis
         assert not pd.Timedelta(1, "D") in prices.bis
 
         assert prices.limit_daily is None
@@ -1949,7 +1946,7 @@ class TestPricesBaseSetup:
             PricesMockIntradayOnlyFixedLimits.BaseInterval
         )
         assert len(prices.limits) == len(PricesMockIntradayOnlyFixedLimits.BaseInterval)
-        assert pd.Timedelta(1, "T") in prices.bis
+        assert pd.Timedelta(1, "min") in prices.bis
         assert not pd.Timedelta(1, "D") in prices.bis
 
         assert prices.limit_daily is None
@@ -2599,14 +2596,14 @@ def test__minute_to_session(PricesMock, cal_start, side, one_min, monkeypatch):
 
     # now at limit of minute + min xlon delay (10)
     with monkeypatch.context() as m:
-        now = minute + pd.Timedelta(10, "T")
+        now = minute + pd.Timedelta(10, "min")
         patch_now(m, now)
         assert f(minute, *args) == session
         # verify makes no difference if pass minute ahead of now
         assert f(minute + pd.Timedelta(5, "D"), *args) == session
 
         # now less than minute + min xlon delay (10)
-        now = minute + pd.Timedelta(9, "T")
+        now = minute + pd.Timedelta(9, "min")
         patch_now(m, now)
         assert not f(minute, *args) == session
         assert f(minute, *args) == xlon_prev_session
@@ -2617,7 +2614,7 @@ def test__minute_to_session(PricesMock, cal_start, side, one_min, monkeypatch):
 
     with monkeypatch.context() as m:
         # now at limit of minute + min xnys delay (5)
-        now = minute + pd.Timedelta(5, "T")
+        now = minute + pd.Timedelta(5, "min")
         patch_now(m, now)
         assert f(minute, *args) == next_session
 
@@ -2625,7 +2622,7 @@ def test__minute_to_session(PricesMock, cal_start, side, one_min, monkeypatch):
         assert f(minute + pd.Timedelta(5, "D"), *args) == next_session
 
         # now less than minute + min xlon delay (5)
-        now = minute + pd.Timedelta(4, "T")
+        now = minute + pd.Timedelta(4, "min")
         patch_now(m, now)
         assert not f(minute, *args) == next_session
         assert f(minute, *args) == session
@@ -2990,8 +2987,8 @@ class TestBis:
         """
         start = prices.BASE_LIMITS[bi]
         assert isinstance(start, pd.Timestamp)
-        end = (start if limit_end else self._now) + pd.Timedelta(delta_end, "T")
-        start += pd.Timedelta(delta, "T")
+        end = (start if limit_end else self._now) + pd.Timedelta(delta_end, "min")
+        start += pd.Timedelta(delta, "min")
         return self.get_mock_drg(GetterMock, prices.cc, start, end)
 
     def get_mock_drg_limit_right_available(
@@ -3024,8 +3021,8 @@ class TestBis:
         end = prices.BASE_LIMITS_RIGHT[bi]
         start = end if limit_start else prices.BASE_LIMITS[bi]
         assert isinstance(start, pd.Timestamp)
-        start += pd.Timedelta(delta_start, "T")
-        end += pd.Timedelta(delta, "T")
+        start += pd.Timedelta(delta_start, "min")
+        end += pd.Timedelta(delta, "min")
         return self.get_mock_drg(GetterMock, prices.cc, start, end)
 
     def get_drg(
@@ -3085,7 +3082,7 @@ class TestBis:
 
         def f(interval: int, drg: daterange.GetterIntraday) -> list[intervals.BI]:
             self.set_prices_gpp_drg_properties(prices, drg)
-            prices.gpp.ds_interval = intervals.to_ptinterval(str(interval) + "T")
+            prices.gpp.ds_interval = intervals.to_ptinterval(str(interval) + "min")
             return prices._bis_valid
 
         drg_aligned = GetterMock(daterange_sessions=sessions_aligned)
@@ -3179,17 +3176,17 @@ class TestBis:
         get_drg_args = (prices, GetterMock)
 
         def bis_available_all(interval: int, drg) -> list[intervals.BI]:
-            prices.gpp.ds_interval = intervals.to_ptinterval(str(interval) + "T")
+            prices.gpp.ds_interval = intervals.to_ptinterval(str(interval) + "min")
             self.set_prices_gpp_drg_properties(prices, drg)
             return prices._bis_available_all
 
         def bis_available_end(interval: int, drg) -> list[intervals.BI]:
-            prices.gpp.ds_interval = intervals.to_ptinterval(str(interval) + "T")
+            prices.gpp.ds_interval = intervals.to_ptinterval(str(interval) + "min")
             self.set_prices_gpp_drg_properties(prices, drg)
             return prices._bis_available_end
 
         def bis_available_any(interval: int, drg) -> list[intervals.BI]:
-            prices.gpp.ds_interval = intervals.to_ptinterval(str(interval) + "T")
+            prices.gpp.ds_interval = intervals.to_ptinterval(str(interval) + "min")
             self.set_prices_gpp_drg_properties(prices, drg)
             return prices._bis_available_any
 
@@ -3265,17 +3262,17 @@ class TestBis:
         get_drg_args = (prices, GetterMock)
 
         def bis_available_all(interval: int, drg) -> list[intervals.BI]:
-            prices.gpp.ds_interval = intervals.to_ptinterval(str(interval) + "T")
+            prices.gpp.ds_interval = intervals.to_ptinterval(str(interval) + "min")
             self.set_prices_gpp_drg_properties(prices, drg)
             return prices._bis_available_all
 
         def bis_available_end(interval: int, drg) -> list[intervals.BI]:
-            prices.gpp.ds_interval = intervals.to_ptinterval(str(interval) + "T")
+            prices.gpp.ds_interval = intervals.to_ptinterval(str(interval) + "min")
             self.set_prices_gpp_drg_properties(prices, drg)
             return prices._bis_available_end
 
         def bis_available_any(interval: int, drg) -> list[intervals.BI]:
-            prices.gpp.ds_interval = intervals.to_ptinterval(str(interval) + "T")
+            prices.gpp.ds_interval = intervals.to_ptinterval(str(interval) + "min")
             self.set_prices_gpp_drg_properties(prices, drg)
             return prices._bis_available_any
 
@@ -3344,7 +3341,7 @@ class TestBis:
         prices = PricesMockBis(symbols, [xlon, xnys])
         get_drg_args = (prices, GetterMock)
 
-        prices.gpp.ds_interval = intervals.to_ptinterval("30T")
+        prices.gpp.ds_interval = intervals.to_ptinterval("30min")
         for bi in prices.bis_intraday:
             drg = self.get_mock_drg_limit_available(*get_drg_args, bi)
             self.set_prices_gpp_drg_properties(prices, drg)

@@ -353,7 +353,7 @@ def assert_single_daterange(
     assert table is not None
     assert_table_matches(table, daterange, df)
     assert mr_admin.last_request is None
-    delta = delta if delta == helpers.ONE_DAY else pd.Timedelta(30, "T")
+    delta = delta if delta == helpers.ONE_DAY else pd.Timedelta(30, "min")
     from_ += delta
     to -= delta
     table = data.get_table((from_, to))
@@ -412,9 +412,9 @@ class TestRanges:
         rngs.append(((from_minute, to_minute), (from_session, to_session)))
 
         from_session = cal.session_offset(end_session, -5)
-        from_minute = cal.session_open(from_session) - pd.Timedelta(70, "T")
+        from_minute = cal.session_open(from_session) - pd.Timedelta(70, "min")
         to_session = cal.session_offset(from_session, 2)
-        to_minute = cal.session_close(to_session) + pd.Timedelta(70, "T")
+        to_minute = cal.session_close(to_session) + pd.Timedelta(70, "min")
         rngs.append(((from_minute, to_minute), (from_session, to_session)))
 
         yield rngs
@@ -487,7 +487,7 @@ class TestRanges:
 
     @pytest.fixture(scope="class")
     def thirty_mins(self) -> abc.Iterator[pd.Timedelta]:
-        yield pd.Timedelta(30, "T")
+        yield pd.Timedelta(30, "min")
 
     def test_extending_requested_range(
         self,
@@ -903,7 +903,7 @@ class TestRanges:
 
         # now, and hence left_bound, set to a time that provides for 1H bi
         # to fall on frequency, save for left_bound + (2*delta)
-        now = cal.previous_open(pd.Timestamp.now()) + pd.Timedelta(59, "T")
+        now = cal.previous_open(pd.Timestamp.now()) + pd.Timedelta(59, "min")
         set_now(now)
         if bi_daily:
             left_bound = today - left_limit
@@ -1012,7 +1012,7 @@ class TestRanges:
         table = data.get_table(dr)
         assert_table_matches(table, dr, df)
         assert admin.last_request is None
-        delta = delta if delta == helpers.ONE_DAY else pd.Timedelta(30, "T")
+        delta = delta if delta == helpers.ONE_DAY else pd.Timedelta(30, "min")
         from_ = dr[0] + delta
         to = dr[1] - delta
         table = data.get_table((from_, to))
@@ -1066,12 +1066,12 @@ class TestRanges:
             )
 
         if not bi_daily:
-            now = cal.session_close(last_session) - pd.Timedelta(90, "T")
+            now = cal.session_close(last_session) - pd.Timedelta(90, "min")
             data, _ = get_data(now)
             set_now(now)
             assert data.rl == now + bi
             for _ in range(18):
-                now += pd.Timedelta(10, "T")
+                now += pd.Timedelta(10, "min")
                 set_now(now)
                 assert data.rl == now + bi
                 assert not data.to_rl
@@ -1093,7 +1093,7 @@ class TestRanges:
             bi = data.bi
             from_, to = dr
             # discount calculation reasonable only given the bis tested (1T, 1H, 1D)
-            discount = max(bi, delay + pd.Timedelta(10, "T"))
+            discount = max(bi, delay + pd.Timedelta(10, "min"))
             rightmost = now - discount
 
             table_dr = dr[0], min(dr[1], now + bi)
@@ -1177,7 +1177,7 @@ class TestRanges:
                 now = now.normalize().tz_convert(None)
                 dr = start, now
 
-            for delay in [no_delay, pd.Timedelta(15, "T")]:
+            for delay in [no_delay, pd.Timedelta(15, "min")]:
                 # on right limit
                 data, admin = get_data(now, delay)
                 table = data.get_table(dr)
@@ -1248,4 +1248,4 @@ class TestRanges:
         session, _ = session_ends
         session_open = xlon.session_open(session)
         with pytest.raises(errors.PricesUnavailableFromSourceError):
-            data.get_table((session_open, session_open + pd.Timedelta(30, "T")))
+            data.get_table((session_open, session_open + pd.Timedelta(30, "min")))

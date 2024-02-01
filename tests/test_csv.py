@@ -582,8 +582,8 @@ def test_parse_csvs(csv_dir, csv_dir_paths, csv_read_kwargs, symbols):
 def test__get_limits_from_parsed():
     start = start_5t = pd.Timestamp("2023-11-21 09:00", tz="UTC")
     end = end_5t = pd.Timestamp("2023-11-27 16:30", tz="UTC")
-    freq = "5T"
-    delta = pd.Timedelta("10T")
+    freq = "5min"
+    delta = pd.Timedelta("10min")
     index_5t_0 = pd.date_range(start, end - delta, freq=freq)
     index_5t_1 = pd.date_range(start + delta, end - delta, freq=freq)
     index_5t_2 = pd.date_range(start + delta, end, freq=freq)
@@ -616,7 +616,7 @@ def test__get_limits_from_parsed():
 
     expected = (
         {TDInterval.T5: start_5t, TDInterval.D1: start_1d},
-        {TDInterval.T5: end_5t + pd.Timedelta("5T"), TDInterval.D1: end_1d},
+        {TDInterval.T5: end_5t + pd.Timedelta("5min"), TDInterval.D1: end_1d},
     )
 
     assert rtrn == expected
@@ -779,7 +779,7 @@ def test_tables(csv_dir, symbols, calendars, res_us_lon_hk):
 
     for interval, pdata in prices._pdata.items():
         table = pdata._table
-        res = res_us_lon_hk[0][interval.as_pdfreq[-1::-1]]  # just reversed freq str
+        res = res_us_lon_hk[0][interval.name]
         if interval.is_daily:
             expected = res.loc[table.index[0] : table.index[-1]].dropna(
                 how="all", axis=0

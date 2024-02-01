@@ -339,7 +339,7 @@ def test_get_conforming_sessions(xlon, xhkg, xnys):
     with pytest.raises(errors.TutorialDataUnavailableError, match=match(*args)):
         f_cc_var(*args)
 
-    length = pd.Timedelta(4, "H")
+    length = pd.Timedelta(4, "h")
     lengths = [[length]]
     num = 1
     msg = match(cals, [[length] * num], start, end)
@@ -372,7 +372,7 @@ def test_get_conforming_sessions(xlon, xhkg, xnys):
     cals = [xlon, xnys]
     cc = calutils.CompositeCalendar(cals)
     full_session_xnys = pd.Timedelta(hours=6, minutes=30)
-    full_session_cc = pd.Timedelta(13, "H")
+    full_session_cc = pd.Timedelta(13, "h")
 
     length_by_cal = [full_session_xlon, full_session_xnys]
     length_cc = full_session_cc
@@ -531,7 +531,7 @@ def test_get_conforming_sessions(xlon, xhkg, xnys):
     ]
     lengths_cc = [
         full_session_cc,
-        pd.Timedelta(11, "H"),
+        pd.Timedelta(11, "h"),
         full_session_xnys,
         full_session_cc,
         full_session_cc,

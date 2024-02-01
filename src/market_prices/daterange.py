@@ -866,7 +866,7 @@ class GetterIntraday(_Getter):
         # which the end is accurate as at the moment the end is requested.
         # (without the + one minute would be ignoring those price that have
         # come in since the current minute started.)
-        end_accuracy = min(end_accuracy, now + pd.Timedelta("1T"))
+        end_accuracy = min(end_accuracy, now + pd.Timedelta("1min"))
         return end, end_accuracy
 
     def _trading_index(
@@ -1055,7 +1055,7 @@ class GetterIntraday(_Getter):
 
         # "previous" to cover ts as close (not a trading minute).
         session = self.cal.minute_to_session(ts, "previous")
-        schedule_vals = self.cal.schedule.loc[session].dropna().view(np.int64).values
+        schedule_vals = self.cal.schedule.loc[session].dropna().astype(np.int64).values
         if ts.value in schedule_vals:
             target_i = self.cal.sessions.get_loc(session) + days
 
@@ -1199,7 +1199,7 @@ class GetterIntraday(_Getter):
             if intraday_duration:
                 if intraday_duration < self.final_interval.as_minutes:
                     raise errors.PricesUnavailableIntervalDurationError(
-                        pd.Timedelta(intraday_duration, "T"), self
+                        pd.Timedelta(intraday_duration, "min"), self
                     )
                 if start is None:
                     end_ = end
@@ -1269,7 +1269,7 @@ class GetterIntraday(_Getter):
             else:
                 minutes = calutils.minutes_in_period(self.cal, start, end_)
             if self.final_interval.as_minutes > minutes:
-                period_duration = pd.Timedelta(minutes, "T")
+                period_duration = pd.Timedelta(minutes, "min")
                 raise errors.PricesUnavailableIntervalPeriodError(
                     self, start, end_, period_duration
                 )

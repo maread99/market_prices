@@ -179,7 +179,7 @@ def save_resource_pbt(
 
         now = pd.Timestamp.now(tz=UTC)
         prices.request_all_prices()
-        if pd.Timestamp.now(tz=UTC).floor("T") != now.floor("T"):
+        if pd.Timestamp.now(tz=UTC).floor("min") != now.floor("min"):
             remove_resource_pbt(key, store_only=True)
             raise RuntimeError(
                 "Operation aborted as unable to get all data within the same minute."
@@ -308,8 +308,8 @@ class Answers:
 
     # pylint: disable=too-many-public-methods
 
-    ONE_MIN = pd.Timedelta(1, "T")
-    TWO_MIN = pd.Timedelta(2, "T")
+    ONE_MIN = pd.Timedelta(1, "min")
+    TWO_MIN = pd.Timedelta(2, "min")
     ONE_DAY = pd.Timedelta(1, "D")
 
     LEFT_SIDES = ["left", "both"]
@@ -482,10 +482,10 @@ class Answers:
             self.first_pm_minutes[indexer],
         ):
             if pd.isna(last_am):
-                dtis.append(pd.date_range(first, last, freq="T"))
+                dtis.append(pd.date_range(first, last, freq="min"))
             else:
-                dtis.append(pd.date_range(first, last_am, freq="T"))
-                dtis.append(pd.date_range(first_pm, last, freq="T"))
+                dtis.append(pd.date_range(first, last_am, freq="min"))
+                dtis.append(pd.date_range(first_pm, last, freq="min"))
 
         index = pdutils.indexes_union(dtis)
         assert isinstance(index, pd.DatetimeIndex)
@@ -519,11 +519,11 @@ class Answers:
         first_pm = self.first_pm_minutes[session]
 
         if pd.isna(last_am) or ignore_breaks:
-            return (pd.date_range(first, last, freq="T"),)
+            return (pd.date_range(first, last, freq="min"),)
         else:
             return (
-                pd.date_range(first, last_am, freq="T"),
-                pd.date_range(first_pm, last, freq="T"),
+                pd.date_range(first, last_am, freq="min"),
+                pd.date_range(first_pm, last, freq="min"),
             )
 
     def get_session_break_minutes(self, session: pd.Timestamp) -> pd.DatetimeIndex:
@@ -536,7 +536,7 @@ class Answers:
             am_mins, pm_mins = minutes  # pylint: disable=unbalanced-tuple-unpacking
         first = am_mins[-1] + self.ONE_MIN
         last = pm_mins[0] - self.ONE_MIN
-        return pd.date_range(first, last, freq="T")
+        return pd.date_range(first, last, freq="min")
 
     def get_session_edge_minutes(
         self, session: pd.Timestamp, delta: int | pd.Timedelta = 0
@@ -551,7 +551,7 @@ class Answers:
         VERIFIED by this method.
         """
         if isinstance(delta, int):
-            delta = pd.Timedelta(delta, "T")
+            delta = pd.Timedelta(delta, "min")
         first_minute = self.first_minutes[session]
         last_minute = self.last_minutes[session]
         has_break = self.session_has_break(session)
@@ -809,7 +809,7 @@ class Answers:
             # a trading minute cannot be a minute of more than one session.
             assert not (self.closes == self.opens.shift(-1)).any()
             # there will be no gap if next open is one minute after previous close
-            closes_plus_min = self.closes + pd.Timedelta(1, "T")
+            closes_plus_min = self.closes + pd.Timedelta(1, "min")
             return self.opens.shift(-1) == closes_plus_min
 
         else:
@@ -826,7 +826,7 @@ class Answers:
             # a trading minute cannot be a minute of more than one session.
             assert not (self.closes == self.opens.shift(-1)).any()
             # there will be no gap if previous close is one minute before next open
-            opens_minus_one = self.opens - pd.Timedelta(1, "T")
+            opens_minus_one = self.opens - pd.Timedelta(1, "min")
             return self.closes.shift(1) == opens_minus_one
 
         else:
@@ -923,10 +923,10 @@ class Answers:
             column_ = column_.ffill().bfill()
 
         diff = (column_.shift(-1) - column_)[:-1]
-        remainder = diff % pd.Timedelta(24, "H")
+        remainder = diff % pd.Timedelta(24, "h")
         mask = remainder != pd.Timedelta(0)
         sessions = self.sessions[:-1][mask]
-        next_session_earlier_mask = remainder[mask] > pd.Timedelta(12, "H")
+        next_session_earlier_mask = remainder[mask] > pd.Timedelta(12, "h")
         next_session_earlier = sessions[next_session_earlier_mask]
         next_session_later = sessions[~next_session_earlier_mask]
 
@@ -1567,7 +1567,7 @@ class Answers:
     def _trading_minute_to_break_minute(
         self, sessions, break_sessions
     ) -> list[list[pd.Timestamp]]:
-        times = (self.last_am_minutes[break_sessions] + pd.Timedelta(1, "T")).dt.time
+        times = (self.last_am_minutes[break_sessions] + pd.Timedelta(1, "min")).dt.time
 
         mask = (self.first_minutes[sessions].dt.time.values < times.values) & (
             times.values < self.last_minutes[sessions].dt.time.values

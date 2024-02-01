@@ -677,11 +677,11 @@ class _PT(metaclass=abc.ABCMeta):
         # minute long non trading period.
         if start != trading_mins[0]:
             for nanos in [calendar.first_minutes_nanos, calendar.break_ends_nanos]:
-                arr = np.intersect1d(nanos, trading_mins.values.view("int64"))
+                arr = np.intersect1d(nanos, trading_mins.values.astype("int64"))
                 if arr.size > 0:
                     trading_mins = trading_mins.drop(pd.DatetimeIndex(arr, tz=UTC))
 
-        all_mins = pd.date_range(start, end, freq="1T")
+        all_mins = pd.date_range(start, end, freq="1min")
         non_t = all_mins.difference(trading_mins)
         bv_discontinuous = non_t[1:] != (non_t[:-1] + helpers.ONE_MIN)
         side = "left"
@@ -1057,8 +1057,9 @@ class _PT(metaclass=abc.ABCMeta):
                 "Only price tables with a single row can be stacked (price table"
                 f" has {num_rows} rows)."
             )
-        df = self.prices.stack(level=0, dropna=False)
+        df = self.prices.stack(level=0, future_stack=True)
         assert isinstance(df, pd.DataFrame)
+        df.sort_index(axis=0, level=0, ascending=True, inplace=True)
         return helpers.order_cols(df)
 
     @abc.abstractmethod
@@ -1479,7 +1480,7 @@ class PTDaily(_PT):
             else:
                 return self._downsample_days(pdfreq)
 
-        if unit in ["H", "T", "min", "S", "L", "ms", "U", "us", "N"]:
+        if unit in ["h", "min", "s", "L", "ms", "U", "us", "N", "ns"]:
             raise ValueError(
                 "Cannot downsample to a `pdfreq` with a unit more precise than 'd'."
             )
@@ -1849,7 +1850,7 @@ class PTIntraday(_PTIntervalIndex):
             return None
         else:
             mins = int(trading_mins[0])
-            return intervals.TDInterval(pd.Timedelta(mins, "T"))
+            return intervals.TDInterval(pd.Timedelta(mins, "min"))
 
     def indices_have_regular_trading_minutes(
         self, calendar: xcals.ExchangeCalendar
@@ -2122,8 +2123,12 @@ class PTIntraday(_PTIntervalIndex):
         r_dfs = []
         for group in grouped:
             g_df = group[1]
+            # (at least) pandas 2.2.0 fix if not supporting these versions
+            # then can directly pass group[0] to cal.session_open
+            # See https://github.com/pandas-dev/pandas/issues/57192
+            session = group[0] if group[0].tz is None else group[0].tz_convert(None)
             try:
-                origin = cal.session_open(group[0])
+                origin = cal.session_open(session)
             except xcals.errors.NotSessionError:
                 origin = "start"
             r_dfs.append(helpers.resample(g_df, rule=offset, origin=origin))
@@ -2208,8 +2213,8 @@ class PTIntraday(_PTIntervalIndex):
         pdfreq : str
             Resample frequency as valid str input to
             `pd.tseries.frequencies.to_offset` with unit in
-            ["min", "T", "H", "h"]. Examples:
-                "15min", "15T", "30min", "1h", "1H", '4h', '12H'
+            ["min", "h"]. Examples:
+                "15min", "30min", "1h", '4h', '12h'
 
             `pdfreq` must represent an interval higher than the
             table interval.
@@ -2323,7 +2328,7 @@ class PTIntraday(_PTIntervalIndex):
             )
 
         unit = genutils.remove_digits(pdfreq)
-        valid_units = ["min", "T", "h", "H"]
+        valid_units = ["min", "h"]
         if unit not in valid_units:
             raise ValueError(
                 f"The unit of `pdfreq` must be in {valid_units} although received"
@@ -2331,8 +2336,8 @@ class PTIntraday(_PTIntervalIndex):
             )
 
         value = int(genutils.remove_nondigits(pdfreq))
-        minutes = value if unit in ["min", "T"] else 60 * value
-        interval = pd.Timedelta(minutes, "T")
+        minutes = value if unit == "min" else 60 * value
+        interval = pd.Timedelta(minutes, "min")
 
         table_interval = self.interval
         if table_interval > interval:

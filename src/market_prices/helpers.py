@@ -23,8 +23,8 @@ if "pytest" in sys.modules:
 UTC = zoneinfo.ZoneInfo("UTC")
 
 ONE_DAY: pd.Timedelta = pd.Timedelta(1, "D")
-ONE_MIN: pd.Timedelta = pd.Timedelta(1, "T")
-ONE_SEC: pd.Timedelta = pd.Timedelta(1, "S")
+ONE_MIN: pd.Timedelta = pd.Timedelta(1, "min")
+ONE_SEC: pd.Timedelta = pd.Timedelta(1, "s")
 
 
 def symbols_to_list(symbols: mptypes.Symbols) -> list[str]:
@@ -155,7 +155,7 @@ def now(
         now_ = now_.tz_convert(None)
         res = "D"
     else:
-        res = "T"
+        res = "min"
     return now_.ceil(res) if side == "right" else now_.floor(res)
 
 
@@ -172,7 +172,7 @@ def extract_freq_parts(freq: str) -> tuple[int, str]:
     Parameters
     ----------
     freq
-        Pandas frequency, for example "5D", "30T", "4H", "33MS".
+        Pandas frequency, for example "5D", "30min", "4h", "33MS".
 
     Raises
     ------
@@ -192,8 +192,8 @@ def extract_freq_parts(freq: str) -> tuple[int, str]:
 
     Examples
     --------
-    >>> extract_freq_parts("22T")
-    (22, 'T')
+    >>> extract_freq_parts("22min")
+    (22, 'min')
     >>> extract_freq_parts("1m")
     (1, 'm')
     >>> extract_freq_parts("D")

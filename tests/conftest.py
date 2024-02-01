@@ -144,13 +144,13 @@ def one_day() -> abc.Iterator[pd.Timedelta]:
 @pytest.fixture(scope="session")
 def one_min() -> abc.Iterator[pd.Timedelta]:
     """pd.Timedelta with value as one minute."""
-    yield pd.Timedelta(1, "T")
+    yield pd.Timedelta(1, "min")
 
 
 @pytest.fixture(scope="session")
 def one_sec() -> abc.Iterator[pd.Timedelta]:
     """pd.Timedelta with value as one second."""
-    yield pd.Timedelta(1, "S")
+    yield pd.Timedelta(1, "s")
 
 
 _now_utc = pd.Timestamp("2021-11-17 21:59", tz=UTC)

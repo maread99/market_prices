@@ -56,18 +56,18 @@ def test_tdintervals(xlon_calendar):
         if i <= intraday_daily_separator:
             if i % 60:
                 assert en == getattr(m.TDInterval, "T" + str(i))
-                assert en.freq_unit == "T"
+                assert en.freq_unit == "min"
                 assert en.freq_value == i
-                assert en.as_pdfreq == str(i) + "T"
+                assert en.as_pdfreq == str(i) + "min"
                 for c, one_less in itertools.product([cal, None], [True, False]):
                     assert en.as_offset(c, one_less) == pd.tseries.offsets.Minute(i)
                 assert en.as_offset() == pd.tseries.offsets.Minute(i)
             else:
                 i_ = i // 60
                 assert en == getattr(m.TDInterval, "H" + str(i_))
-                assert en.freq_unit == "H"
+                assert en.freq_unit == "h"
                 assert en.freq_value == i_
-                assert en.as_pdfreq == str(i_) + "H"
+                assert en.as_pdfreq == str(i_) + "h"
                 for c, one_less in itertools.product([cal, None], [True, False]):
                     assert en.as_offset(c, one_less) == pd.tseries.offsets.Hour(i_)
                 assert en.as_offset() == pd.tseries.offsets.Hour(i_)
@@ -118,13 +118,13 @@ def test_tdintervals(xlon_calendar):
 
 def test_tdintervals_comparion_with_timedelta():
     """Verify comparisons of TDInterval with pd.Timedelta as expected."""
-    assert m.TDInterval.T5 == pd.Timedelta(5, "T")
-    assert m.TDInterval.T5 > pd.Timedelta(4, "T")
-    assert m.TDInterval.T5 >= pd.Timedelta(4, "T")
-    assert m.TDInterval.T5 >= pd.Timedelta(5, "T")
-    assert m.TDInterval.T5 < pd.Timedelta(6, "T")
-    assert m.TDInterval.T5 <= pd.Timedelta(6, "T")
-    assert m.TDInterval.T5 <= pd.Timedelta(5, "T")
+    assert m.TDInterval.T5 == pd.Timedelta(5, "min")
+    assert m.TDInterval.T5 > pd.Timedelta(4, "min")
+    assert m.TDInterval.T5 >= pd.Timedelta(4, "min")
+    assert m.TDInterval.T5 >= pd.Timedelta(5, "min")
+    assert m.TDInterval.T5 < pd.Timedelta(6, "min")
+    assert m.TDInterval.T5 <= pd.Timedelta(6, "min")
+    assert m.TDInterval.T5 <= pd.Timedelta(5, "min")
 
 
 def test_dointervals(xlon_calendar):
@@ -214,8 +214,8 @@ class TestBaseInterval:
         assert bi.next is None  # pylint: disable=undefined-loop-variable
         assert m.TDInterval.T5 in BaseInterval
         assert m.TDInterval.T6 not in BaseInterval
-        assert pd.Timedelta(5, "T") in BaseInterval
-        assert pd.Timedelta(6, "T") not in BaseInterval
+        assert pd.Timedelta(5, "min") in BaseInterval
+        assert pd.Timedelta(6, "min") not in BaseInterval
 
         assert BaseInterval.daily_bi() == pd.Timedelta(1, "D")
         assert BaseInterval.intraday_bis() == BaseInterval[:-1]
@@ -271,13 +271,15 @@ class TestToPTInterval:
         yield {
             "T": "minutes",
             "MIN": "minutes",
+            "min": "minutes",
             "H": "hours",
+            "h": "hours",
             "D": "days",
             "M": "months",
         }
 
     def test_type(self, f):
-        for invalid_input in [("2T",), ["1D"], 33]:
+        for invalid_input in [("2min",), ["1D"], 33]:
             with pytest.raises(TypeError):
                 f(invalid_input)
 
@@ -292,7 +294,7 @@ class TestToPTInterval:
                 f("0" + unit)
             assert f("1" + unit)
 
-        for invalid_input in ["2s2", "T1", "H2H", "3T4H", "HH2"]:
+        for invalid_input in ["2s2", "T1", "h2h", "3min4h", "HH2"]:
             with pytest.raises(ValueError, match=match):
                 f(invalid_input)
 
@@ -330,13 +332,13 @@ class TestToPTInterval:
         test_unit("d", 250, m.TDInterval)
         test_unit("m", 36, m.DOInterval)
 
-        assert f("60min") == f("60MIN") == f("1H") == f("1h") == m.TDInterval.H1
+        assert f("60min") == f("60T") == f("1H") == f("1h") == m.TDInterval.H1
 
     def test_timedelta_input(self, f, components):
         # pylint: disable=too-complex
         match = "`interval` cannot be negative or zero."
         for i in range(0, -3, -1):
-            for unit in ["T", "H", "D"]:
+            for unit in ["min", "h", "D"]:
                 with pytest.raises(ValueError, match=match):
                     f(pd.Timedelta(i, unit))
             for kwarg in ["minutes", "hours", "days"]:
@@ -363,14 +365,18 @@ class TestToPTInterval:
         def test_unit(unit: str, limit: int, Cls: m.PTInterval):
             for i in range(1, limit + 1):
                 for td in (pdtd := pd.Timedelta(i, unit), pdtd.to_pytimedelta()):
-                    if unit == "T" and not i % 60:
+                    if unit == "min" and not i % 60:
                         assert f(td) == getattr(Cls, "H" + str(i // 60))
+                    elif unit == "min":
+                        assert f(td) == getattr(Cls, "T" + str(i))
+                    elif unit == "h":
+                        assert f(td) == getattr(Cls, "H" + str(i))
                     else:
                         assert f(td) == getattr(Cls, unit + str(i))
 
             for i in range(limit + 1, limit + 6):
                 for td in (pdtd := pd.Timedelta(i, unit), pdtd.to_pytimedelta()):
-                    if unit == "H" and i >= 24:
+                    if unit == "h" and i >= 24:
                         if i == 24:
                             assert f(td) == m.TDInterval.D1
                         if i > 24:
@@ -380,8 +386,8 @@ class TestToPTInterval:
                         with pytest.raises(ValueError, match=match_too_high(td, limit)):
                             _ = f(td)
 
-        test_unit("T", 1320, m.TDInterval)
-        test_unit("H", 22, m.TDInterval)
+        test_unit("min", 1320, m.TDInterval)
+        test_unit("h", 22, m.TDInterval)
         test_unit("D", 250, m.TDInterval)
 
         # test multiple components

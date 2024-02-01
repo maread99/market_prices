@@ -659,7 +659,7 @@ class Data:
         elif self.bi.is_intraday:
             assert self._delay is not None
             # ten minutes to cover provider delays in publishing data.
-            rerequest_from = helpers.now() - self._delay - pd.Timedelta(10, "T")
+            rerequest_from = helpers.now() - self._delay - pd.Timedelta(10, "min")
             if end < rerequest_from:
                 return dr
             excess = end - rerequest_from
