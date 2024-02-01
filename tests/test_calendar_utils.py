@@ -366,7 +366,7 @@ class CompositeAnswers:
     def sessions_with_gap_after(self) -> pd.DatetimeIndex:
         mask = self.closes >= self.opens.shift(-1)
         if self.side == "both":
-            closes_plus_min = self.closes + pd.Timedelta(1, "T")
+            closes_plus_min = self.closes + pd.Timedelta(1, "min")
             mask = mask | (closes_plus_min == self.opens.shift(-1))
         return self.sessions[~mask][:-1]
 
@@ -962,7 +962,9 @@ class TestCompositeCalendar:
         rtrn = cc.sessions_length()
         pd.testing.assert_series_equal(expected, rtrn, check_freq=False)
 
-    @pytest.mark.parametrize("factor", [pd.Timedelta(v, "T") for v in [5, 7, 11, 300]])
+    @pytest.mark.parametrize(
+        "factor", [pd.Timedelta(v, "min") for v in [5, 7, 11, 300]]
+    )
     def test_is_factor_of_sessions(self, composite_calendars_with_answers, factor):
         cc, answers = composite_calendars_with_answers
         rtrn = cc.is_factor_of_sessions(factor)

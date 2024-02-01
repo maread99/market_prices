@@ -387,7 +387,7 @@ def pp_days_start_session(
     sessions = calendar.sessions
     limit_r = sessions[-pp["days"]]
     if start_will_roll_to_ms:
-        offset = pd.tseries.frequencies.to_offset("M")
+        offset = pd.tseries.frequencies.to_offset("ME")
         if TYPE_CHECKING:
             assert offset is not None
         limit_r = offset.rollback(limit_r)

@@ -240,7 +240,7 @@ class CompositeCalendar:
 
     LEFT_SIDES = ["left", "both"]
     RIGHT_SIDES = ["right", "both"]
-    ONE_MIN = pd.Timedelta(1, "T")
+    ONE_MIN = pd.Timedelta(1, "min")
 
     def __init__(self, calendars: set | abc.Sequence[xcals.ExchangeCalendar]):
         self._cals = calendars

@@ -2070,14 +2070,14 @@ class TestGetterIntraday:
         # test trading_minute
         session = ans.sessions_sample[-4]
         open_ = ans.opens[session]
-        now = open_ + pd.Timedelta(20, "T")
+        now = open_ + pd.Timedelta(20, "min")
         monkeypatch.setattr("pandas.Timestamp.now", lambda *a, **k: now)
         drg = self.get_drg(cal, pp, interval=interval)
         end = open_ + (TDInterval.T15 * 2)  # end is end of current live interval
         assert drg.end_now == drg.get_end(None) == (end, now + one_min)
 
         # test trading minute with delay
-        delay = pd.Timedelta(10, "T")
+        delay = pd.Timedelta(10, "min")
         drg = self.get_drg(cal, pp, interval=interval, delay=delay)
         end = open_ + TDInterval.T15
         assert drg.end_now == drg.get_end(None) == (end, now + one_min - delay)
@@ -2088,14 +2088,14 @@ class TestGetterIntraday:
             return
         session = sessions[-4]
         close = ans.closes[session]
-        now = close + pd.Timedelta(10, "T")
+        now = close + pd.Timedelta(10, "min")
         monkeypatch.setattr("pandas.Timestamp.now", lambda *a, **k: now)
         drg = self.get_drg(cal, pp, interval=TDInterval.T1)
         assert drg.end_now == drg.get_end(None) == (close, close)
 
-        delay = pd.Timedelta(15, "T")
+        delay = pd.Timedelta(15, "min")
         drg = self.get_drg(cal, pp, interval=TDInterval.T1, delay=delay)
-        end = close - pd.Timedelta(5, "T") + one_min  # returns right of live indice
+        end = close - pd.Timedelta(5, "min") + one_min  # returns right of live indice
         assert drg.end_now == drg.get_end(None) == (end, now + one_min - delay)
 
         # verify None input to `get_end` returns any fixed right limit
@@ -2129,9 +2129,9 @@ class TestGetterIntraday:
         )
 
         # verify that drg_wb behaves as drg_bi, i.e. aligning based on bi, not dsi
-        delta = pd.Timedelta(4, "T")
+        delta = pd.Timedelta(4, "min")
         minutes = pd.date_range(open_ - delta, close + delta, freq=delta)
-        delta = pd.Timedelta(7, "T")
+        delta = pd.Timedelta(7, "min")
         minutes = minutes.union(pd.date_range(open_ - delta, close + delta, freq=delta))
 
         for minute in minutes:
@@ -2231,7 +2231,7 @@ class TestGetterIntraday:
             duration_insert = ""
             if anchor is Anchor.WORKBACK:
                 assert duration is not None
-                duration_ = pd.Timedelta(duration, "T")
+                duration_ = pd.Timedelta(duration, "min")
                 duration_insert = f"\nPeriod duration evaluated as {duration_}."
             return re.escape(
                 f"Period does not span a full indice of length {final_interval}."
@@ -2365,7 +2365,7 @@ class TestGetterIntraday:
 
         # verify when single interval would comprise minutes from both end of
         # previous session and start of session
-        delta = pd.Timedelta(3, "T")
+        delta = pd.Timedelta(3, "min")
         pp = get_pp_default()
         pp["start"] = start = prev_session_close - dsi + delta
         pp["end"] = end = session_open + delta
@@ -2988,7 +2988,7 @@ class TestGetterIntraday:
         end, end_accuracy = drg.end_now
 
         minutes = 5
-        pp["start"] = start = end - pd.Timedelta(minutes, "T")
+        pp["start"] = start = end - pd.Timedelta(minutes, "min")
 
         # on now
         pp["minutes"] = minutes
@@ -3015,7 +3015,7 @@ class TestGetterIntraday:
 
         # on limit
         minutes = 5
-        pp["end"] = end = limit + pd.Timedelta(minutes, "T")
+        pp["end"] = end = limit + pd.Timedelta(minutes, "min")
         pp["minutes"] = minutes
         drg = self.get_drg(cal, pp, interval=bi, limit=limit, strict=False)
         assert drg.daterange == ((limit, end), end)
@@ -3112,8 +3112,8 @@ class TestGetterIntraday:
         kwargs = {"interval": TDInterval.H1, "ds_interval": TDInterval.H2}
 
         exp_start = open_
-        exp_end = close + pd.Timedelta(90, "T")
-        exp_end_tight = close + pd.Timedelta(30, "T")
+        exp_end = close + pd.Timedelta(90, "min")
+        exp_end_tight = close + pd.Timedelta(30, "min")
         exp_end_accuracy = close
 
         # verify daterange same as daterange_tight when Alignment BI
@@ -3148,7 +3148,7 @@ class TestGetterIntraday:
         # duration < final interval
         pp["minutes"] = minutes = pp["minutes"] - 1
         drg = self.get_drg(cal, pp, **drg_kwargs)
-        duration = pd.Timedelta(minutes, "T")
+        duration = pd.Timedelta(minutes, "min")
         match = re.escape(
             f"Period duration shorter than interval. Interval is {base_interval}"
             f" although period duration is only {duration}."
@@ -3212,7 +3212,7 @@ class TestGetterIntraday:
         assert drg_wb_dr[0][1] == drg_wb_dr[1] == start + dsi + one_min
 
         # verify for prior_start that represent an interval that crosses sessions
-        delta = pd.Timedelta(7, "T")
+        delta = pd.Timedelta(7, "min")
         pp["start"] = start = open_ + delta
         drg_open, drg_wb = get_drgs(pp)
         end_ = start + dsi + one_min

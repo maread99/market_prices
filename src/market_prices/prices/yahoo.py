@@ -560,7 +560,7 @@ class PricesYahoo(base.PricesBase):
     @staticmethod
     def _bi_to_source_key(interval: intervals.BI) -> str:
         """Map interval to value for source's interval parameter."""
-        if interval.freq_unit == "T":
+        if interval.freq_unit == "min":
             return str(interval.freq_value) + "m"
         else:
             return interval.as_pdfreq.lower()  # as yahooquery value
@@ -868,6 +868,6 @@ class PricesYahoo(base.PricesBase):
                 # 22 hours ensures markets opening in Americas included
                 # whilst avoiding including the following session of
                 # Australasian markets
-                end_ += pd.Timedelta(22, "H")
+                end_ += pd.Timedelta(22, "h")
             prices = self._request_yahoo(interval=interval, start=start, end=end_)
         return self._tidy_yahoo(prices, interval, start, end)

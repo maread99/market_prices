@@ -872,10 +872,10 @@ class PricesMissingWarning(PricesWarning):
 
     def __init__(self, symbol: str, bi: BI, sessions: pd.DatetimeIndex, source: str):
         date_format = "%Y-%m-%d"
-        sessions = sessions.format(date_format=date_format)
+        sessions_ = sessions.strftime(date_format).tolist()
         self._msg = (
             f"Prices from {source} are missing for '{symbol}' at the"
-            f" base interval '{bi}' for the following sessions: {sessions}."
+            f" base interval '{bi}' for the following sessions: {sessions_}."
         )
 
 

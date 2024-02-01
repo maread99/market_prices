@@ -38,8 +38,8 @@ def test_constants():
     # Just to make sure they aren't inadvertently changed
     assert m.UTC is ZoneInfo("UTC")
     assert m.ONE_DAY == pd.Timedelta(1, "D")
-    assert m.ONE_MIN == pd.Timedelta(1, "T")
-    assert m.ONE_SEC == pd.Timedelta(1, "S")
+    assert m.ONE_MIN == pd.Timedelta(1, "min")
+    assert m.ONE_SEC == pd.Timedelta(1, "s")
 
 
 def test_is_date(one_min):
@@ -323,7 +323,7 @@ def test_resample(intraday_pt):
     df = intraday_pt.pt.utc
 
     df = df.loc["2021-12-17":"2021-12-20"].copy()
-    rtrn = f(df.pt.indexed_left, "1H")
+    rtrn = f(df.pt.indexed_left, "1h")
 
     # create expected return
     groups = []
@@ -359,8 +359,8 @@ def test_resample(intraday_pt):
     # add rows with missing values to expected
     index = pd.date_range(
         start=df.pt.first_ts,
-        end=df.pt.last_ts - pd.Timedelta(1, "H"),
-        freq="1H",
+        end=df.pt.last_ts - pd.Timedelta(1, "h"),
+        freq="1h",
         name="left",
     )
     expected = expected.reindex(index)

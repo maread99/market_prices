@@ -533,7 +533,7 @@ class TestConstructor:
         expected_delays = delays
         for k, delay in prices.delays.items():
             assert isinstance(delay, pd.Timedelta)
-            assert delay == pd.Timedelta(expected_delays[k], "T")
+            assert delay == pd.Timedelta(expected_delays[k], "min")
 
     def test_adj_close(self):
         """Verify `adj_close` parameter returns alternative close col.
@@ -634,17 +634,17 @@ class TestConstructor:
 
 @pytest.fixture
 def session_length_xnys() -> abc.Iterator[pd.Timedelta]:
-    yield pd.Timedelta(6.5, "H")
+    yield pd.Timedelta(6.5, "h")
 
 
 @pytest.fixture
 def session_length_xhkg() -> abc.Iterator[pd.Timedelta]:
-    yield pd.Timedelta(6.5, "H")
+    yield pd.Timedelta(6.5, "h")
 
 
 @pytest.fixture
 def session_length_xlon() -> abc.Iterator[pd.Timedelta]:
-    yield pd.Timedelta(8.5, "H")
+    yield pd.Timedelta(8.5, "h")
 
 
 @pytest.fixture(scope="module")
@@ -1161,7 +1161,7 @@ class TestRequestDataIntraday:
         xlon = prices.calendars["AZN.L"]
 
         common_index = xnys.opens[slc].index.intersection(xlon.opens[slc].index)
-        delta = pd.Timedelta(2, "H")
+        delta = pd.Timedelta(2, "h")
 
         # don't use first index
         for i in reversed(range(len(common_index) - 1)):
@@ -1186,7 +1186,7 @@ class TestRequestDataIntraday:
         interval = prices.BaseInterval.T5
         _, slc = get_data_bounds(prices, interval)
 
-        delta = pd.Timedelta(20, "T")
+        delta = pd.Timedelta(20, "min")
         start = cc.opens[slc].iloc[0] + delta
         end = cc.closes[slc].iloc[-1] - delta
 
@@ -1244,7 +1244,7 @@ class TestRequestDataIntraday:
         start = xlon.session_open(session_start)
         end = xnys.session_close(session_end)
         df = prices._request_data(interval, start, end)
-        delta = pd.Timedelta(20, "T")
+        delta = pd.Timedelta(20, "min")
         start_ = start - delta
         end_ = end + delta
         df_not_mins = prices._request_data(interval, start_, end_)
@@ -1266,7 +1266,7 @@ class TestRequestDataIntraday:
     def test_start_none(self, pricess):
         """Verify as expected when start is None."""
         prices = pricess["inc_247"]
-        end = pd.Timestamp.now().floor("T")
+        end = pd.Timestamp.now().floor("min")
         start = None
         for interval in prices.BaseInterval[:-1]:
             match = (
@@ -1282,7 +1282,7 @@ class TestRequestDataIntraday:
         prices = pricess["inc_247"]
         start = pd.Timestamp.now(tz=UTC).floor("D") - pd.Timedelta(2, "D")
         for interval in prices.BaseInterval[:-1]:
-            now = pd.Timestamp.now(tz=UTC).floor("T")
+            now = pd.Timestamp.now(tz=UTC).floor("min")
             end = now + interval
             df = prices._request_data(interval, start, end)
             num_rows = (now - start) / interval
@@ -1295,7 +1295,7 @@ class TestRequestDataIntraday:
         prices = m.PricesYahoo(symbol, calendars="24/7", delays=delay_mins)
         cal = prices.calendars[symbol]
         cc = calutils.CompositeCalendar([cal])
-        delay = pd.Timedelta(delay_mins, "T")
+        delay = pd.Timedelta(delay_mins, "min")
         start = pd.Timestamp.now(tz=UTC).floor("D") - pd.Timedelta(2, "D")
         pp = {
             "minutes": 0,
@@ -1314,7 +1314,7 @@ class TestRequestDataIntraday:
             )
             (_, end), _ = drg.daterange
             df = prices._request_data(interval, start, end)
-            now = pd.Timestamp.now(tz=UTC).floor("T")
+            now = pd.Timestamp.now(tz=UTC).floor("min")
             num_rows = (now - delay - start) / interval
             num_rows = np.ceil(num_rows) if num_rows % 1 else num_rows + 1
             expected_end = start + (num_rows * interval)
@@ -1329,7 +1329,7 @@ class TestRequestDataIntraday:
         prices = pricess["only_247"]
         interval = prices.BaseInterval.T1
         for days in [5, 6, 7, 11, 12, 13]:
-            end = pd.Timestamp.now(tz=UTC).ceil("T")
+            end = pd.Timestamp.now(tz=UTC).ceil("min")
             start = end - pd.Timedelta(days, "D")
             df = prices._request_data(interval, start, end)
             num_expected_rows = days * 24 * 60
@@ -1417,22 +1417,22 @@ class TestRequestDataIntraday:
         prices = pricess["us"]
         symbol = prices.symbols[0]
         cal = prices.calendars[symbol]
-        now = pd.Timestamp.now(UTC).floor("T")
+        now = pd.Timestamp.now(UTC).floor("min")
         session = cal.minute_to_past_session(now, 2)
         session = get_valid_session(session, cal, "previous")
         # extra 30T to cover unaligned end of 1H interval
-        end = cal.session_close(session) + pd.Timedelta(30, "T")
-        start = cal.session_open(session) + pd.Timedelta(1, "H")
+        end = cal.session_close(session) + pd.Timedelta(30, "min")
+        start = cal.session_open(session) + pd.Timedelta(1, "h")
         assertions(prices, start, end)
 
         # Verify for lon prices
         prices = m.PricesYahoo("AZN.L", calendars="XLON", delays=15)
         cal = prices.calendars["AZN.L"]
-        now = pd.Timestamp.now(UTC).floor("T")
+        now = pd.Timestamp.now(UTC).floor("min")
         session = cal.minute_to_past_session(now, 2)
         session = get_valid_session(session, cal, "previous")
         # extra 30T to cover unaligned end of 1H interval
-        end = cal.session_close(session) + pd.Timedelta(30, "T")
+        end = cal.session_close(session) + pd.Timedelta(30, "min")
         start = cal.session_open(session)
         prev_close = cal.previous_close(session)
         assertions(prices, start, end, prev_close)

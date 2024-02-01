@@ -630,22 +630,22 @@ def prices_us_lon_hk(
 
 @pytest.fixture
 def session_length_xnys() -> abc.Iterator[pd.Timedelta]:
-    yield pd.Timedelta(6.5, "H")
+    yield pd.Timedelta(6.5, "h")
 
 
 @pytest.fixture
 def session_length_xhkg() -> abc.Iterator[pd.Timedelta]:
-    yield pd.Timedelta(6.5, "H")
+    yield pd.Timedelta(6.5, "h")
 
 
 @pytest.fixture
 def session_length_xlon() -> abc.Iterator[pd.Timedelta]:
-    yield pd.Timedelta(8.5, "H")
+    yield pd.Timedelta(8.5, "h")
 
 
 @pytest.fixture
 def session_length_bvmf() -> abc.Iterator[pd.Timedelta]:
-    yield pd.Timedelta(8, "H")
+    yield pd.Timedelta(8, "h")
 
 
 @pytest.fixture
@@ -1418,7 +1418,7 @@ class TestTableIntraday:
             table_H1, bi = f()
             assert bi is prices.bis.H1
             assert_interval(table_H1, prices.bis.H1)
-            assert_bounds(table_H1, (start, end_session_open + pd.Timedelta(1, "H")))
+            assert_bounds(table_H1, (start, end_session_open + pd.Timedelta(1, "h")))
 
     def test__get_bi_table_intraday_interval_non_bi(
         self, prices_us, stricts, priorities, one_min
@@ -1554,7 +1554,7 @@ class TestTableIntraday:
         assert_most_common_interval(table_T4_T1, ds_interval)
         assert table_T4_T1.pt.last_ts == end
         assert table_T4_T1.pt.first_ts in pd.date_range(
-            start=start, periods=4, freq="T"
+            start=start, periods=4, freq="min"
         )
 
         # verify prices unavailable if period extends beyond limit of availability
@@ -1582,7 +1582,7 @@ class TestTableIntraday:
         table = f()
         assert_most_common_interval(table, ds_interval)
         assert table.pt.last_ts == end - one_min
-        assert table.pt.first_ts in pd.date_range(start=start, periods=4, freq="T")
+        assert table.pt.first_ts in pd.date_range(start=start, periods=4, freq="min")
 
     def test__get_table_intraday_interval_H2(self, prices_us):
         """Test `_get_table_intraday` for H2 ds_interval.
@@ -1613,7 +1613,7 @@ class TestTableIntraday:
             )
             table = f()
             assert_bounds(table, (start, end_close))
-            assert table.index[-1].length == pd.Timedelta(30, "T")
+            assert table.index[-1].length == pd.Timedelta(30, "min")
             assert_most_common_interval(table, ds_interval)
 
             # verify when openend is MAINTAIN
@@ -1621,7 +1621,7 @@ class TestTableIntraday:
                 prices, pp, ds_interval, openend=OpenEnd.MAINTAIN
             )
             delta = 30 if ds_interval is prices.bis.H1 else 90
-            end_maintain = end_close + pd.Timedelta(delta, "T")
+            end_maintain = end_close + pd.Timedelta(delta, "min")
             table = f()
             assert_bounds(table, (start, end_maintain))
             assert_interval(table, ds_interval)
@@ -1639,7 +1639,7 @@ class TestTableIntraday:
         interval = prices.bis.T5
         range_start, _ = th.get_sessions_range_for_bi(prices, interval)
         _, range_end = th.get_sessions_range_for_bi(prices, prices.bis.T1)
-        length = pd.Timedelta(13, "H")
+        length = pd.Timedelta(13, "h")
         start, end = th.get_conforming_cc_sessions(
             prices.cc, length, range_start, range_end, 2
         )
@@ -1668,7 +1668,7 @@ class TestTableIntraday:
             # before close as nyse continues to trade after the close, hence to maintain
             # interval end on the last full interval prior to the close. Same effect for
             # H1 and H2.
-            end_maintain = end_close - pd.Timedelta(30, "T")
+            end_maintain = end_close - pd.Timedelta(30, "min")
             assert_bounds(table, (start_open, end_maintain))
             assert_interval(table, ds_interval)
 
@@ -1678,7 +1678,7 @@ class TestTableIntraday:
             )
             table = prices._get_table_intraday()
             assert_bounds(table, (start_open, end_close))
-            assert table.index[-1].length == pd.Timedelta(30, "T")
+            assert table.index[-1].length == pd.Timedelta(30, "min")
             assert_most_common_interval(table, ds_interval)
 
         # Verify for xnys lead
@@ -1705,7 +1705,7 @@ class TestTableIntraday:
             # 30/90 minutes although nothing trades after the close, hence maintains the
             # interval by extending the right of the last indice to beyond the close.
             delta = 30 if ds_interval is prices.bis.H1 else 90
-            end_maintain = end_close + pd.Timedelta(delta, "T")
+            end_maintain = end_close + pd.Timedelta(delta, "min")
             assert_bounds(table, (start_open, end_maintain))
             assert_interval(table, ds_interval)
 
@@ -1715,7 +1715,7 @@ class TestTableIntraday:
             )
             table = prices._get_table_intraday()
             assert_bounds(table, (start_open, end_close))
-            assert table.index[-1].length == pd.Timedelta(30, "T")
+            assert table.index[-1].length == pd.Timedelta(30, "min")
             assert_most_common_interval(table, ds_interval)
 
     def assertions_downsample_bi_table(
@@ -2224,7 +2224,7 @@ class TestGetComposite:
             prices, prices.bis.T1, calendars, session_length, 2
         )
         end_session_open = prices.cc.session_open(end_session)
-        end = end_session_open + pd.Timedelta(7, "T")
+        end = end_session_open + pd.Timedelta(7, "min")
         _, start_session = get_conforming_sessions(
             prices, prices.bis.T5, calendars, session_length, 2
         )
@@ -2239,9 +2239,9 @@ class TestGetComposite:
         assert table.pt.last_ts == end
 
         # Test edge case 1.
-        limit_T1_mock = end_session_open - pd.Timedelta(1, "H")
+        limit_T1_mock = end_session_open - pd.Timedelta(1, "h")
         prices = get_prices_limit_mock(prices, prices.bis.T1, limit_T1_mock)
-        end = end_session_open + pd.Timedelta(3, "T")
+        end = end_session_open + pd.Timedelta(3, "min")
         pp = get_pp(start=start_session, end=end)
         prices = set_get_prices_params(prices, pp, ds_interval=None, lead_symbol=lead)
         table_edgecase1 = prices._get_table_composite()
@@ -2250,9 +2250,9 @@ class TestGetComposite:
         assert_frame_equal(table_edgecase1[:-3], table[:-7])
 
         # Test edge case 2.
-        limit_T1_mock = end_session_open + pd.Timedelta(6, "T")
+        limit_T1_mock = end_session_open + pd.Timedelta(6, "min")
         prices = get_prices_limit_mock(prices, prices.bis.T1, limit_T1_mock)
-        end = end_session_open + pd.Timedelta(9, "T")
+        end = end_session_open + pd.Timedelta(9, "min")
         pp = get_pp(start=start_session, end=end)
         prices = set_get_prices_params(prices, pp, ds_interval=None, lead_symbol=lead)
         table_edgecase2 = prices._get_table_composite()
@@ -2268,9 +2268,9 @@ class TestGetComposite:
 
         # Verify raises error under edge case 2 when 'next table' has same interval
         # as table1.
-        limit_T1_mock = end_session_open + pd.Timedelta(20, "T")  # unable to serve
+        limit_T1_mock = end_session_open + pd.Timedelta(20, "min")  # unable to serve
         # T2 unable to serve from start of day
-        limit_T2_mock = end_session_open + pd.Timedelta(6, "T")
+        limit_T2_mock = end_session_open + pd.Timedelta(6, "min")
         limits = prices.BASE_LIMITS.copy()
         limits[prices.bis.T1] = limit_T1_mock
         limits[prices.bis.T2] = limit_T2_mock
@@ -2282,7 +2282,7 @@ class TestGetComposite:
 
         prices = PricesMock(symbols, prices._prices_tables, prices.lead_symbol_default)
 
-        end = end_session_open + pd.Timedelta(8, "T")
+        end = end_session_open + pd.Timedelta(8, "min")
         pp = get_pp(start=start_session, end=end)
         prices = set_get_prices_params(prices, pp, ds_interval=None, lead_symbol=lead)
 
@@ -2305,7 +2305,7 @@ class TestGetComposite:
         # set up as:
         # end avaialble from T2 data and can be reflected accurately by T2 data.
         # start available only for daily data.
-        length = pd.Timedelta(13, "H")
+        length = pd.Timedelta(13, "h")
         _start_session, end_session = get_sessions_daterange_for_bi(
             prices, prices.bis.T2, length_end_session=length
         )
@@ -2317,7 +2317,7 @@ class TestGetComposite:
                 raise ValueError(f"Unable to get a 'T2' session of length {length}.")
 
         end_session_open = prices.cc.session_open(end_session)
-        end = end_session_open + pd.Timedelta(6, "T")
+        end = end_session_open + pd.Timedelta(6, "min")
 
         start_H1, _ = get_sessions_daterange_for_bi(prices, prices.bis.H1)
         calendar = prices.calendars[lead]
@@ -2355,7 +2355,7 @@ class TestGetComposite:
 
         # Verify returns daily/intraday composite table under intraday/daily edge case
         # set up so that T2 availability starts between session open and period end.
-        limit_T2_mock = end_session_open + pd.Timedelta(1, "T")
+        limit_T2_mock = end_session_open + pd.Timedelta(1, "min")
         prices = get_prices_limit_mock(prices, prices.bis.T2, limit_T2_mock)
         pp = get_pp(start=start_session, end=end)
         prices = set_get_prices_params(prices, pp, ds_interval=None, lead_symbol=lead)
@@ -2386,7 +2386,7 @@ class TestGetComposite:
         calendar = prices.calendars[lead]
         end_session = calendar.session_offset(start_H1, -50)
         end_session_open = prices.cc.session_open(end_session)
-        end = end_session_open + pd.Timedelta(1, "H")
+        end = end_session_open + pd.Timedelta(1, "h")
         start_session = calendar.session_offset(end_session, -20)
 
         pp = get_pp(start=start_session, end=end)
@@ -2426,7 +2426,7 @@ class TestGet:
         assert not prices.has_data
 
         # verify options default values
-        prices.get("5T", minutes=30)
+        prices.get("5min", minutes=30)
         assert prices.has_data
         assert isinstance(prices.gpp, m.PricesBase.GetPricesParams)
         assert prices.gpp.anchor is Anchor.OPEN
@@ -2440,7 +2440,7 @@ class TestGet:
         lead = prices.lead_symbol_default
         strict = True
         prices.get(
-            "10T",
+            "10min",
             minutes=30,
             anchor="open",
             openend="maintain",
@@ -2459,7 +2459,7 @@ class TestGet:
         lead = get_symbols_for_calendar(prices, "XLON")
         strict = False
         prices.get(
-            "3T",
+            "3min",
             minutes=30,
             anchor="workback",
             openend="shorten",
@@ -2511,7 +2511,7 @@ class TestGet:
             " received 'wrkback'."
         )
         with pytest.raises(valimp.InputsError, match=msg):
-            prices.get("30T", anchor="wrkback")
+            prices.get("30min", anchor="wrkback")
 
         # verify period parameters being verified by `verify_period_parameters`
         msg = "If pass start and end then cannot pass a duration component."
@@ -2573,13 +2573,13 @@ class TestGet:
         # Verify return at intraday intervals.
 
         # verify end as time. Given end T5 is highest intraday interval that can fulfil.
-        end = cal.session_open(rng_end) + pd.Timedelta(5, "T")
+        end = cal.session_open(rng_end) + pd.Timedelta(5, "min")
         df = prices.get(start=rng_start, end=end)
         assertions_intraday_common(df, prices, prices.bis.T5)
         assert_bounds(df, (rng_start_open, end))
 
         # verify start as time.
-        start = cal.session_open(rng_start) + pd.Timedelta(5, "T")
+        start = cal.session_open(rng_start) + pd.Timedelta(5, "min")
         df = prices.get(start=start, end=rng_end)
         assertions_intraday_common(df, prices, prices.bis.H1)
         assert df.pt.first_ts == (rng_start_open + prices.bis.H1)
@@ -2593,14 +2593,14 @@ class TestGet:
         # verify minutes
         df = prices.get(start=rng_start, minutes=4)
         assertions_intraday_common(df, prices, prices.bis.T2)
-        assert_bounds(df, (rng_start_open, rng_start_open + pd.Timedelta(4, "T")))
+        assert_bounds(df, (rng_start_open, rng_start_open + pd.Timedelta(4, "min")))
         df = prices.get(minutes=4)
         assert df.pt.interval in (prices.bis.T1, prices.bis.T2)
 
         # verify hours
         df = prices.get(start=rng_start, hours=4)
         assertions_intraday_common(df, prices, prices.bis.H1)
-        assert_bounds(df, (rng_start_open, rng_start_open + pd.Timedelta(4, "H")))
+        assert_bounds(df, (rng_start_open, rng_start_open + pd.Timedelta(4, "h")))
         df = prices.get(start=rng_start, hours=50)
         assert df.pt.interval in prices.bis_intraday
 
@@ -2671,9 +2671,9 @@ class TestGet:
         f = prices.get
 
         # Verify raises PricesUnavailableIntervalDurationError
-        f("2H", hours=2, anchor="workback")
+        f("2h", hours=2, anchor="workback")
         with pytest.raises(errors.PricesUnavailableIntervalDurationError):
-            f("2H", hours=1, minutes=59)
+            f("2h", hours=1, minutes=59)
 
         # Verify raises PricesUnvailableDurationConflict (raised directly by `get``)
         match = (
@@ -2712,15 +2712,15 @@ class TestGet:
             f(session_length_xnys + one_min, **kwargs)
 
         # Verify raises PricesUnavailableIntervalPeriodError
-        start = cal.session_close(session) - pd.Timedelta(2, "T")
-        end = cal.session_open(cal.next_session(session)) + pd.Timedelta(2, "T")
+        start = cal.session_close(session) - pd.Timedelta(2, "min")
+        end = cal.session_open(cal.next_session(session)) + pd.Timedelta(2, "min")
         with pytest.raises(errors.PricesUnavailableIntervalPeriodError):
-            f("5T", start=start, end=end)
+            f("5min", start=start, end=end)
 
         start = cal.session_open(session) + prices.bis.T5
-        end = start + pd.Timedelta(4, "T")
+        end = start + pd.Timedelta(4, "min")
         with pytest.raises(errors.PricesUnavailableIntervalPeriodError):
-            f("5T", start=start, end=end)
+            f("5min", start=start, end=end)
 
     def test_interval_only_param(self, prices_us, one_day, one_min):
         """Test passing interval as only parameter.
@@ -2738,7 +2738,7 @@ class TestGet:
             last_to = cal.minute_to_trading_minute(limit_right, "previous")
             last_from = cal.minute_offset_by_sessions(last_to, -1)
             if bi is prices.bis.H1:
-                last_to += pd.Timedelta(30, "T")  # provide for possibly unaligned end
+                last_to += pd.Timedelta(30, "min")  # provide for possibly unaligned end
             df = f(bi)
             assert first_from <= df.pt.first_ts <= first_to
             # + one_min to cover processing between evaluating last_to and evaluating df
@@ -2786,7 +2786,7 @@ class TestGet:
         """
         prices = prices_247
         with pytest.warns(errors.IntervalIrregularWarning):
-            df = prices.get("7T", days=2)
+            df = prices.get("7min", days=2)
         assert_most_common_interval(df, intervals.TDInterval.T7)
 
     def test_intervals_overlapping_with_break(self, prices_with_break, one_min):
@@ -2833,7 +2833,7 @@ class TestGet:
         start_dt = datetime.datetime(sl.year, sl.month, sl.day, sl.hour, sl.minute)
 
         end = cal.session_close(session)
-        end -= pd.Timedelta(30, "T")
+        end -= pd.Timedelta(30, "min")
         end_utc = end
         end_local = el = end.astimezone(prices.tz_default)
         end_str = el.strftime("%Y-%m-%d %H:%M")
@@ -2844,15 +2844,15 @@ class TestGet:
         starts = (start_utc, start_local, start_str, start_str2, start_int, start_dt)
         ends = (end_utc, end_local, end_str, end_str2, end_int, end_dt)
 
-        df_base = prices.get("2H", starts[0], ends[0])
+        df_base = prices.get("2h", starts[0], ends[0])
         for start, end in zip(starts[1:], ends[1:]):
-            df = prices.get("2H", start, end)
+            df = prices.get("2h", start, end)
             assert_frame_equal(df, df_base)
 
         # Verify `tzin`
         symb_xnys = get_symbols_for_calendar(prices, "XNYS")
         for tzin in ("America/New_York", ZoneInfo("America/New_York"), symb_xnys):
-            df = prices.get("2H", start_utc, end_str, tzin=tzin)
+            df = prices.get("2h", start_utc, end_str, tzin=tzin)
             assert_frame_equal(df, df_base)
 
         # verify can pass as non-default symbol
@@ -2862,7 +2862,7 @@ class TestGet:
         end_lon_tz = end_utc.astimezone(prices.timezones[symb_xlon])
         end_lon_str = end_lon_tz.strftime("%Y-%m-%d %H:%M")
         df = prices.get(
-            "2H", start_lon_str, end_lon_str, tzin=symb_xlon, tzout=symb_xnys
+            "2h", start_lon_str, end_lon_str, tzin=symb_xlon, tzout=symb_xnys
         )
         assert_frame_equal(df, df_base)
 
@@ -2896,7 +2896,7 @@ class TestGet:
 
         # verify returning intaday data, also verifies can pass `start` and `end`
         # as positional arguments
-        df = prices.get("5T", start_session, end_session)
+        df = prices.get("5min", start_session, end_session)
         start = cal.session_open(start_session)
         end = cal.session_close(end_session)
         num_rows = int((session_length_xnys / prices.bis.T5)) * num_sessions
@@ -2922,33 +2922,33 @@ class TestGet:
         )
 
         # verify return of intraday data.
-        df = prices.get("10T", start, end)
+        df = prices.get("10min", start, end)
         assertions_intraday(df, TDInterval.T10, prices, start, end, num_rows // 2)
-        df = prices.get("5T", start, end)
+        df = prices.get("5min", start, end)
         assertions_intraday(df, TDInterval.T5, prices, start, end, num_rows)
 
         # verify passing `start` and `end` as non-trading times
-        assert_frame_equal(df, prices.get("5T", start - one_min, end + one_min))
-        delta = pd.Timedelta(45, "T")
-        assert_frame_equal(df, prices.get("5T", start - delta, end + delta))
+        assert_frame_equal(df, prices.get("5min", start - one_min, end + one_min))
+        delta = pd.Timedelta(45, "min")
+        assert_frame_equal(df, prices.get("5min", start - delta, end + delta))
 
         # verify passing `start` and `end` 6 min inside session bounds knocks 2 indices
         # off each end
-        delta = pd.Timedelta(6, "T")
-        assert_frame_equal(df[2:-2], prices.get("5T", start + delta, end - delta))
+        delta = pd.Timedelta(6, "min")
+        assert_frame_equal(df[2:-2], prices.get("5min", start + delta, end - delta))
 
         # verify just one second inside the session bounds will knock off the
         # first/last indices
-        assert_frame_equal(df[1:-1], prices.get("5T", start + one_sec, end - one_sec))
+        assert_frame_equal(df[1:-1], prices.get("5min", start + one_sec, end - one_sec))
 
         # Verify passing `start` and `end` as mix of data and time
         assert_frame_equal(df_daily, prices.get("1D", start_session, end))
         assert_frame_equal(df_daily, prices.get("1D", start, end_session))
         assert_frame_equal(df_daily[1:], prices.get("1D", start + one_sec, end_session))
 
-        assert_frame_equal(df, prices.get("5T", start_session, end))
-        assert_frame_equal(df[:-1], prices.get("5T", start_session, end - one_sec))
-        assert_frame_equal(df, prices.get("5T", start, end_session))
+        assert_frame_equal(df, prices.get("5min", start_session, end))
+        assert_frame_equal(df[:-1], prices.get("5min", start_session, end - one_sec))
+        assert_frame_equal(df, prices.get("5min", start, end_session))
 
     def test_start_end_none_bi(self, prices_us):
         """Test `start` and `end` as None and intervals as base intervals."""
@@ -3002,31 +3002,33 @@ class TestGet:
         # getting intraday data
         open_ = cal.session_open(start_session)
         close = cal.session_close(end_session)
-        num_rows = int((session_length_xnys * num_sessions) / pd.Timedelta(30, "T"))
-        df = prices.get("30T", start=start_session, days=num_sessions)
+        num_rows = int((session_length_xnys * num_sessions) / pd.Timedelta(30, "min"))
+        df = prices.get("30min", start=start_session, days=num_sessions)
         assertions_intraday(df, TDInterval.T30, prices, open_, close, num_rows)
-        assert_frame_equal(df, prices.get("30T", end=end_session, days=num_sessions))
+        assert_frame_equal(df, prices.get("30min", end=end_session, days=num_sessions))
 
         # verify to bound as time
         # getting intraday data
-        start = open_ + pd.Timedelta(88, "T")
-        df_intra = prices.get("30T", start, days=num_sessions - 1)
-        exp_start = open_ + pd.Timedelta(90, "T")
-        exp_end = cal.session_open(end_session) + pd.Timedelta(90, "T")
+        start = open_ + pd.Timedelta(88, "min")
+        df_intra = prices.get("30min", start, days=num_sessions - 1)
+        exp_start = open_ + pd.Timedelta(90, "min")
+        exp_end = cal.session_open(end_session) + pd.Timedelta(90, "min")
         num_rows -= 13
         if exp_start.time() != exp_end.time():
             # adjust for different DST observance
             if exp_end.time() > exp_start.time():
-                exp_end -= pd.Timedelta(1, "H")
+                exp_end -= pd.Timedelta(1, "h")
                 num_rows -= 2
             else:
-                exp_end += pd.Timedelta(1, "H")
+                exp_end += pd.Timedelta(1, "h")
                 num_rows += 2
         assertions_intraday(
             df_intra, TDInterval.T30, prices, exp_start, exp_end, num_rows
         )
         end = exp_end + one_min  # verify aligning as expected
-        assert_frame_equal(df_intra, prices.get("30T", end=end, days=num_sessions - 1))
+        assert_frame_equal(
+            df_intra, prices.get("30min", end=end, days=num_sessions - 1)
+        )
         # getting daily data
         df = prices.get("1D", start, days=num_sessions - 1)
         assertions_daily(df, prices, sessions[1], end_session)
@@ -3036,11 +3038,11 @@ class TestGet:
         # verify to now as trading time
         # one sec short of 30 min post last session open
         mock_now(monkeypatch, exp_end - one_sec)
-        df = prices.get("30T", days=num_sessions - 1)
+        df = prices.get("30min", days=num_sessions - 1)
         assert_frame_equal(df_intra, df)
 
         # verify to now as non-trading time
-        mock_now(monkeypatch, close + pd.Timedelta(2, "H"))
+        mock_now(monkeypatch, close + pd.Timedelta(2, "h"))
         assert_frame_equal(
             df_daily, prices.get("D", end=end_session, days=num_sessions)
         )
@@ -3071,26 +3073,26 @@ class TestGet:
 
         # verify getting intraday data with bound as date
         end_session = cal.session_offset(start_session, num_sessions_in_week - 1)
-        df = prices.get("30T", start_session, weeks=1)
+        df = prices.get("30min", start_session, weeks=1)
         # Verifications piggy backs on separate testing of durations in terms of
         # trading sessions
-        expected = prices.get("30T", start_session, days=num_sessions_in_week)
+        expected = prices.get("30min", start_session, days=num_sessions_in_week)
         assert_frame_equal(df, expected)
-        expected = prices.get("30T", end=end_session, days=num_sessions_in_week)
+        expected = prices.get("30min", end=end_session, days=num_sessions_in_week)
         assert_frame_equal(df, expected)
 
         # verify getting intraday data with bound as time
         # end_session will now be one session later
         end_session2 = cal.session_offset(start_session, num_sessions_in_week)
         open_ = cal.session_open(start_session)
-        start = open_ + pd.Timedelta(28, "T")
-        df = prices.get("30T", start, weeks=1)
+        start = open_ + pd.Timedelta(28, "min")
+        df = prices.get("30min", start, weeks=1)
         # Verification piggy backs on separate testing of durations in terms of
         # trading sessions
-        expected = prices.get("30T", start, days=num_sessions_in_week)
+        expected = prices.get("30min", start, days=num_sessions_in_week)
         assert_frame_equal(df, expected)
-        end = cal.session_open(end_session2) + pd.Timedelta(32, "T")
-        df_intra = prices.get("30T", end=end, weeks=1)
+        end = cal.session_open(end_session2) + pd.Timedelta(32, "min")
+        df_intra = prices.get("30min", end=end, weeks=1)
         assert_frame_equal(df_intra, expected)
 
         # verify getting daily data
@@ -3113,14 +3115,14 @@ class TestGet:
         assertions_monthly(df, prices, None, first_exp, last_exp)
 
         # verify to now as trading time
-        now = cal.session_open(end_session2) + pd.Timedelta(30, "T") - one_sec
+        now = cal.session_open(end_session2) + pd.Timedelta(30, "min") - one_sec
         # one sec short of 30 min post last session open
         mock_now(monkeypatch, now - one_sec)
-        df = prices.get("30T", weeks=1)
+        df = prices.get("30min", weeks=1)
         assert_frame_equal(df_intra, df)
 
         # verify to now as non-trading time
-        mock_now(monkeypatch, cal.session_open(end_session) + pd.Timedelta(2, "H"))
+        mock_now(monkeypatch, cal.session_open(end_session) + pd.Timedelta(2, "h"))
         assert_frame_equal(df_daily, prices.get("D", weeks=1), check_freq=False)
 
     def test_trading_time_duration(self, prices_us, monkeypatch):
@@ -3132,55 +3134,55 @@ class TestGet:
         prev_session, session = get_consecutive_sessions(prices, prices.bis.T1, cal)
 
         # verify bounds with a session
-        df = prices.get("5T", session, minutes=20)
+        df = prices.get("5min", session, minutes=20)
         open_, close = cal.session_open_close(session)
         assertions_intraday(
-            df, TDInterval.T5, prices, open_, open_ + pd.Timedelta(20, "T"), 4
+            df, TDInterval.T5, prices, open_, open_ + pd.Timedelta(20, "min"), 4
         )
 
-        df = prices.get("15T", end=session, hours=1)
+        df = prices.get("15min", end=session, hours=1)
         assertions_intraday(
-            df, TDInterval.T15, prices, close - pd.Timedelta(1, "H"), close, 4
+            df, TDInterval.T15, prices, close - pd.Timedelta(1, "h"), close, 4
         )
 
         # verify bounds with a time
-        bound = open_ + pd.Timedelta(30, "T")
-        df = prices.get("15T", bound, hours=1, minutes=15)
+        bound = open_ + pd.Timedelta(30, "min")
+        df = prices.get("15min", bound, hours=1, minutes=15)
         delta = pd.Timedelta(hours=1, minutes=15)
         assertions_intraday(df, TDInterval.T15, prices, bound, bound + delta, 5)
 
         # verify crossing sessions
-        df = prices.get("15T", end=bound, hours=1, minutes=15)
+        df = prices.get("15min", end=bound, hours=1, minutes=15)
         prev_close = cal.session_close(prev_session)
-        exp_start = prev_close - pd.Timedelta(45, "T")
+        exp_start = prev_close - pd.Timedelta(45, "min")
         assertions_intraday(df, TDInterval.T15, prices, exp_start, bound, 5)
 
         # verify Silver Rule (if bound unaligned then start from next aligned indice)
-        df = prices.get("25T", start=bound, hours=1, minutes=40)
-        exp_start = bound + pd.Timedelta(20, "T")
+        df = prices.get("25min", start=bound, hours=1, minutes=40)
+        exp_start = bound + pd.Timedelta(20, "min")
         exp_end = exp_start + pd.Timedelta(hours=1, minutes=40)
         assertions_intraday(df, TDInterval.T25, prices, exp_start, exp_end, 4)
 
         # verify limit before next indice would be included
-        assert_frame_equal(df, prices.get("25T", start=bound, hours=2, minutes=4))
-        df = prices.get("25T", start=bound, hours=2, minutes=5)
-        exp_end += pd.Timedelta(25, "T")
+        assert_frame_equal(df, prices.get("25min", start=bound, hours=2, minutes=4))
+        df = prices.get("25min", start=bound, hours=2, minutes=5)
+        exp_end += pd.Timedelta(25, "min")
         assertions_intraday(df, TDInterval.T25, prices, exp_start, exp_end, 5)
 
         # verify default end with now as trading time
-        now = open_ + pd.Timedelta(32, "T")
+        now = open_ + pd.Timedelta(32, "min")
         mock_now(monkeypatch, now)
-        df = prices.get("5T", minutes=20)
-        exp_end = open_ + pd.Timedelta(35, "T")
-        exp_start = exp_end - pd.Timedelta(20, "T")
+        df = prices.get("5min", minutes=20)
+        exp_end = open_ + pd.Timedelta(35, "min")
+        exp_start = exp_end - pd.Timedelta(20, "min")
         assertions_intraday(df, TDInterval.T5, prices, exp_start, exp_end, 4)
 
         # verify default end with now as non-trading time
-        now = close + pd.Timedelta(2, "H")
+        now = close + pd.Timedelta(2, "h")
         mock_now(monkeypatch, now)
-        df = prices.get("2T", minutes=41)
+        df = prices.get("2min", minutes=41)
         assertions_intraday(
-            df, TDInterval.T2, prices, close - pd.Timedelta(40, "T"), close, 20
+            df, TDInterval.T2, prices, close - pd.Timedelta(40, "min"), close, 20
         )
 
     def test_lead_symbol(self, prices_us_lon, session_length_xnys, session_length_xlon):
@@ -3210,11 +3212,11 @@ class TestGet:
 
         # start as one hour prior to XNYS open
         xnys_open = xnys.session_open(session)
-        start = xnys_open - pd.Timedelta(1, "H")
-        args, kwargs = ("6T", start), {"minutes": 30}
+        start = xnys_open - pd.Timedelta(1, "h")
+        args, kwargs = ("6min", start), {"minutes": 30}
         # verify start rolls forward to XNYS open
         df = prices.get(*args, **kwargs, lead_symbol=symb_xnys)
-        half_hour = pd.Timedelta(30, "T")
+        half_hour = pd.Timedelta(30, "min")
         assertions_intraday(
             df, TDInterval.T6, prices, xnys_open, xnys_open + half_hour, 5
         )
@@ -3241,15 +3243,15 @@ class TestGet:
         # verify for intraday interval, with add_a_row causing cross in sessions
         _, session = get_consecutive_sessions(prices, prices.bis.T1, cal)
         start = cal.session_open(session)
-        args = ("10T", start)
+        args = ("10min", start)
         kwargs = {"minutes": 30}
         base_df = prices.get(*args, **kwargs)
-        exp_end = start + pd.Timedelta(30, "T")
+        exp_end = start + pd.Timedelta(30, "min")
         assertions_intraday(base_df, TDInterval.T10, prices, start, exp_end, 3)
 
         df = prices.get(*args, **kwargs, add_a_row=True)
         assert_frame_equal(df[1:], base_df, check_freq=False)
-        exp_start = cal.previous_close(start) - pd.Timedelta(10, "T")
+        exp_start = cal.previous_close(start) - pd.Timedelta(10, "min")
         assertions_intraday(df, TDInterval.T10, prices, exp_start, exp_end, 4)
 
     # ---------------------- Tests related to anchor ----------------------
@@ -3293,7 +3295,7 @@ class TestGet:
         start_session, end_session = get_conforming_sessions(
             prices, prices.bis.T1, [xnys], [session_length_xnys], 2
         )
-        df = prices.get("30T", start_session, end_session, anchor="open", tzout=UTC)
+        df = prices.get("30min", start_session, end_session, anchor="open", tzout=UTC)
         assert df.pt.has_regular_interval
         assert df.pt.indices_have_regular_trading_minutes(xnys)
 
@@ -3308,11 +3310,11 @@ class TestGet:
         assert_index_equal(df.index, exp_index)
 
         # verify when unaligned with session close
-        df = prices.get("90T", start_session, end_session, anchor="open", tzout=UTC)
+        df = prices.get("90min", start_session, end_session, anchor="open", tzout=UTC)
         assert df.pt.has_regular_interval
         assert not df.pt.indices_have_regular_trading_minutes(xnys)
 
-        misalignment = pd.Timedelta(1, "H")
+        misalignment = pd.Timedelta(1, "h")
         start = xnys.session_open(start_session)
         end_start_session = xnys.session_close(start_session) + misalignment
         start_end_session = xnys.session_open(end_session)
@@ -3340,7 +3342,7 @@ class TestGet:
             prices, prices.bis.T1, [xhkg], [session_length_xhkg], 2
         )
 
-        df = prices.get("30T", start_session, end_session, anchor="open", tzout=UTC)
+        df = prices.get("30min", start_session, end_session, anchor="open", tzout=UTC)
         assert df.pt.has_regular_interval
         assert df.pt.indices_have_regular_trading_minutes(xhkg)
 
@@ -3355,25 +3357,25 @@ class TestGet:
         assert_index_equal(df.index, exp_index)
 
         # verify when unaligned with both am and pm subsession closes
-        df = prices.get("40T", start_session, end_session, anchor="open", tzout=UTC)
+        df = prices.get("40min", start_session, end_session, anchor="open", tzout=UTC)
         assert df.pt.has_regular_interval
         assert not df.pt.indices_have_regular_trading_minutes(xhkg)
 
         starts, ends = [], []
         for session in (start_session, end_session):
             starts.append(xhkg.session_open(session))
-            ends.append(xhkg.session_break_start(session) + pd.Timedelta(10, "T"))
+            ends.append(xhkg.session_break_start(session) + pd.Timedelta(10, "min"))
             starts.append(xhkg.session_break_end(session))
-            ends.append(xhkg.session_close(session) + pd.Timedelta(20, "T"))
+            ends.append(xhkg.session_close(session) + pd.Timedelta(20, "min"))
         interval = TDInterval.T40
         exp_index = self.create_index(starts, ends, interval)
         assert_index_equal(df.index, exp_index)
 
         # # verify to now includes live indice and nothing beyond
-        now = ends[-1] - pd.Timedelta(50, "T")
+        now = ends[-1] - pd.Timedelta(50, "min")
         mock_now(monkeypatch, now)
         # should lose last indice
-        df_ = prices.get("40T", start_session, end_session, anchor="open", tzout=UTC)
+        df_ = prices.get("40min", start_session, end_session, anchor="open", tzout=UTC)
         # last indice be the same although not values as now is 10 minutes short
         # of the full indice
         assert_frame_equal(df_[:-1], df[:-2])
@@ -3392,7 +3394,9 @@ class TestGet:
             prices, prices.bis.T1, [xnys], [session_length_xnys], 2
         )
 
-        df = prices.get("90T", start_session, end_session, anchor="workback", tzout=UTC)
+        df = prices.get(
+            "90min", start_session, end_session, anchor="workback", tzout=UTC
+        )
         assert len(df.pt.indices_length) == 2
         assert len(df.pt.indices_partial_trading(xnys)) == 1
         assert df.pt.indices_have_regular_trading_minutes(xnys)
@@ -3402,7 +3406,7 @@ class TestGet:
         start = end - (interval * 4)
         index_end = self.create_single_index(start, end, interval)
 
-        end = xnys.session_close(start_session) - pd.Timedelta(1, "H")
+        end = xnys.session_close(start_session) - pd.Timedelta(1, "h")
         start = end - (interval * 3)
         index_start = self.create_single_index(start, end, interval)
 
@@ -3415,8 +3419,8 @@ class TestGet:
         assert_index_equal(df.index, index)
 
         # Verify to specific minute
-        end = xnys.session_close(start_session) - pd.Timedelta(43, "T")
-        df = prices.get("30T", end=end, hours=4, anchor="workback", tzout=UTC)
+        end = xnys.session_close(start_session) - pd.Timedelta(43, "min")
+        df = prices.get("30min", end=end, hours=4, anchor="workback", tzout=UTC)
         interval = TDInterval.T30
         start = end - (8 * interval)
         index = self.create_single_index(start, end, interval)
@@ -3425,7 +3429,7 @@ class TestGet:
         # Verify to now
         mock_now(monkeypatch, end - one_min)
         prices = reset_prices(prices)
-        df_ = prices.get("30T", hours=4, anchor="workback", tzout=UTC)
+        df_ = prices.get("30min", hours=4, anchor="workback", tzout=UTC)
         assert_frame_equal(df_, df)
 
     def test_workback_indices_with_break(self, prices_with_break, session_length_xhkg):
@@ -3440,7 +3444,7 @@ class TestGet:
             prices, prices.bis.T1, [xhkg], [session_length_xhkg], 1
         )[0]
 
-        df = prices.get("40T", session, session, anchor="workback", tzout=UTC)
+        df = prices.get("40min", session, session, anchor="workback", tzout=UTC)
         assert len(df.pt.indices_length) == 2
         assert len(df.pt.indices_partial_trading(xhkg)) == 1
         assert df.pt.indices_have_regular_trading_minutes(xhkg)
@@ -3450,7 +3454,7 @@ class TestGet:
         start = end - (interval * 4)
         index_end = self.create_single_index(start, end, interval)
 
-        end = xhkg.session_break_start(session) - pd.Timedelta(20, "T")
+        end = xhkg.session_break_start(session) - pd.Timedelta(20, "min")
         start = end - (interval * 3)
         index_start = self.create_single_index(start, end, interval)
 
@@ -3477,13 +3481,13 @@ class TestGet:
         start_session, end_session = get_sessions_xnys_xhkg_xlon(prices.bis.T1, 2)
 
         kwargs = {
-            "interval": "1H",
+            "interval": "1h",
             "start": start_session,
             "end": end_session,
             "tzout": UTC,
         }
         interval = TDInterval.H1
-        half_hour = pd.Timedelta(30, "T")
+        half_hour = pd.Timedelta(30, "min")
 
         # Verify for indices anchored "open" with xlon as lead cal
         df = prices.get(**kwargs, anchor="open", lead_symbol=xlon_symb)
@@ -3568,7 +3572,7 @@ class TestGet:
         )[0]
 
         # verify not forced
-        df = prices.get("40T", session, session, anchor="open", force=False)
+        df = prices.get("40min", session, session, anchor="open", force=False)
         assert df.pt.has_regular_interval
         assert xhkg.session_break_start(session) not in df.index.right
         assert df.pt.last_ts != xhkg.session_close(session)
@@ -3576,11 +3580,11 @@ class TestGet:
         assert len(df.pt.indices_partial_trading(xhkg)) == 2
 
         # verify not forced by default
-        df_ = prices.get("40T", session, session, anchor="open")
+        df_ = prices.get("40min", session, session, anchor="open")
         assert_frame_equal(df_, df)
 
         # verify forced
-        df_f = prices.get("40T", session, session, anchor="open", force=True)
+        df_f = prices.get("40min", session, session, anchor="open", force=True)
         assert not df_f.pt.has_regular_interval
         assert xhkg.session_break_start(session) in df_f.index.right
         assert df_f.pt.last_ts == xhkg.session_close(session)
@@ -3603,7 +3607,7 @@ class TestGet:
         start_session_close = x247.session_close(start_session)
         end_session_open = x247.session_open(end_session)
         assert start_session_close == end_session_open
-        df = prices.get("8H", start_session, end_session, anchor="open")
+        df = prices.get("8h", start_session, end_session, anchor="open")
         assert df.pt.has_regular_interval
         assert len(df.pt.indices_length) == 1
         assert start_session_close in df.index.left
@@ -3611,7 +3615,7 @@ class TestGet:
 
         # verify warns
         with pytest.warns(errors.IntervalIrregularWarning):
-            df = prices.get("7H", start_session, end_session, anchor="open")
+            df = prices.get("7h", start_session, end_session, anchor="open")
         assert not df.pt.has_regular_interval
         assert len(df.pt.indices_length) == 2
         assert start_session_close in df.index.left
@@ -3630,7 +3634,7 @@ class TestGet:
         )[0]
 
         # verify am/pm indices do not overlap on limit
-        df = prices.get("105T", session, session, anchor="open")
+        df = prices.get("105min", session, session, anchor="open")
         assert df.pt.has_regular_interval
         assert len(df.pt.indices_length) == 1
         assert xhkg.session_break_end(session) in df.index.left
@@ -3638,7 +3642,7 @@ class TestGet:
 
         # verify warns
         with pytest.warns(errors.IntervalIrregularWarning):
-            df = prices.get("106T", session, session, anchor="open")
+            df = prices.get("106min", session, session, anchor="open")
         assert not df.pt.has_regular_interval
         assert len(df.pt.indices_length) == 2
         assert xhkg.session_break_end(session) in df.index.left
@@ -3661,12 +3665,12 @@ class TestGet:
             prices, interval, [xhkg], [session_length_xhkg], 1
         )[0]
 
-        df = prices.get("1H", session, session, anchor="open", tzout=UTC)
+        df = prices.get("1h", session, session, anchor="open", tzout=UTC)
         assert df.pt.has_regular_interval
         assert (df.index.left.minute == 30).all()
         assert (df.index.right.minute == 30).all()
         start = xhkg.session_open(session)
-        end = xhkg.session_close(session) + pd.Timedelta(30, "T")
+        end = xhkg.session_close(session) + pd.Timedelta(30, "min")
         index = self.create_single_index(start, end, interval)
         assert_index_equal(df.index, index)
 
@@ -3682,7 +3686,7 @@ class TestGet:
         start_session, end_session = get_sessions_xnys_xhkg_xlon(prices.bis.T1, 2)
         interval = TDInterval.T50
 
-        df = prices.get("50T", start_session, end_session, anchor="open", tzout=UTC)
+        df = prices.get("50min", start_session, end_session, anchor="open", tzout=UTC)
         df = df[:9]  # only take what's necessary to prove the point
         assert df.pt.last_ts > xhkg.session_break_end(start_session)
         starts, ends = [], []
@@ -3711,18 +3715,18 @@ class TestGet:
         start, end = xnys.session_open_close(session)
 
         # verify maintain when no symbol trades after unaligned close
-        df = prices.get("1H", start, end, openend="maintain")
+        df = prices.get("1h", start, end, openend="maintain")
         assert df.pt.has_regular_interval
-        half_hour = pd.Timedelta(30, "T")
+        half_hour = pd.Timedelta(30, "min")
         exp_end = end + half_hour
         assertions_intraday(df, prices.bis.H1, prices, start, exp_end, 7)
 
         # verify maintain is default
-        df_ = prices.get("1H", start, end)
+        df_ = prices.get("1h", start, end)
         assert_frame_equal(df, df_)
 
         # verify shorten
-        df = prices.get("1H", start, end, openend="shorten")
+        df = prices.get("1h", start, end, openend="shorten")
         assert not df.pt.has_regular_interval
         last_indice = df.index[-1]
         assert last_indice.right == end
@@ -3749,14 +3753,14 @@ class TestGet:
         start, end = xlon.session_open_close(session)
 
         # verify maintain when symbol trades after unaligned close
-        df = prices.get("1H", start, end, openend="maintain")
+        df = prices.get("1h", start, end, openend="maintain")
         assert df.pt.has_regular_interval
-        half_hour = pd.Timedelta(30, "T")
+        half_hour = pd.Timedelta(30, "min")
         exp_end = end - half_hour
         assertions_intraday(df, prices.bis.H1, prices, start, exp_end, 8)
 
         # verify shorten
-        df = prices.get("1H", start, end, openend="shorten")
+        df = prices.get("1h", start, end, openend="shorten")
         assert not df.pt.has_regular_interval
         last_indice = df.index[-1]
         assert last_indice.right == end
@@ -3771,7 +3775,7 @@ class TestGet:
             prices, prices.bis.H1, [xlon], [session_length_xlon], 1
         )[0]
         start, end = xlon.session_open_close(session)
-        df = prices.get("1H", start, end, openend="shorten")
+        df = prices.get("1h", start, end, openend="shorten")
         assert df.pt.has_regular_interval
         exp_end = end - half_hour
         assertions_intraday(df, prices.bis.H1, prices, start, exp_end, 8)
@@ -3999,7 +4003,7 @@ class TestGet:
 
         # verify when single interval would have comprise minutes from both end of
         # previous session and start of session
-        delta = pd.Timedelta(2, "T")
+        delta = pd.Timedelta(2, "min")
         start = prev_session_close - bi + delta
         end = session_open + delta
 
@@ -4020,7 +4024,7 @@ class TestGet:
         session_open = cal.session_open(session)
         prev_session_close = cal.session_close(prev_session)
 
-        delta = pd.Timedelta(2, "T")
+        delta = pd.Timedelta(2, "min")
         start = prev_session_close - bi + delta
         end = session_open + delta
 
@@ -4083,7 +4087,7 @@ class TestGet:
                 prices.get(bi, start, minutes=4, anchor=anchor)
                 prices.get(dsi, start, minutes=14, anchor=anchor)
 
-        delta = pd.Timedelta(2, "T")
+        delta = pd.Timedelta(2, "min")
         end = session_open_T1 + delta
 
         anchor = "workback"
@@ -4127,9 +4131,9 @@ class TestGet:
         # Test effect of strict on error raised
         l_limit = prices.limits[prices.bis.T5][0]
         l_limit = cal.minute_to_trading_minute(l_limit, "next")
-        end = l_limit + pd.Timedelta(2, "H")
+        end = l_limit + pd.Timedelta(2, "h")
         # error depends on strict
-        get_kwargs = dict(interval="3H", end=end, hours=6, anchor="workback")
+        get_kwargs = dict(interval="3h", end=end, hours=6, anchor="workback")
         with pytest.raises(errors.PricesIntradayUnavailableError):
             prices.get(**get_kwargs, strict=True)
         with pytest.raises(errors.PricesUnavailableIntervalPeriodError):
@@ -4159,7 +4163,7 @@ class TestGet:
                     errors.PricesIntradayUnavailableError, match=msg_pass_strict
                 ):
                     prices.get(
-                        "3T",
+                        "3min",
                         session_T5,
                         session_T5,
                         strict=strict,
@@ -4173,10 +4177,10 @@ class TestGet:
         ):
             # `priority` should make no difference
             for priority in priorities:
-                prices.get("3T", session_T5, priority=priority)
+                prices.get("3min", session_T5, priority=priority)
 
         # although returns data from limit if strict False
-        df = prices.get("3T", session_T5, strict=False)
+        df = prices.get("3min", session_T5, strict=False)
         assert df.pt.first_ts >= prices.limits[prices.bis.T1][0] - one_min
         assert df.pt.interval == TDInterval.T3
 
@@ -4196,7 +4200,7 @@ class TestGet:
         limit_H1 = prices.limits[prices.bis.H1][0]
 
         # period end that can only be represented with T1 or T5 data
-        end = xnys.session_close(end_T1) - pd.Timedelta(15, "T")
+        end = xnys.session_close(end_T1) - pd.Timedelta(15, "min")
 
         # verify data available if requested period falls within bounds of
         # available T5 data
@@ -4242,29 +4246,31 @@ class TestGet:
         # given the data that's available.
         # set end to time that can only be represented by T1, although for which
         # smallest interval for which data is available is T5
-        end = xnys.session_close(start_T5) - pd.Timedelta(3, "T")
+        end = xnys.session_close(start_T5) - pd.Timedelta(3, "min")
         df = prices.get(start=start_T5, end=end)
         assert df.pt.interval == prices.bis.T5
-        assert df.pt.last_ts == end - pd.Timedelta(2, "T")
+        assert df.pt.last_ts == end - pd.Timedelta(2, "min")
 
         # verify error not raised when interval passed and anchor "open",
         # regardless of final indice not representing period end
-        df_ = prices.get("5T", start=start_T5, end=end)
+        df_ = prices.get("5min", start=start_T5, end=end)
         assert_frame_equal(df, df_)
 
         # verify that raises errors when anchor="workback"
         # set period such that T1 data only available over period end and
         # period end can only be served with T1 data.
-        end = xnys.session_close(start_T1) - pd.Timedelta(3, "T")
+        end = xnys.session_close(start_T1) - pd.Timedelta(3, "min")
         # whilst prices available when anchor "open"
-        df = prices.get("10T", start=start_T5, end=end, anchor="open")
+        df = prices.get("10min", start=start_T5, end=end, anchor="open")
         assert df.pt.interval == TDInterval.T10
         # verify not when anchor is "workback"
         with pytest.raises(errors.LastIndiceInaccurateError):
-            prices.get("10T", start=start_T5, end=end, anchor="workback")
+            prices.get("10min", start=start_T5, end=end, anchor="workback")
 
         # verify will return later part of period if strict False
-        df = prices.get("10T", start=start_T5, end=end, anchor="workback", strict=False)
+        df = prices.get(
+            "10min", start=start_T5, end=end, anchor="workback", strict=False
+        )
         assert df.pt.last_ts == end
         assert df.pt.first_ts >= limit_T1
         assert df.index[0].length == TDInterval.T10
@@ -4273,7 +4279,7 @@ class TestGet:
         # verify will return full period if priority "period", althrough with
         # lesser end accuracy
         df = prices.get(
-            "10T", start=start_T5, end=end, anchor="workback", priority="period"
+            "10min", start=start_T5, end=end, anchor="workback", priority="period"
         )
         assert df.pt.last_ts < end
         assert df.pt.first_ts < limit_T1
@@ -4302,7 +4308,7 @@ class TestGet:
         start_H1_oob = xnys.session_offset(start_H1, -2)
         start_T5 = th.get_sessions_range_for_bi(prices, prices.bis.T5)[0]
 
-        end = xnys.session_close(start_T5) - pd.Timedelta(3, "T")
+        end = xnys.session_close(start_T5) - pd.Timedelta(3, "min")
         end = end.astimezone(prices.tz_default)
 
         with pytest.raises(errors.LastIndiceInaccurateError):
@@ -4376,7 +4382,7 @@ class TestGet:
             " intraday base intervals defined."
         )
         with pytest.raises(errors.PricesIntradayIntervalError, match=match):
-            prices_us_daily.get("5T", limit, days=2)
+            prices_us_daily.get("5min", limit, days=2)
 
     def test_raises_intraday_only_direct_errors(self, prices_us, prices_us_intraday):
         """Test get() directly raises expected errors when no daily interval.
@@ -4780,7 +4786,7 @@ class TestPriceAt:
         self.assertions(table, df, indice, values)
 
         # now as after xnys open, verify indice reflects 'now' as live session
-        now = xnys.session_open(session) + pd.Timedelta(22, "T")
+        now = xnys.session_open(session) + pd.Timedelta(22, "min")
         mock_now(monkeypatch, now)
         df = f(None, UTC)
         indice = now
@@ -4871,7 +4877,7 @@ class TestPriceAt:
 
         # verify minute after intraday limit returns via intraday data
         limit_id = prices.limit_intraday()
-        minute = limit_id + pd.Timedelta(1, "H")
+        minute = limit_id + pd.Timedelta(1, "h")
         df = prices.price_at(minute)
         assert df.notna().all(axis=None)
         assert prices._pdata[prices.bis.D1]._table is None
@@ -4880,7 +4886,7 @@ class TestPriceAt:
         self.assert_price_at_rtrn_format(table_, df)
 
         # verify minute prior to intraday limit returns via _price_at_from_daily
-        minute = xnys.previous_close(limit_id) - pd.Timedelta(1, "H")
+        minute = xnys.previous_close(limit_id) - pd.Timedelta(1, "h")
         session_xnys = helpers.to_tz_naive(xnys.minute_to_session(minute))
         session_xhkg = helpers.to_tz_naive(xhkg.minute_to_session(minute, "previous"))
         session_xlon = helpers.to_tz_naive(xlon.minute_to_session(minute, "previous"))
@@ -4931,7 +4937,7 @@ class TestPriceAt:
         xnys = prices.calendar_default
         symb = prices.lead_symbol_default
 
-        delta = pd.Timedelta(33, "T")
+        delta = pd.Timedelta(33, "min")
 
         bi = prices.bis.T1
         session_prev, session = get_conforming_sessions(
@@ -4944,12 +4950,12 @@ class TestPriceAt:
         close = xnys.session_close(session)
         open_next = xnys.session_open(xnys.next_session(session))
 
-        table = prices.get("1T", session_before, session, tzout=UTC)
+        table = prices.get("1min", session_before, session, tzout=UTC)
         tableD1 = prices.get("1D", session_before, session)
 
         delay = 20
         prices = reset_prices(prices)
-        prices._delays[symb] = pd.Timedelta(delay, "T")  # mock delay
+        prices._delays[symb] = pd.Timedelta(delay, "min")  # mock delay
         f = prices.price_at
 
         # prior to xlon open
@@ -4995,14 +5001,14 @@ class TestPriceAt:
             self.assertions(tableD1, df, indice, values)
 
         for i in range(delay):
-            minute = now - pd.Timedelta(i, "T")
+            minute = now - pd.Timedelta(i, "min")
             df = f(minute, UTC)
             indice = minute  # indices as requested minute
             values = {symb: (session, "close")}
             self.assertions(tableD1, df, indice, values)
 
         # verify that on delay limit prices return for intraday data
-        minute = now - pd.Timedelta(delay, "T")
+        minute = now - pd.Timedelta(delay, "min")
         df = f(minute, UTC)
         indice = minute
         values = {symb: (minute, "open")}
@@ -5019,7 +5025,7 @@ class TestPriceAt:
         symb_xhkg = get_symbols_for_calendar(prices, "XHKG")
 
         bi = prices.bis.T1
-        delta = pd.Timedelta(43, "T")
+        delta = pd.Timedelta(43, "min")
 
         # consecutive sessions
         sessions = get_sessions_xnys_xhkg_xlon(bi, 4)
@@ -5043,7 +5049,7 @@ class TestPriceAt:
         # otherwise xlon open is same as xhkg close
         xhkg_xlon_touch = xlon_open == xhkg_close  # touch as opposed to overlap
 
-        table = prices.get("1T", session_before, session_after, tzout=UTC)
+        table = prices.get("1min", session_before, session_after, tzout=UTC)
 
         prices = reset_prices(prices)
         f = prices.price_at
@@ -5233,8 +5239,8 @@ class TestPriceAt:
         symb_xlon = get_symbols_for_calendar(prices, "XLON")
         symb_xhkg = get_symbols_for_calendar(prices, "XHKG")
 
-        delta = pd.Timedelta(43, "T")
-        offset = pd.Timedelta(3, "T")
+        delta = pd.Timedelta(43, "min")
+        offset = pd.Timedelta(3, "min")
         delta_reg = delta - offset
 
         # following assertions from knowledge of standard sessions
@@ -5262,7 +5268,7 @@ class TestPriceAt:
 
         xhkg_xlon_touch = xlon_open == xhkg_close  # touch as opposed to overlap
 
-        table = prices.get("5T", session_before, session_after, tzout=UTC)
+        table = prices.get("5min", session_before, session_after, tzout=UTC)
 
         # reset prices
         prices = reset_prices(prices)
@@ -5533,13 +5539,13 @@ class TestPriceAt:
         symb_xnys = prices.lead_symbol_default
         symb_xhkg = get_symbols_for_calendar(prices, "XHKG")
 
-        delta = pd.Timedelta(63, "T")
-        offset = pd.Timedelta(3, "T")
+        delta = pd.Timedelta(63, "min")
+        offset = pd.Timedelta(3, "min")
         delta_reg = delta - offset
 
         bi = prices.bis.H1
         bi_less_one_min = bi - one_min
-        half_hour = pd.Timedelta(30, "T")
+        half_hour = pd.Timedelta(30, "min")
 
         # consecutive sessions
         sessions = get_sessions_xnys_xhkg_xlon(bi, 4)
@@ -5555,7 +5561,7 @@ class TestPriceAt:
         xhkg_break_start = xhkg.session_break_start(session)
         xhkg_break_end = xhkg.session_break_end(session)
 
-        table = prices.get("1H", session_before, session_after, tzout=UTC)
+        table = prices.get("1h", session_before, session_after, tzout=UTC)
 
         prices = reset_prices(prices)
         f = prices.price_at
@@ -5602,7 +5608,7 @@ class TestPriceAt:
             symb_xhkg: (indice, "open"),
         }
         for i in (0, 1, 2, bi.as_minutes - 2, bi.as_minutes - 1):
-            minute_ = minute + pd.Timedelta(i, "T")
+            minute_ = minute + pd.Timedelta(i, "min")
             df = f(minute_, UTC)
             self.assertions(table, df, indice, values)
 
@@ -5782,13 +5788,13 @@ class TestPriceAt:
         xhkg = prices.calendar_default
         symb_xhkg = prices.lead_symbol_default
 
-        delta = pd.Timedelta(63, "T")
-        offset = pd.Timedelta(3, "T")
+        delta = pd.Timedelta(63, "min")
+        offset = pd.Timedelta(3, "min")
         delta_reg = delta - offset
 
         bi = prices.bis.H1
         bi_less_one_min = bi - one_min
-        half_hour = pd.Timedelta(30, "T")
+        half_hour = pd.Timedelta(30, "min")
         # four consecutive sessions
         sessions = get_conforming_sessions(prices, bi, [xhkg], [session_length_xhkg], 4)
         session_before, session_prev, session, session_after = sessions
@@ -5799,7 +5805,7 @@ class TestPriceAt:
         break_start = xhkg.session_break_start(session)
         break_end = xhkg.session_break_end(session)
 
-        table = prices.get("1H", session_before, session_after, tzout=UTC)
+        table = prices.get("1h", session_before, session_after, tzout=UTC)
 
         prices = reset_prices(prices)
         f = prices.price_at
@@ -5833,7 +5839,7 @@ class TestPriceAt:
         indice = minute
         values = {symb_xhkg: (indice, "open")}
         for i in (0, 1, 2, bi.as_minutes - 2, bi.as_minutes - 1):
-            minute_ = minute + pd.Timedelta(i, "T")
+            minute_ = minute + pd.Timedelta(i, "min")
             df = f(minute_, UTC)
             self.assertions(table, df, indice, values)
 
@@ -5971,7 +5977,7 @@ def test_close_at(prices_us_lon_hk, one_day, monkeypatch):
     # reset prices
     with monkeypatch.context() as monkey:
         mock_today = pd.Timestamp("2021-12-23")
-        now = xhkg.session_close(mock_today) - pd.Timedelta(1, "H")
+        now = xhkg.session_close(mock_today) - pd.Timedelta(1, "h")
         mock_now(monkey, now)
 
         prices = reset_prices(prices)
@@ -6016,9 +6022,9 @@ def test_price_range(prices_us_lon_hk, one_day, monkeypatch):
     symb_xhkg = get_symbols_for_calendar(prices, "XHKG")
 
     _, session = get_sessions_xnys_xhkg_xlon(prices.bis.T1, 2)
-    minute = xlon.session_close(session) - pd.Timedelta(43, "T")
+    minute = xlon.session_close(session) - pd.Timedelta(43, "min")
     session_T5 = get_sessions_xnys_xhkg_xlon(prices.bis.T5, 2)[-1]
-    minute_T5 = xhkg.session_close(session_T5) - pd.Timedelta(78, "T")
+    minute_T5 = xhkg.session_close(session_T5) - pd.Timedelta(78, "min")
 
     def get(kwargs, **others) -> pd.DataFrame:
         return prices.get(**kwargs, **others, composite=True, openend="shorten")
@@ -6195,16 +6201,16 @@ def test_prices_for_symbols(prices_us_lon):
     session = pd.Timestamp("2022-06-08")
     us_open = cal_us.opens[session]
     lon_close = cal_lon.closes[session]
-    assert us_open + pd.Timedelta(1, "H") < lon_close  # verify overlap > one hour
-    start = us_open - pd.Timedelta(2, "H")
-    end = lon_close + pd.Timedelta(2, "H")
+    assert us_open + pd.Timedelta(1, "h") < lon_close  # verify overlap > one hour
+    start = us_open - pd.Timedelta(2, "h")
+    end = lon_close + pd.Timedelta(2, "h")
 
-    _ = prices.get("5T", start, us_open, lead_symbol="AZN.L")
-    _ = prices.get("2T", start, us_open, lead_symbol="AZN.L")
-    _ = prices.get("1T", start, us_open, lead_symbol="AZN.L")
-    _ = prices.get("5T", us_open, end)
-    _ = prices.get("2T", us_open, end)
-    _ = prices.get("1T", us_open, end)
+    _ = prices.get("5min", start, us_open, lead_symbol="AZN.L")
+    _ = prices.get("2min", start, us_open, lead_symbol="AZN.L")
+    _ = prices.get("1min", start, us_open, lead_symbol="AZN.L")
+    _ = prices.get("5min", us_open, end)
+    _ = prices.get("2min", us_open, end)
+    _ = prices.get("1min", us_open, end)
 
     def assertions(
         pdata: data.Data,
