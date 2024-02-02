@@ -12,7 +12,7 @@ black==24.1.1
     # via market-prices (pyproject.toml)
 blosc2==2.5.1
     # via tables
-certifi==2023.11.17
+certifi==2024.2.2
     # via requests
 charset-normalizer==3.3.2
     # via requests
