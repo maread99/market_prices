@@ -2289,7 +2289,7 @@ class TestDownsampleIntraday:
     def xnys_close(self, xnys, session) -> abc.Iterator[pd.Timestamp]:
         yield xnys.session_close(session)
 
-    def test_errors(self, intraday_pt, composite_intraday_pt, one_min):
+    def test_errors(self, intraday_pt, composite_intraday_pt, one_min, pandas_pre_22):
         """Verify raising expected errors for intraday price table."""
         df = intraday_pt
         f = df.pt.downsample
@@ -2328,7 +2328,9 @@ class TestDownsampleIntraday:
                 f" received `pdfreq` as {pdfreq}."
             )
 
-        invalid_pdfreqs = ["1d", "1s", "1ns", "1ms", "1ME", "1YE"]
+        invalid_pdfreqs = ["1d", "1s", "1ns", "1ms"]
+        ext = ["1M", "1Y"] if pandas_pre_22 else ["1ME", "1YE"]
+        invalid_pdfreqs += ext
         for pdfreq in invalid_pdfreqs:
             with pytest.raises(ValueError, match=match_f(pdfreq)):
                 f(pdfreq)

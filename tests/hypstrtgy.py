@@ -361,6 +361,16 @@ def pp_days(draw, calendar_name: str) -> st.SearchStrategy[dict[str, typing.Any]
     return pp
 
 
+# set PRE_PANDAS_22
+v = pd.__version__
+if v.count(".") == 1:
+    PRE_PANDAS_22 = float(v) < 2.2
+else:
+    stop = v.index(".", v.index(".") + 1)
+    minor_v = float(v[:stop])
+    PRE_PANDAS_22 = minor_v < 2.2
+
+
 @st.composite
 def pp_days_start_session(
     draw,
@@ -387,7 +397,10 @@ def pp_days_start_session(
     sessions = calendar.sessions
     limit_r = sessions[-pp["days"]]
     if start_will_roll_to_ms:
-        offset = pd.tseries.frequencies.to_offset("ME")
+        # NOTE when min pandas support moves to >= 2.2 can hard code this as ME
+        # and lose the PRE_PANDAS_22 global.
+        freq = "M" if PRE_PANDAS_22 else "ME"
+        offset = pd.tseries.frequencies.to_offset(freq)
         if TYPE_CHECKING:
             assert offset is not None
         limit_r = offset.rollback(limit_r)
