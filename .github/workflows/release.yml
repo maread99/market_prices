@@ -37,6 +37,7 @@ jobs:
     - name: Install from testpypi and import
       shell: bash
       run: |
+        sleep 5
         i=0
         while [ $i -lt 12 ] && [ "${{ github.ref_name }}" != $(pip index versions -i https://test.pypi.org/simple --pre market_prices | cut -d'(' -f2 | cut -d')' -f1 | sed 1q) ];\
           do echo "waiting for package to appear in test index, i is $i"; echo "sleeping 5s"; sleep 5s; echo "woken up"; let i++; echo "next i is $i"; done

@@ -56,7 +56,13 @@ class _TDIntervalBase(timedelta, enum.Enum):
 
         Returns either "min", "h" or "D".
         """
-        return self.as_pdtd.resolution_string
+        unit = self.as_pdtd.resolution_string
+        # for pre pandas 2.2 compatibility...
+        if unit == "T":
+            unit = "min"
+        if unit == "H":
+            unit = "h"
+        return unit
 
     @property
     def freq_value(self) -> int:
@@ -449,8 +455,7 @@ def to_ptinterval(interval: str | timedelta | pd.Timedelta) -> PTInterval:
             " interval in terms of months pass as a string, for"
             ' example "1m" for one month.'
         )
-
-        valid_resolutions = ["min", "h", "D"]
+        valid_resolutions = ["min", "h", "D"] + ["T", "H"]  # + form pandas pre 2.2
         if interval.resolution_string not in valid_resolutions:
             raise ValueError(error_msg)
 

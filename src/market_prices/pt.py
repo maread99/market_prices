@@ -1480,7 +1480,9 @@ class PTDaily(_PT):
             else:
                 return self._downsample_days(pdfreq)
 
-        if unit in ["h", "min", "s", "L", "ms", "U", "us", "N", "ns"]:
+        invalid_units = ["h", "min", "MIN", "s", "L", "ms", "U", "us", "N", "ns"]
+        ext = ["t", "T", "H", "S"]  # for pandas pre 2.2 compatibility
+        if unit in invalid_units + ext:
             raise ValueError(
                 "Cannot downsample to a `pdfreq` with a unit more precise than 'd'."
             )
@@ -2328,6 +2330,12 @@ class PTIntraday(_PTIntervalIndex):
             )
 
         unit = genutils.remove_digits(pdfreq)
+        # for pandas pre 2.2. compatibility
+        if unit == "T":
+            unit = "min"
+        if unit == "H":
+            unit = "h"
+
         valid_units = ["min", "h"]
         if unit not in valid_units:
             raise ValueError(

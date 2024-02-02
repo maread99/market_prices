@@ -76,6 +76,19 @@ def timestamps_in_interval_of_intervals(
 
     Examples
     --------
+    >>> # ignore first part, for testing purposes only...
+    >>> import pytest, pandas
+    >>> v = pandas.__version__
+    >>> if (
+    ...     (v.count(".") == 1 and float(v) < 2.2)
+    ...     or (
+    ...         v.count(".") > 1
+    ...         and float(v[:v.index(".", v.index(".") + 1)]) < 2.2
+    ...     )
+    ... ):
+    ...     pytest.skip("printed return only valid from pandas 2.2")
+    >>> #
+    >>> # example from here...
     >>> timestamps = pd.DatetimeIndex(
     ...     [
     ...         pd.Timestamp('2021-03-12 14:00'),
@@ -96,6 +109,7 @@ def timestamps_in_interval_of_intervals(
     >>> timestamps_in_interval_of_intervals(timestamps, intervals)
     True
     """
+    # NOTE Can lose doctest skip when pandas support is >= 2.2
     timestamps = [timestamps] if isinstance(timestamps, pd.Timestamp) else timestamps
     ser = intervals.to_series()
     bv = ser.apply(lambda x: all({ts in x for ts in timestamps}))
@@ -387,6 +401,19 @@ def remove_intervals_from_interval(
 
     Examples
     --------
+    >>> # ignore first part, for testing purposes only...
+    >>> import pytest, pandas
+    >>> v = pandas.__version__
+    >>> if (
+    ...     (v.count(".") == 1 and float(v) < 2.2)
+    ...     or (
+    ...         v.count(".") > 1
+    ...         and float(v[:v.index(".", v.index(".") + 1)]) < 2.2
+    ...     )
+    ... ):
+    ...     pytest.skip("printed return only valid from pandas 2.2")
+    >>> #
+    >>> # example from here...
     >>> from pprint import pprint
     >>> left = pd.date_range('2021-05-01 12:00', periods=5, freq='h')
     >>> right = left + pd.Timedelta(30, 'min')
@@ -411,6 +438,7 @@ def remove_intervals_from_interval(
      Interval(2021-05-01 15:30:00, 2021-05-01 16:00:00, closed='left'),
      Interval(2021-05-01 16:30:00, 2021-05-01 17:30:00, closed='left')]
     """
+    # NOTE Can lose doctest skip when pandas support is >= 2.2
     if not intervals.is_monotonic_increasing:
         raise ValueError(
             "`intervals` must be monotonically increasing although receieved"

@@ -280,3 +280,16 @@ def xlon_calendar_extended(
 def xhkg_calendar(today, side, mock_now) -> abc.Iterator[xcals.ExchangeCalendar]:
     """XLON calendar."""
     yield xcals.get_calendar("XHKG", side=side, end=today)
+
+
+@pytest.fixture
+def pandas_pre_22() -> abc.Iterator[bool]:
+    """Installed pandas is pre version 2.2."""
+    v = pd.__version__
+    if v.count(".") == 1:
+        rtrn = float(v) < 2.2
+    else:
+        stop = v.index(".", v.index(".") + 1)
+        minor_v = float(v[:stop])
+        rtrn = minor_v < 2.2
+    yield rtrn
