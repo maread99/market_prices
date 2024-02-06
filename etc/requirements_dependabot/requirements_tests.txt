@@ -55,7 +55,7 @@ ndindex==1.7
     # via blosc2
 numexpr==2.9.0
     # via tables
-numpy==1.26.3
+numpy==1.26.4
     # via
     #   blosc2
     #   exchange-calendars
