@@ -1777,23 +1777,30 @@ class TestPricesBaseSetup:
                 ll = (now - PricesMock.BASE_LIMITS[bi]).ceil("min") + one_min
                 rl = now.floor("min") + bi
                 assert prices.limits[bi] == (ll, rl)
+                assert prices.limit_intraday_bi(bi) == ll
 
         # verify `limit_daily`
         assert prices.limit_daily == daily_limit
         # verify `limit_right_daily` defaults to today
         assert prices.limit_right_daily == today
 
+        limits_raw = {}
         # verify `limit_intraday`
-        delta = PricesMock.BASE_LIMITS[PricesMock.BaseInterval.T5]  # unaligned at H1
-        limit_raw = (now - delta).ceil("min") + one_min
-        limits_intraday = []
-        for cal in calendars:
-            expected_limit_intraday = cal.minute_to_trading_minute(limit_raw, "next")
-            limits_intraday.append(expected_limit_intraday)
-            assert prices.limit_intraday(cal) == expected_limit_intraday
-        expected_latest_intraday_limit = max(limits_intraday)
-        assert prices.limit_intraday() == expected_latest_intraday_limit
-        assert prices.limit_intraday(None) == expected_latest_intraday_limit
+        for bi in prices.bis_intraday:
+            delta = PricesMock.BASE_LIMITS[bi]
+            limit_raw = (now - delta).ceil("min") + one_min
+            limits_raw[bi] = limit_raw
+            limits_intraday = []
+            for cal in calendars:
+                expected = cal.minute_to_trading_minute(limit_raw, "next")
+                limits_intraday.append(expected)
+                assert prices.limit_intraday_bi_calendar(bi, cal) == expected
+            if bi is prices.bis.T5:  # T5 is bi with longest history as H1 is unaligned
+                assert prices.limit_intraday(cal) == expected
+                expected_latest_intraday_limit = max(limits_intraday)
+                assert prices.limit_intraday() == expected_latest_intraday_limit
+                assert prices.limit_intraday(None) == expected_latest_intraday_limit
+
         # verify `limit_right_intraday`
         assert prices.limit_right_intraday == now.floor("min")
 
@@ -1811,6 +1818,8 @@ class TestPricesBaseSetup:
         for bi in PricesMock.BaseInterval:
             assert prices.limits_sessions[bi] == (lefts[bi], today)
 
+        limit_raw_T5 = limits_raw[prices.bis.T5]
+
         prices = PricesMockDailyNoLimit(symbols, calendars)
         # only test for differences to PricesMock
 
@@ -1822,8 +1831,12 @@ class TestPricesBaseSetup:
 
         assert prices.limit_daily == limit_daily
         assert prices.limit_right_daily == today
+        for bi in prices.bis_intraday:
+            for cal in calendars:
+                expected = cal.minute_to_trading_minute(limits_raw[bi], "next")
+                assert prices.limit_intraday_bi_calendar(bi, cal) == expected
         for cal in calendars:
-            expected_limit_intraday = cal.minute_to_trading_minute(limit_raw, "next")
+            expected_limit_intraday = cal.minute_to_trading_minute(limit_raw_T5, "next")
             assert prices.limit_intraday(cal) == expected_limit_intraday
         assert prices.limit_intraday() == expected_latest_intraday_limit
         assert prices.limit_intraday(None) == expected_latest_intraday_limit
@@ -1840,8 +1853,12 @@ class TestPricesBaseSetup:
 
         assert prices.limit_daily is None
         assert prices.limit_right_daily is None  # verify None when no daily interval
+        for bi in prices.bis_intraday:
+            for cal in calendars:
+                expected = cal.minute_to_trading_minute(limits_raw[bi], "next")
+                assert prices.limit_intraday_bi_calendar(bi, cal) == expected
         for cal in calendars:
-            expected_limit_intraday = cal.minute_to_trading_minute(limit_raw, "next")
+            expected_limit_intraday = cal.minute_to_trading_minute(limit_raw_T5, "next")
             assert prices.limit_intraday(cal) == expected_limit_intraday
         assert prices.limit_intraday() == expected_latest_intraday_limit
         assert prices.limit_intraday(None) == expected_latest_intraday_limit
@@ -1876,16 +1893,21 @@ class TestPricesBaseSetup:
                 assert prices.limits[bi] == (daily_limit, right_limit_daily)
             else:
                 assert prices.limits[bi] == (left_limits[bi], right_limit)
+                assert prices.limit_intraday_bi(bi) == left_limits[bi]
 
         # verify `limit_daily` and `limit_right_daily`
         assert prices.limit_daily == daily_limit
         assert prices.limit_right_daily == right_limit_daily
-
+        # verify `limit_intraday_bi_calendar`
+        for bi in prices.bis_intraday:
+            for cal in calendars:
+                expected = cal.minute_to_trading_minute(left_limits[bi], "next")
+                assert prices.limit_intraday_bi_calendar(bi, cal) == expected
         # verify `limit_intraday`
-        limit_raw = left_limits[intervals.TDInterval.T5]  # unaligned at H1
+        limit_raw_5T = left_limits[intervals.TDInterval.T5]  # unaligned at H1
         limits_intraday = []
         for cal in calendars:
-            expected_limit_intraday = cal.minute_to_trading_minute(limit_raw, "next")
+            expected_limit_intraday = cal.minute_to_trading_minute(limit_raw_5T, "next")
             limits_intraday.append(expected_limit_intraday)
             assert prices.limit_intraday(cal) == expected_limit_intraday
 
@@ -1951,8 +1973,12 @@ class TestPricesBaseSetup:
 
         assert prices.limit_daily is None
         assert prices.limit_right_daily is None  # verify None when no daily interval
+        for bi in prices.bis_intraday:
+            for cal in calendars:
+                expected = cal.minute_to_trading_minute(left_limits[bi], "next")
+                assert prices.limit_intraday_bi_calendar(bi, cal) == expected
         for cal in calendars:
-            expected_limit_intraday = cal.minute_to_trading_minute(limit_raw, "next")
+            expected_limit_intraday = cal.minute_to_trading_minute(limit_raw_5T, "next")
             assert prices.limit_intraday(cal) == expected_limit_intraday
         assert prices.limit_intraday() == expected_latest_intraday_limit
         assert prices.limit_intraday(None) == expected_latest_intraday_limit
@@ -2492,6 +2518,21 @@ class TestPricesBaseSetup:
             )
             with pytest.raises(errors.MethodUnavailableNoDailyInterval, match=match):
                 method("2000-01-06")
+
+
+def test__calendars_latest_first_(PricesMock, cal_start, side):
+    """Test `_calendars_latest_first_session` and `_calendars_latest_first_minute`."""
+    xnys = xcals.get_calendar("XNYS", start=cal_start, side=side)
+    xlon = xcals.get_calendar("XLON", start=cal_start, side=side)
+    xhkg = xcals.get_calendar("XHKG", start=cal_start, side=side)
+
+    symbols = "LON, NY, HK"
+    prices = PricesMock(symbols, [xlon, xnys, xhkg])
+
+    expected = max(xnys.first_session, xlon.first_session, xhkg.first_session)
+    assert prices._calendars_latest_first_session == expected
+    expected = max(xnys.first_minute, xlon.first_minute, xhkg.first_minute)
+    assert prices._calendars_latest_first_minute == expected
 
 
 def test__minute_to_session(PricesMock, cal_start, side, one_min, monkeypatch):
@@ -3623,7 +3664,9 @@ class TestBis:
             factors = [bi for bi in prices.bis_intraday if not interval % bi]
             limit_start, limit_end = prices.limits[factors[-1]]
             earliest_minute = cal.minute_to_trading_minute(limit_start, "next")
-            latest_minute = cal.minute_to_trading_minute(limit_end, "previous")
+            latest_minute = (
+                cal.minute_to_trading_minute(limit_end, "previous") + one_min
+            )
             available_period = (earliest_minute, latest_minute)
             if end_before_ll:
                 s = (
@@ -3732,7 +3775,7 @@ class TestBis:
         # Use cal from previous drg...
         earliest_minute = drg.cal.minute_to_trading_minute(limit_start, "next")
         latest_minute = drg.cal.minute_to_trading_minute(limit_end, "previous")
-        available_period = (earliest_minute, latest_minute)
+        available_period = (earliest_minute, latest_minute + one_min)
         start = limit_start - one_min
         drg = self.get_mock_drg(GetterMock, cc, start, early_close)
         self.set_prices_gpp_drg_properties(prices, drg)
@@ -3799,7 +3842,7 @@ def test_get_prices_params_cls(PricesMock, xnys, xhkg):
         assert drg._delay == gpp.delay
         assert drg._cc is prices.cc
         if no_limit:
-            assert drg._limit == prices.cc.first_minute
+            assert drg._limit == xnys.first_minute  # later to open of the two calendars
         else:
             for bi in gpp.prices.bis_intraday:
                 assert drg._limit(bi) == gpp.intraday_limit(bi)

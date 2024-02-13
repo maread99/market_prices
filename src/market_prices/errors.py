@@ -374,7 +374,9 @@ class PricesIntradayUnavailableError(PricesUnavailableError):
     def _latest_minute_available(self) -> pd.Timestamp:
         limit = self._prices.limits[self._bi][1]
         cal = self._drg.cal
-        return cal.minute_to_trading_minute(limit, "previous")
+        if cal.is_trading_minute(limit):
+            return limit
+        return cal.minute_to_trading_minute(limit, "previous") + helpers.ONE_MIN
 
     @functools.cached_property
     def end_before_ll(self) -> bool:

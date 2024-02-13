@@ -500,6 +500,10 @@ class PricesBase(metaclass=abc.ABCMeta):
             this method to pass through any additional arguments that the
             constructor requires.
 
+        limit_intraday_bi(self, bi: intervals.BI) -> pd.Timestamp
+            Can be overriden to make any adjustments to the data source's
+            standard left limit of availability for a given interval.
+
     Other than any noted above, it is not intended that private methods
     (prefixed with single underscore) are overriden or extended by
     subclasses.
@@ -1192,6 +1196,11 @@ class PricesBase(metaclass=abc.ABCMeta):
         """Latest first session of any calendar."""
         return self.cc.first_session
 
+    @functools.cached_property
+    def _calendars_latest_first_minute(self) -> pd.Timestamp:
+        """Latest first minute of any calendar."""
+        return max(cal.first_minute for cal in self.calendars_unique)
+
     def _set_pdata(self):
         """Set --_pdata-- to dict with key as bi and value as `data.Data`."""
         d = {}
@@ -1305,6 +1314,11 @@ class PricesBase(metaclass=abc.ABCMeta):
     def limits(self) -> dict[BI, mptypes.DateRangeReq]:
         """Left and right limits of data availability by base interval.
 
+        NB The left limits are the earliest timestamps for which price data
+        MAY be avaiable from the source. The actual left limit may be later
+        for any specific symbol or as a result of any peculiarities with
+        the data source (see See Also section).
+
         Returns
         -------
         dict
@@ -1314,6 +1328,16 @@ class PricesBase(metaclass=abc.ABCMeta):
                 [0] left limit, or (daily base interval only) None if limit
                     yet to be ascertained.
                 [1] right limit
+
+        See Also
+        --------
+        limit_intraday_bi
+            Left limit for a specific base interval, accounting for any
+            source pecularities.
+
+        limit_intraday_bi_calendar
+            Left limit for a specific base interval calibrated to a
+            specific calendar or to all calendars.
         """
         return {bi: (pd_.ll, pd_.rl) for bi, pd_ in self._pdata.items()}
 
@@ -1338,6 +1362,42 @@ class PricesBase(metaclass=abc.ABCMeta):
             return None
         return self._pdata[self.bi_daily].rl
 
+    def limit_intraday_bi(self, bi: intervals.BI) -> pd.Timestamp:
+        """Left limit for a specific intrday base interval.
+
+        Parameters
+        ----------
+        bi
+            Base interval for which require intraday left limit.
+        """
+        return self.limits[bi][0]
+
+    def limit_intraday_bi_calendar(
+        self,
+        bi: intervals.BI,
+        calendar: xcals.ExchangeCalendar | None = None,
+    ) -> pd.Timestamp:
+        """Earliest minute of a calendar that can be requested for a bi.
+
+        Parameters
+        ----------
+        bi
+            Base interval for which require intraday left limit.
+
+        calendar
+            Calendar against which to calibrate left limit. Return will be
+            the earliest trading minute of calendar that follows the
+            absolute left limit for the `bi`.
+
+            If None the return will be the earliest minute, following the
+            absolute left limit for the `bi`, by which all calendars have
+            registered a trading minute.
+        """
+        limit_abs = self.limit_intraday_bi(bi)
+        if calendar is not None:
+            return calendar.minute_to_trading_minute(limit_abs, "next")
+        return self._minute_to_latest_next_trading_minute(limit_abs)
+
     def limit_intraday(
         self, calendar: xcals.ExchangeCalendar | None = None
     ) -> pd.Timestamp:
@@ -1360,18 +1420,14 @@ class PricesBase(metaclass=abc.ABCMeta):
                 "`limit_intraday` is not implemented when no intraday interval is"
                 " defined."
             )
-        limits_raw = []
+        limits = []
         for bi in self.bis_intraday:
-            limit_minute = self.limits[bi][0]
+            limit_minute = self.limit_intraday_bi_calendar(bi, calendar)
             limit_session = self.cc.minute_to_sessions(limit_minute, "next")[0]
             if self._indices_aligned[bi][limit_session:].all():
                 assert limit_minute is not None
-                limits_raw.append(limit_minute)
-        limit_raw = min(limits_raw)
-        assert isinstance(limit_raw, pd.Timestamp)
-        if calendar is not None:
-            return calendar.minute_to_trading_minute(limit_raw, "next")
-        return self._minute_to_latest_next_trading_minute(limit_raw)
+                limits.append(limit_minute)
+        return min(limits)
 
     @property
     def limit_right_intraday(self) -> pd.Timestamp:
@@ -3061,8 +3117,7 @@ class PricesBase(metaclass=abc.ABCMeta):
 
             # pylint: disable=protected-access
             def limit(bi: BI) -> pd.Timestamp:
-                l_limit, _ = self.prices.limits[bi]
-                return self.calendar.minute_to_trading_minute(l_limit, "next")
+                return self.prices.limit_intraday_bi_calendar(bi, self.calendar)
 
             return limit
 
@@ -3155,7 +3210,7 @@ class PricesBase(metaclass=abc.ABCMeta):
             """
             kwargs = self._drg_intraday_params
             # pylint: disable=protected-access
-            kwargs["limit"] = self.prices.cc.first_minute
+            kwargs["limit"] = self.prices._calendars_latest_first_minute
             kwargs["limit_right"] = None
             kwargs["strict"] = False
             drg = self._drg(**kwargs)
@@ -3571,8 +3626,8 @@ class PricesBase(metaclass=abc.ABCMeta):
                     the right of the indice that contains the session
                     close:
                         If no symbol trades during this period then the
-                        final indice will be the indice that contains the
                         session close, such that the right side of the
+                        final indice will be the indice that contains the
                         final indice will be defined to the right of the
                         session close.
 
@@ -4202,7 +4257,7 @@ class PricesBase(metaclass=abc.ABCMeta):
         """
         for bi in self.bis:
             try:
-                self.get(bi, start=self.limits[bi][0])
+                self.get(bi)
             except errors.PricesIntradayUnavailableError:
                 limit = TDInterval.T10
                 if not self.has_single_calendar and bi > limit:

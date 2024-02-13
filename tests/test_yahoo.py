@@ -919,9 +919,90 @@ def assertions_intraday_us(
 class TestRequestDataIntraday:
     """Verify implementation of abstract _request_data for intraday intervals."""
 
+    # TODO lose the last two filters when fixed on yahooquery, for example if
+    # https://github.com/dpguthrie/yahooquery/pull/262 merged and inlcuded to a release
+    @pytest.mark.filterwarnings("ignore:Prices from Yahoo are missing for:UserWarning")
+    @pytest.mark.filterwarnings("ignore:A value is trying to be set on a:FutureWarning")
+    @pytest.mark.filterwarnings("ignore:'S' is deprecated:FutureWarning")
+    def test_request_from_left_limit(self):
+        """Test data requests from left limit.
+
+        The Yahoo API appears to exhibit flaky behaviour when requesting
+        prices from the supposed left limit (can return an an empty
+        dataframe). This test serves to ensure `PricesYahoo` always returns
+        data when implicitely requesting prices from the left limit.
+
+        Notes
+        -----
+        Doesn't use pricess fixture as require fresh copies for which no
+        price data has been requested.
+        """
+        # verify for non-overlapping calendars
+        prices = m.PricesYahoo(
+            ["MSFT", "QAN.AX"], calendars=["XNYS", "XASX"], delays=[0, 20]
+        )
+        prices.request_all_prices()
+        cal = prices.calendar_default
+        for bi in prices.bis:
+            table = prices._pdata[bi]._table
+            assert table.pt.interval == bi
+            if bi.is_intraday:
+                ll = prices.limit_intraday_bi_calendar(bi, cal)
+                assert ll - bi <= table.pt.first_ts <= ll + bi
+                rl = prices.limits[bi][1]
+                if not rl < table.pt.last_ts:
+                    # <= bi.as_minutes as rl is 'now' + bi and that bi can all be
+                    # trading minutes beyond the right of the last indice
+                    num_mins = len(cal.minutes_in_range(table.pt.last_ts, rl))
+                    assert num_mins <= bi.as_minutes
+            else:
+                ll = prices.limit_daily
+                assert table.pt.first_ts == prices.cc.date_to_session(ll, "next")
+                rl = prices.limit_right_daily
+                assert table.pt.last_ts == prices.cc.date_to_session(rl, "previous")
+
+        # verify for overlapping calendars
+        prices = m.PricesYahoo(
+            ["AZN.L", "BTC-GBP"], calendars=["XLON", "24/7"], delays=[15, 0]
+        )
+        cal = prices.calendar_default
+        for bi in prices.bis:
+            table = prices.get(bi)
+            assert table.pt.interval == bi
+            if bi.is_intraday:
+                ll = prices.limit_intraday_bi_calendar(bi, cal)
+                assert ll - bi <= table.pt.first_ts <= ll + bi
+                rl = prices.limits[bi][1]
+                if not rl < table.pt.last_ts:
+                    # <= bi.as_minutes as rl is 'now' + bi and that bi can all be
+                    # trading minutes beyond the right of the last indice
+                    num_mins = len(cal.minutes_in_range(table.pt.last_ts, rl))
+                    assert num_mins <= bi.as_minutes
+            else:
+                ll = prices.limit_daily
+                assert table.pt.first_ts == prices.cc.date_to_session(ll, "next")
+                rl = prices.limit_right_daily
+                assert table.pt.last_ts == prices.cc.date_to_session(rl, "previous")
+
+    def verify_limit_intraday_bi(self, prices: m.PricesYahoo):
+        """Verifies `limit_intraday_bi` as overriden by `PricesYahoo`.
+
+        Verifies method by way of verifying the number of trading minutes
+        between the absolute left limit and the left limit as set by
+        `PricesYahoo` (trading minutes as evaluated against the calendar
+        that determines the left limit for `PricesYahoo`).
+        """
+        for bi in prices.bis_intraday:
+            limit = prices.limit_intraday_bi(bi)
+            len_mins = []
+            for cal in prices.calendars_unique:
+                len_mins.append(len(cal.minutes_in_range(prices.limits[bi][0], limit)))
+            assert (1 + bi.as_minutes) == min(len_mins)
+
     def test_prices_us(self, pricess):
         """Verify return from specific fixture."""
         prices = pricess["us"]
+        self.verify_limit_intraday_bi(prices)
         for interval in prices.BaseInterval[:-1]:
             (start, end), slc = get_data_bounds(prices, interval)
             df = prices._request_data(interval, start, end)
@@ -936,6 +1017,7 @@ class TestRequestDataIntraday:
     def test_prices_with_break(self, pricess):
         """Verify return from specific fixture."""
         prices = pricess["with_break"]
+        self.verify_limit_intraday_bi(prices)
         cc = prices.cc
         symbols = prices.symbols
         symbol = symbols[0]
@@ -1016,6 +1098,7 @@ class TestRequestDataIntraday:
     def test_prices_us_lon(self, pricess):
         """Verify return from specific fixture."""
         prices = pricess["us_lon"]
+        self.verify_limit_intraday_bi(prices)
         cc = prices.cc
 
         # xnys and xlon indexes are out of phase for 1H
@@ -1042,6 +1125,7 @@ class TestRequestDataIntraday:
     def test_prices_us_oz(self, pricess):
         """Verify return from specific fixture."""
         prices = pricess["us_oz"]
+        self.verify_limit_intraday_bi(prices)
         cc = prices.cc
         symbols = prices.symbols
 
@@ -1094,6 +1178,7 @@ class TestRequestDataIntraday:
     def test_prices_inc_245(self, pricess):
         """Verify return from specific fixture."""
         prices = pricess["inc_245"]
+        self.verify_limit_intraday_bi(prices)
         cc = prices.cc
 
         for interval in prices.BaseInterval[:-1]:
@@ -1123,6 +1208,7 @@ class TestRequestDataIntraday:
     def test_prices_inc_247(self, pricess):
         """Verify return from specific fixture."""
         prices = pricess["inc_247"]
+        self.verify_limit_intraday_bi(prices)
         cc = prices.cc
 
         for interval in prices.BaseInterval[:-1]:
