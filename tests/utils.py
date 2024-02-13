@@ -287,11 +287,12 @@ def create_temp_subdir(name: str) -> Path:
     return path
 
 
-def create_temp_file(filename: str, dir_: Path = TEMP_DIR):
+def create_temp_file(filename: str, dir_: Path = TEMP_DIR) -> Path:
     """Create a file, by default in the temporary test directory."""
     assert dir_ is TEMP_DIR or (dir_.is_dir() and str(dir_).startswith(str(TEMP_DIR)))
     path = dir_ / filename
     path.write_text("", encoding=ENCODING)
+    return path
 
 
 class Answers:

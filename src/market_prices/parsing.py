@@ -11,6 +11,7 @@ dedicated sections.
 
 from __future__ import annotations
 
+from pathlib import Path
 import typing
 from typing import Any
 from zoneinfo import ZoneInfo
@@ -634,3 +635,13 @@ def to_prices_timezone(
     if obj in params["self"].symbols:
         return params["self"].timezones[obj]
     return ZoneInfo(obj)
+
+
+def verify_directory(name: str, obj: Path, _) -> Path:
+    """Validate a path represents an existing directory."""
+    if not obj.is_dir():
+        raise ValueError(
+            f"'{name}' must represent an existing local directory"
+            f" although received {obj}."
+        )
+    return obj
