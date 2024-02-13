@@ -565,6 +565,36 @@ class PricesYahoo(base.PricesBase):
 
     # Methods to request data from yahooquery.
 
+    def limit_intraday_bi(self, bi: intervals.BI) -> pd.Timestamp:
+        """Left limit for a specific intraday base interval.
+
+        Parameters
+        ----------
+        bi
+            Base interval for which require intraday left limit.
+
+        Notes
+        -----
+        Overrides method on `PricesBase`. The Yahoo API appears to exhibit
+        flaky behaviour when requesting prices from on or close to the
+        supposed left limit (as evaluated by offsetting 'now' back by the
+        number of days over which price history is available at a specific
+        interval). Oddly, returns as expected if the request is made during
+        the first thirty seconds of the current minute (i.e. now), although
+        returns an empty `pd.DataFrame` if the smae request is made during
+        the later half, i.e. final thirty seconds, of the current minute.
+        This behaviour seems to occur regardless of the 'end' datetime to
+        which price data is requested.
+
+        For any intraday interval, it seems possible to evaluate the
+        earliest start value for which the behaviour is consistent by
+        taking the first minute, following the expected left limit, by
+        when all calendars will have registered at least one trading minute
+        and then adding one interval to that minute...
+        """
+        limit = super().limit_intraday_bi(bi)
+        return self._minute_to_latest_next_trading_minute(limit) + bi
+
     @staticmethod
     def _bi_to_source_key(interval: intervals.BI) -> str:
         """Map interval to value for source's interval parameter."""
@@ -586,7 +616,7 @@ class PricesYahoo(base.PricesBase):
         for cal in self.calendars_unique:
             ts = cal.minute_to_trading_minute(start, "previous")
             prior_indices_left.append(cal.minute_offset(ts, -interval.as_minutes))
-        adj_start = max(min(prior_indices_left), self._pdata[interval].ll)
+        adj_start = max(min(prior_indices_left), self.limit_intraday_bi(interval))
         if interval == self.BaseInterval.T1:
             self._cache_vol_bug_adj_start = (start, adj_start)
         return adj_start
@@ -645,6 +675,8 @@ class PricesYahoo(base.PricesBase):
         )
 
         def raise_error():
+            if interval == self.BaseInterval.T1:
+                self._cache_vol_bug_adj_start = None  # clean cache
             params = {
                 "interval": interval_,
                 "start": start,
