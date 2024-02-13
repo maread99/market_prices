@@ -16,9 +16,9 @@ from pathlib import Path
 from exchange_calendars import ExchangeCalendar
 import numpy as np
 import pandas as pd
-from valimp import parse, Coerce
+from valimp import parse, Coerce, Parser
 
-from market_prices import helpers, intervals, mptypes
+from market_prices import helpers, intervals, mptypes, parsing
 from market_prices.errors import MarketPricesError, PricesWarning, PricesMissingWarning
 from market_prices.helpers import UTC
 from market_prices.intervals import TDInterval
@@ -1062,7 +1062,9 @@ class PricesCsv(base.PricesBase):
     @parse
     def __init__(
         self,
-        path: Annotated[Union[str, Path], Coerce(Path)],
+        path: Annotated[
+            Union[str, Path], Coerce(Path), Parser(parsing.verify_directory)
+        ],
         symbols: Union[str, list[str]],
         calendars: mptypes.Calendars,
         lead_symbol: Optional[str] = None,
@@ -1073,12 +1075,6 @@ class PricesCsv(base.PricesBase):
     ):
         if typing.TYPE_CHECKING:
             assert isinstance(path, Path)
-
-        if not path.is_dir():
-            raise ValueError(
-                "'path' must represent an existing local directory, although"
-                f" received {path}."
-            )
 
         self._receieved_kwargs = dict(
             path=path,

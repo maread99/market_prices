@@ -7,6 +7,7 @@ from collections.abc import Callable
 import dataclasses
 import datetime
 import itertools
+from pathlib import Path
 import re
 import typing
 from typing import Annotated, Union, TYPE_CHECKING
@@ -22,7 +23,7 @@ from market_prices import errors, helpers, mptypes
 from market_prices.helpers import UTC
 from market_prices.intervals import TDInterval
 
-from .utils import Answers
+from .utils import Answers, create_temp_file
 
 # pylint: disable=missing-function-docstring, missing-type-doc
 # pylint: disable=missing-param-doc, missing-any-param-doc, redefined-outer-name
@@ -1299,3 +1300,25 @@ def test_to_timetimestamp():
     )
     with pytest.raises(ValueError, match=match):
         mock_func(ts)
+
+
+def test_verify_directory(temp_dir):
+    @parse
+    def f(path: Annotated[Path, Parser(m.verify_directory)]):
+        return path
+
+    assert f(temp_dir) is temp_dir
+
+    not_a_dir = temp_dir / "not_a_dir"
+    match = re.escape(
+        "'path' must represent an existing local directory although received "
+    )
+    with pytest.raises(ValueError, match=match):
+        f(not_a_dir)
+
+    # verify also raises when path is a valid file (i.e. not directory)
+    filename = "a_csv_file.csv"
+    path_file = create_temp_file(filename)
+    assert path_file.is_file()
+    with pytest.raises(ValueError, match=match):
+        f(path_file)
