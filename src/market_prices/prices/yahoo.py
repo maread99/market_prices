@@ -24,6 +24,14 @@ from .config import config_yahoo
 ERROR404 = {"error": "HTTP 404 Not Found.  Please try again"}
 
 
+# TODO remove when FutureWarning fixed on yahooquery, for example if
+# https://github.com/dpguthrie/yahooquery/pull/262 is merged and inlcuded to a release
+warnings.filterwarnings(
+    "ignore", "A value is trying to be set on a copy of a DataFrame", FutureWarning
+)
+warnings.filterwarnings("ignore", "'S' is deprecated", FutureWarning)
+
+
 class YahooAPIError(errors.APIError):
     """A Yahoo API endpoint is not available."""
 

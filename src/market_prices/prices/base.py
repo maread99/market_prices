@@ -3764,7 +3764,7 @@ class PricesBase(metaclass=abc.ABCMeta):
             excluded. If passed, do not pass `exclude`.
 
         exclude : list[str] | str | None
-            Symbol or symbols to include. All other symbols will be
+            Symbol or symbols to exclude. All other symbols will be
             included. If passed, do not pass `include`.
 
         side : Literal['left', 'right'] | None, default: None
