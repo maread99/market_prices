@@ -958,12 +958,15 @@ class TestRequestDataIntraday:
             else:
                 ll = prices.limit_daily
                 assert table.pt.first_ts == prices.cc.date_to_session(ll, "next")
-                rl = prices.limit_right_daily
-                assert table.pt.last_ts == prices.cc.date_to_session(rl, "previous")
+                session = cal.minute_to_session(pd.Timestamp.now(), "previous")
+                assert table.pt.last_ts == session
 
         # verify for overlapping calendars
         prices = m.PricesYahoo(
-            ["AZN.L", "BTC-GBP"], calendars=["XLON", "24/7"], delays=[15, 0]
+            ["AZN.L", "BTC-GBP"],
+            calendars=["XLON", "24/7"],
+            delays=[15, 0],
+            lead_symbol="BTC-GBP",
         )
         cal = prices.calendar_default
         for bi in prices.bis:

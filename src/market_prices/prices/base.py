@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import abc
 import collections
-from collections.abc import Callable
 import contextlib
 import copy
 import dataclasses
@@ -16,23 +15,30 @@ import datetime
 import functools
 import itertools
 import warnings
-from typing import Any, Literal, Optional, Union, TYPE_CHECKING, Annotated
+from collections.abc import Callable
+from pathlib import Path
+from typing import TYPE_CHECKING, Annotated, Any, Literal, Optional, Union
 from zoneinfo import ZoneInfo
 
 import exchange_calendars as xcals
 import numpy as np
 import pandas as pd
-from valimp import parse, Parser, Coerce
+from valimp import Coerce, Parser, parse
 
 from market_prices import data
 from market_prices import daterange as dr
 from market_prices import errors, helpers, intervals, mptypes, parsing, pt
 from market_prices.helpers import UTC
-from market_prices.mptypes import Anchor, OpenEnd, Alignment, Priority, Symbols
-from market_prices.intervals import BI, TDInterval, _BaseIntervalMeta
+from market_prices.intervals import (
+    BI,
+    PTInterval,
+    TDInterval,
+    _BaseIntervalMeta,
+    to_ptinterval,
+)
+from market_prices.mptypes import Alignment, Anchor, OpenEnd, Priority, Symbols
 from market_prices.utils import calendar_utils as calutils
 from market_prices.utils import pandas_utils as pdutils
-
 
 # pylint: disable=too-many-lines
 
@@ -477,6 +483,11 @@ class PricesBase(metaclass=abc.ABCMeta):
             treat the am and pm sessions distinctly, such that prices for
             the pm subsession commence from the break end.
 
+        SOURCE_LIVE : bool : default True
+            Declares whether the data source is dynamic and offers live
+            prices (True), or static (False) such that the same prices will
+            always be returned for any given indice.
+
     Subclasses can optionally extend the following methods:
 
         __init__():
@@ -667,6 +678,7 @@ class PricesBase(metaclass=abc.ABCMeta):
     BASE_LIMITS_RIGHT: dict[BI, pd.Timestamp | None]
 
     PM_SUBSESSION_ORIGIN: Literal["open", "break_end"] = "open"
+    SOURCE_LIVE: bool = True
 
     def __init__(
         self,
@@ -1223,6 +1235,7 @@ class PricesBase(metaclass=abc.ABCMeta):
                 delay=delay,
                 left_limit=ll,
                 right_limit=self.base_limits_right[bi],
+                source_live=self.SOURCE_LIVE,
             )
         self._pdata = d
 
@@ -3132,6 +3145,11 @@ class PricesBase(metaclass=abc.ABCMeta):
                 limit = self.prices.base_limits_right[bi]
                 if limit is None:
                     return None
+                elif (
+                    limit.value in self.calendar.closes_nanos
+                    or limit.value in self.calendar.break_starts_nanos
+                ):
+                    return limit
                 return self.calendar.minute_to_trading_minute(limit, "previous")
 
             return limit_right
@@ -5085,3 +5103,166 @@ class PricesBase(metaclass=abc.ABCMeta):
                 new_pdata._table = table
             prices_obj._pdata[bi] = new_pdata
         return prices_obj
+
+    @parse
+    def to_csv(
+        self,
+        path: Annotated[
+            Union[str, Path], Coerce(Path), Parser(parsing.verify_directory)
+        ],
+        intervals: Optional[  # pylint: disable=redefined-outer-name
+            Union[
+                str,
+                pd.Timedelta,
+                datetime.timedelta,
+                list[str],
+                list[pd.Timedelta],
+                list[datetime.timedelta],
+            ]
+        ] = None,
+        include: Optional[mptypes.Symbols] = None,
+        exclude: Optional[mptypes.Symbols] = None,
+        get_params: Optional[dict] = None,
+    ) -> list[Path]:
+        """Export price data to .csv file(s).
+
+        Note: Exported price data can be retrieved with the default
+        implementation of the `PricesCsv` class (requires that the
+        exported data conforms with the requirements of the
+        `PricesCsv` class, for example that prices are anchored on
+        the 'open' and have an interval no higher than daily).
+
+        Price data will be exported by symbol by interval, such that if
+        data is requested for 3 intervals and 5 symbols then 15 .csv
+        files will be created.
+
+        .csv filenames will follow the format:
+            <SYMBOL>_<INTERVAL>_<YYMMDD>_<YYMMDD>.csv
+            For example:
+                MSFT_5T_240122_240215.csv
+            This file would hold '5T' (i.e. 5 minute) price data for
+            the symbol MSFT covering the period from 2024-01-22 through
+            2024-02-15. Note: for intraday intervals the dates will
+            represent the earliest and latest sessions for which at least
+            some price data is included.
+
+        Parameters
+        ----------
+        path
+            Directory to which .csv files should be written. This path
+            must exist.
+
+        intervals
+            Intervals for which price data is to be exported. To define
+            a single interval pass as for the 'interval` parameter of the
+            `.get` method. To define multiple intervals pass as a list
+            of one of the types that's acceptable input to the 'interval`
+            parameter of the `.get` method.
+
+            By default (None) .csv files are exported for all available
+            base intervals.
+
+        include : list[str] | str | None
+            Symbol or symbols to include in export. All other symbols will
+            be excluded. If passed, do not pass `exclude`.
+
+            By default, if neither include nor exclude are passed then data
+            will be exported for all symbols.
+
+        exclude : list[str] | str | None
+            Symbol or symbols to exclude from export. Data will be exported
+            for all other symbols. If passed, do not pass `include`.
+
+            By default, if neither exclude nor include are passed then data
+            will be exported for all symbols.
+
+        get_params
+            Dictionary of parameters to be passed on to the `.get` method
+            to define the period over which prices are to be exported. Can
+            include other options, for example 'anchor', 'priority',
+            'strict' etc.
+
+            If not passed then by default all available data will be
+            exported for each requested symbol / interval.
+
+        Returns
+        -------
+        paths
+            List of Path objects to which data exported.
+        """
+        # NOTE If / when valimp supports **kwargs then the 'get_params'
+        # parameter could be changed to **kwargs (more convenient for client).
+
+        if TYPE_CHECKING:
+            assert isinstance(path, Path)
+
+        intervals_: list[PTInterval]
+        if isinstance(intervals, list):
+            intervals_ = [to_ptinterval(intrvl) for intrvl in intervals]
+        elif intervals is None:
+            intervals_ = self.bis
+        else:
+            intervals_ = [to_ptinterval(intervals)]
+
+        if get_params is not None and "lose_single_symbol" in get_params:
+            get_params["lose_single_symbol"] = False
+
+        dfs = {}
+        for intrvl in intervals_:
+            if get_params is not None:
+                try:
+                    df = self.get(
+                        intrvl, include=include, exclude=exclude, **get_params
+                    )
+                except Exception as err:
+                    raise errors.PricesUnavailableForExport(intrvl, get_params) from err
+            else:
+                try:
+                    df = self.get(
+                        intrvl, include=include, exclude=exclude, strict=False
+                    )
+                except Exception as err:
+                    raise errors.PricesUnavailableForExport(intrvl) from err
+            if intervals is None and helpers.ONE_MIN < intrvl < helpers.ONE_DAY:
+                # Do not include if data was downsampled from a lower base interval
+                # due to unalignment at `intrvl`, i.e. only export base data.
+                data_ = self._pdata[intrvl]
+                if not data_.requested_range((df.pt.first_ts, df.pt.last_ts)):
+                    continue
+            if include is not None or exclude is not None:
+                df.columns = df.columns.remove_unused_levels()
+            dfs[intrvl] = df
+
+        def get_freq_str(intrvl: PTInterval) -> str:
+            freq = intrvl.as_pdfreq
+            if freq.endswith("min"):
+                return freq.replace("min", "T")
+            elif freq.endswith("h"):
+                return freq.replace("h", "H")
+            return freq
+
+        store = {}
+        for intrvl, df in dfs.items():
+            freq = get_freq_str(intrvl)
+            for symb in df.columns.levels[0]:
+                sdf = df[symb].dropna(how="all")
+
+                if intrvl.is_intraday:
+                    cal = self.calendars[symb]
+                    start = cal.minute_to_session(sdf.pt.first_ts, "next")
+                    end = cal.minute_to_session(sdf.pt.last_ts, "previous")
+                    sdf.index = sdf.index.left.tz_convert(None)
+                else:
+                    start = sdf.pt.first_ts
+                    end = sdf.pt.last_ts
+                start_ = start.strftime("%y%m%d")
+                end_ = end.strftime("%y%m%d")
+
+                sdf.index.name = "date"
+                filename = f"{symb}_{freq}_{start_}_{end_}.csv"
+                store[path / filename] = sdf
+
+        for path_, df in store.items():
+            df.to_csv(path_)
+
+        return list(store.keys())
