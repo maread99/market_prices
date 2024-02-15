@@ -8,11 +8,11 @@ attrs==23.2.0
     # via hypothesis
 beautifulsoup4==4.12.3
     # via yahooquery
-black==24.1.1
+black==24.2.0
     # via market-prices (pyproject.toml)
 blosc2==2.5.1
     # via tables
-certifi==2023.11.17
+certifi==2024.2.2
     # via requests
 charset-normalizer==3.3.2
     # via requests
@@ -27,7 +27,7 @@ exceptiongroup==1.2.0
     # via
     #   hypothesis
     #   pytest
-exchange-calendars==4.5.2
+exchange-calendars==4.5.3
     # via market-prices (pyproject.toml)
 flake8==7.0.0
     # via
@@ -35,7 +35,7 @@ flake8==7.0.0
     #   market-prices (pyproject.toml)
 flake8-docstrings==1.7.0
     # via market-prices (pyproject.toml)
-hypothesis==6.97.3
+hypothesis==6.98.6
     # via market-prices (pyproject.toml)
 idna==3.6
     # via requests
@@ -55,7 +55,7 @@ ndindex==1.7
     # via blosc2
 numexpr==2.9.0
     # via tables
-numpy==1.26.3
+numpy==1.26.4
     # via
     #   blosc2
     #   exchange-calendars
@@ -99,7 +99,7 @@ pytest-mock==3.12.0
     # via market-prices (pyproject.toml)
 python-dateutil==2.8.2
     # via pandas
-pytz==2023.4
+pytz==2024.1
     # via pandas
 requests==2.31.0
     # via
@@ -123,11 +123,11 @@ tomli==2.0.1
     #   pytest
 toolz==0.12.1
     # via exchange-calendars
-tqdm==4.66.1
+tqdm==4.66.2
     # via yahooquery
 typing-extensions==4.9.0
     # via black
-tzdata==2023.4
+tzdata==2024.1
     # via
     #   exchange-calendars
     #   market-prices (pyproject.toml)

@@ -4,19 +4,19 @@
 #
 #    pip-compile --extra=dev --output-file=etc/requirements_dev.txt pyproject.toml
 #
-astroid==3.0.2
+astroid==3.0.3
     # via pylint
 attrs==23.2.0
     # via hypothesis
 beautifulsoup4==4.12.3
     # via yahooquery
-black==24.1.1
+black==24.2.0
     # via market-prices (pyproject.toml)
 blosc2==2.5.1
     # via tables
 build==1.0.3
     # via pip-tools
-certifi==2023.11.17
+certifi==2024.2.2
     # via requests
 cfgv==3.4.0
     # via pre-commit
@@ -41,7 +41,7 @@ exceptiongroup==1.2.0
     # via
     #   hypothesis
     #   pytest
-exchange-calendars==4.5.2
+exchange-calendars==4.5.3
     # via market-prices (pyproject.toml)
 filelock==3.13.1
     # via virtualenv
@@ -51,9 +51,9 @@ flake8==7.0.0
     #   market-prices (pyproject.toml)
 flake8-docstrings==1.7.0
     # via market-prices (pyproject.toml)
-hypothesis==6.97.3
+hypothesis==6.98.6
     # via market-prices (pyproject.toml)
-identify==2.5.33
+identify==2.5.34
     # via pre-commit
 idna==3.6
     # via requests
@@ -86,7 +86,7 @@ nodeenv==1.8.0
     # via pre-commit
 numexpr==2.9.0
     # via tables
-numpy==1.26.3
+numpy==1.26.4
     # via
     #   blosc2
     #   exchange-calendars
@@ -119,7 +119,7 @@ platformdirs==4.2.0
     #   virtualenv
 pluggy==1.4.0
     # via pytest
-pre-commit==3.6.0
+pre-commit==3.6.1
     # via market-prices (pyproject.toml)
 py-cpuinfo==9.0.0
     # via
@@ -145,7 +145,7 @@ pytest-mock==3.12.0
     # via market-prices (pyproject.toml)
 python-dateutil==2.8.2
     # via pandas
-pytz==2023.4
+pytz==2024.1
     # via pandas
 pyyaml==6.0.1
     # via pre-commit
@@ -178,9 +178,9 @@ tomlkit==0.12.3
     # via pylint
 toolz==0.12.1
     # via exchange-calendars
-tqdm==4.66.1
+tqdm==4.66.2
     # via yahooquery
-types-pytz==2023.4.0.20240130
+types-pytz==2024.1.0.20240203
     # via pandas-stubs
 typing-extensions==4.9.0
     # via
@@ -188,7 +188,7 @@ typing-extensions==4.9.0
     #   black
     #   mypy
     #   pylint
-tzdata==2023.4
+tzdata==2024.1
     # via
     #   exchange-calendars
     #   market-prices (pyproject.toml)

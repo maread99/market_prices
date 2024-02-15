@@ -6307,7 +6307,7 @@ def calendars(symbols) -> abc.Iterator[dict[str, str]]:
 
 def test_to_csv(to_csv_dir, temp_dir, symbols, calendars, one_day):
     match = re.escape(
-        "Price data has been found for all symbols at a least one interval, however, you may find that not all the expected price data is available. See the `limits` property for available base intervals and the limits between which price data is available at each of these intervals. See the `csv_paths` property for paths to all csv files that were found for the requested symbols. See the 'path' parameter and 'Notes' sections of help(PricesCsv) for advices on how csv files should be named and formatted and for use of the `read_csv_kwargs` parameter.\n\nThe following errors and/or warnings occurred during parsing:\n\n0) For symbol 'AZN.L with interval '1:00:00' no indice aligned with index evaluated from calendar 'XLON'.\n\n1) Prices are not available at base interval 1:00:00 as (aligned) data was not found at this interval for symbols '['AZN.L']'."
+        f"Price data has been found for all symbols at a least one interval, however, you may find that not all the expected price data is available. See the `limits` property for available base intervals and the limits between which price data is available at each of these intervals. See the `csv_paths` property for paths to all csv files that were found for the requested symbols. See the 'path' parameter and 'Notes' sections of help(PricesCsv) for advices on how csv files should be named and formatted and for use of the `read_csv_kwargs` parameter.\n\nThe following errors and/or warnings occurred during parsing:\n\n0) For symbol 'AZN.L with interval '{TDInterval.H1}' no indice aligned with index evaluated from calendar 'XLON'.\n\n1) Prices are not available at base interval {TDInterval.H1} as (aligned) data was not found at this interval for symbols '['AZN.L']'."
     )
     # get prices from csv files. Verify warns that 1H interval not available (files
     # are there but data for XLON instrument does not align with XLON as file was
@@ -6381,8 +6381,8 @@ def test_to_csv(to_csv_dir, temp_dir, symbols, calendars, one_day):
     clean_temp_test_dir()
     match = re.escape(
         "It was not possible to export prices as an error was raised when prices were"
-        " requested for interval 0:01:00. The error is included at the top of the"
-        " traceback.\nNB prices have not been exported for any interval."
+        f" requested for interval {TDInterval.T1}. The error is included at the top of"
+        " the traceback.\nNB prices have not been exported for any interval."
     )
     with pytest.raises(errors.PricesUnavailableForExport, match=match):
         prices.to_csv(temp_dir, include=["NOT_A_SYMBOL"])
@@ -6392,8 +6392,8 @@ def test_to_csv(to_csv_dir, temp_dir, symbols, calendars, one_day):
     get_params = {"start": df.pt.first_ts - (one_day * 7)}
     match = re.escape(
         "It was not possible to export prices as an error was raised when"
-        " prices were requested for interval 0:05:00. The error is included at the"
-        " top of the traceback. Prices were requested with the following kwargs:"
+        f" prices were requested for interval {TDInterval.T5}. The error is included at"
+        " the top of the traceback. Prices were requested with the following kwargs:"
         " {'start': Timestamp('2023-12-11 09:40:00-0500', tz='America/New_York')}"
         "\nNB prices have not been exported for any interval."
     )
