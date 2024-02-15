@@ -6361,9 +6361,11 @@ def test_to_csv(to_csv_dir, temp_dir, symbols, calendars, one_day):
     # verify can pass non-base interval
     clean_temp_test_dir()
     df = prices.get("10T")
+    df = df[df.columns.sort_values()]
     paths = prices.to_csv(temp_dir, "10T")
     prices_reloaded = csv.PricesCsv(temp_dir, symbols, calendars)
     df_reloaded = prices_reloaded.get("10T")
+    df_reloaded = df_reloaded[df_reloaded.columns.sort_values()]
     assert_frame_equal(df, df_reloaded)
 
     # verify can pass get_params
@@ -6381,7 +6383,7 @@ def test_to_csv(to_csv_dir, temp_dir, symbols, calendars, one_day):
     clean_temp_test_dir()
     match = re.escape(
         "It was not possible to export prices as an error was raised when prices were"
-        f" requested for interval {TDInterval.T1}. The error is included at the top of"
+        f" requested for interval {prices.bis.T1}. The error is included at the top of"
         " the traceback.\nNB prices have not been exported for any interval."
     )
     with pytest.raises(errors.PricesUnavailableForExport, match=match):
