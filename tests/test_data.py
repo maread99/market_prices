@@ -1032,6 +1032,12 @@ class TestRanges:
         one_day,
         monkeypatch,
     ):
+        """Test effect of requesting a range through to now.
+
+        Feb 24. NB Does not test effect of the 'source_live' parameter. The
+        effect of 'source_live' is currently tested for only indirectly via
+        test `test_csv.test_not_live`.
+        """
         # pylint: disable=too-complex, too-many-statements
         cal = xlon_calendar_extended
         bi = bis_parameterized

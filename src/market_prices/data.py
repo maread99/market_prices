@@ -47,6 +47,7 @@ class Data:
         delay: pd.Timedelta | None = None,
         left_limit: pd.Timestamp | pd.Timedelta | None = None,
         right_limit: pd.Timestamp | None = None,
+        source_live: bool = True,
     ):
         """Construct instance.
 
@@ -101,9 +102,18 @@ class Data:
             in which case will be assumed as 'now'.
 
             If `bi` is daily then limit must be a date (no time component).
+
+        source_live
+            True: always re-request prices for any 'live indice' (i.e. any
+            indice which is yet to conclude in real time) and and period
+            through which any 'delay' applies even when such indices have
+            been previously requested.
+
+            False: never request prices for the same indice more than once.
         """
         # pylint: disable=too-many-arguments
         self._request_data_func = request
+        self._source_live = source_live
         self.cc = cc
         assert bi <= intervals.ONE_DAY
         self._bi = bi
@@ -676,10 +686,11 @@ class Data:
         if dfs and not all(df.empty for df in dfs):
             self._add_prices(dfs)
         for rd, df in zip(req_dates, dfs):
-            rda = self._requested_dates_adjust(rd)
-            if rda is None:
+            if self._source_live:
+                rd = self._requested_dates_adjust(rd)
+            if rd is None:
                 continue
-            self._update(rda, df.index)
+            self._update(rd, df.index)
 
     # Get table or part of
 

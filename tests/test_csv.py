@@ -307,13 +307,13 @@ def test__remove_unavailable_intervals_from_paths(csv_dir_paths):
     assert len(warnings_) == 2
     match = (
         f"Prices are not available at base interval {TDInterval.T20}"
-        " as data was not found at this interval for symbols '['9988.HK']'."
+        " as (aligned) data was not found at this interval for symbols '['9988.HK']'."
     )
     assert str(warnings_[0]) == match
 
     match = (
         f"Prices are not available at base interval {TDInterval.T5}"
-        " as data was not found at this interval for symbols '['AZN.L']'."
+        " as (aligned) data was not found at this interval for symbols '['AZN.L']'."
     )
     assert str(warnings_[1]) == match
 
@@ -573,8 +573,8 @@ def test_parse_csvs(csv_dir, csv_dir_paths, csv_read_kwargs, symbols):
     interval_error = errors[-1]
     assert isinstance(interval_error, m.PricesCsvIntervalUnavailableWarning)
     match = (
-        f"Prices are not available at base interval {TDInterval.H1} as data"
-        " was not found at this interval for symbols '['AZN.L', 'MSFT']'."
+        f"Prices are not available at base interval {TDInterval.H1} as (aligned)"
+        " data was not found at this interval for symbols '['AZN.L', 'MSFT']'."
     )
     assert str(interval_error) == match
 
@@ -652,7 +652,7 @@ def test_raises_csv_paths_intervals_error(csv_dir, symbols, calendars):
 
     match = (
         re.escape(
-            f"The following warnings occurred when evaluating available intervals:\n\n0) Prices are not available at base interval {TDInterval.T20} as data was not found at this interval for symbols '['RAND', 'TSLA']'.\n\n1) Prices are not available at base interval {TDInterval.T1} as data was not found at this interval for symbols '['RAND', 'TSLA']'.\n\n2) Prices are not available at base interval {TDInterval.T5} as data was not found at this interval for symbols '['TSLA']'.\n\n3) Prices are not available at base interval {TDInterval.D1} as data was not found at this interval for symbols '['RAND']'.\n\n4) Prices are not available at base interval {TDInterval.H1} as data was not found at this interval for symbols '['RAND', 'TSLA']'.\n\n5) Prices are not available at base interval {TDInterval.T2} as data was not found at this interval for symbols '['RAND', 'TSLA']'.\n\nSee the 'path' parameter and 'Notes' sections of help(PricesCsv) for advices on how csv files should be named and formatted and for use of the `read_csv_kwargs` parameter."
+            f"The following warnings occurred when evaluating available intervals:\n\n0) Prices are not available at base interval {TDInterval.T20} as (aligned) data was not found at this interval for symbols '['RAND', 'TSLA']'.\n\n1) Prices are not available at base interval {TDInterval.T1} as (aligned) data was not found at this interval for symbols '['RAND', 'TSLA']'.\n\n2) Prices are not available at base interval {TDInterval.T5} as (aligned) data was not found at this interval for symbols '['TSLA']'.\n\n3) Prices are not available at base interval {TDInterval.D1} as (aligned) data was not found at this interval for symbols '['RAND']'.\n\n4) Prices are not available at base interval {TDInterval.H1} as (aligned) data was not found at this interval for symbols '['RAND', 'TSLA']'.\n\n5) Prices are not available at base interval {TDInterval.T2} as (aligned) data was not found at this interval for symbols '['RAND', 'TSLA']'.\n\nSee the 'path' parameter and 'Notes' sections of help(PricesCsv) for advices on how csv files should be named and formatted and for use of the `read_csv_kwargs` parameter."
         )
         if WINDOWS
         else None
@@ -668,7 +668,7 @@ def test_raises_csv_no_data_error_0(csv_dir, symbols, calendars):
 
     match = (
         re.escape(
-            f"For symbols '['MSFT', 'AZN.L', '9988.HK', 'RAND']' it was not possible to create a price table for any interval from csv files. The following errors and warnings occurred during parsing:\n\n0) Prices are not available at base interval {TDInterval.T20} as data was not found at this interval for symbols '['RAND']'.\n\n1) Prices are not available at base interval {TDInterval.T1} as data was not found at this interval for symbols '['RAND']'.\n\n2) Prices are not available at base interval {TDInterval.D1} as data was not found at this interval for symbols '['RAND']'.\n\n3) Prices are not available at base interval {TDInterval.H1} as data was not found at this interval for symbols '['RAND']'.\n\n4) Prices are not available at base interval {TDInterval.T2} as data was not found at this interval for symbols '['RAND']'.\n\n5) Unable to create dataframe from csv file at 'RAND_T5_fails_on_high_low.csv' due to the following error:\n\t<class 'market_prices.prices.csv.CsvHighLowError'> At least one row has a high value that is lower than the corresponding low value.\n\n6) Prices are not available at base interval {TDInterval.T5} as data was not found at this interval for symbols '['RAND']'.\n\nSee the 'path' parameter and 'Notes' sections of help(PricesCsv) for advices on how csv files should be named and formatted and for use of the `read_csv_kwargs` parameter."
+            f"For symbols '['MSFT', 'AZN.L', '9988.HK', 'RAND']' it was not possible to create a price table for any interval from csv files. The following errors and warnings occurred during parsing:\n\n0) Prices are not available at base interval {TDInterval.T20} as (aligned) data was not found at this interval for symbols '['RAND']'.\n\n1) Prices are not available at base interval {TDInterval.T1} as (aligned) data was not found at this interval for symbols '['RAND']'.\n\n2) Prices are not available at base interval {TDInterval.D1} as (aligned) data was not found at this interval for symbols '['RAND']'.\n\n3) Prices are not available at base interval {TDInterval.H1} as (aligned) data was not found at this interval for symbols '['RAND']'.\n\n4) Prices are not available at base interval {TDInterval.T2} as (aligned) data was not found at this interval for symbols '['RAND']'.\n\n5) Unable to create dataframe from csv file at 'RAND_T5_fails_on_high_low.csv' due to the following error:\n\t<class 'market_prices.prices.csv.CsvHighLowError'> At least one row has a high value that is lower than the corresponding low value.\n\n6) Prices are not available at base interval {TDInterval.T5} as (aligned) data was not found at this interval for symbols '['RAND']'.\n\nSee the 'path' parameter and 'Notes' sections of help(PricesCsv) for advices on how csv files should be named and formatted and for use of the `read_csv_kwargs` parameter."
         )
         if WINDOWS
         else None
@@ -685,7 +685,7 @@ def test_raises_csv_no_data_error(csv_dir, symbols, calendars):
 
     match = (
         re.escape(
-            f"For symbols '['MSFT', 'AZN.L', '9988.HK', 'MSFTEXTRA']' it was not possible to create a price table for any interval from csv files. The following errors and warnings occurred during parsing:\n\n0) Prices are not available at base interval {TDInterval.T20} as data was not found at this interval for symbols '['MSFTEXTRA']'.\n\n1) Prices are not available at base interval {TDInterval.T1} as data was not found at this interval for symbols '['MSFTEXTRA']'.\n\n2) Prices are not available at base interval {TDInterval.D1} as data was not found at this interval for symbols '['MSFTEXTRA']'.\n\n3) Prices are not available at base interval {TDInterval.H1} as data was not found at this interval for symbols '['MSFTEXTRA']'.\n\n4) Prices are not available at base interval {TDInterval.T2} as data was not found at this interval for symbols '['MSFTEXTRA']'.\n\n5) For symbol 'MSFT' at base interval {TDInterval.T5} the csv file included the following indices that are not aligned with the evaluated index and: have therefore been ignored:\nDatetimeIndex(['2022-04-18 16:02:00+00:00'], dtype='datetime64[ns, UTC]', freq=None)\n\n6) For symbol 'MSFTEXTRA with interval '{TDInterval.T5}' no indice aligned with index evaluated from calendar 'XHKG'.\n\n7) Prices are not available at base interval {TDInterval.T5} as data was not found at this interval for symbols '['MSFTEXTRA']'.\n\nSee the 'path' parameter and 'Notes' sections of help(PricesCsv) for advices on how csv files should be named and formatted and for use of the `read_csv_kwargs` parameter."
+            f"For symbols '['MSFT', 'AZN.L', '9988.HK', 'MSFTEXTRA']' it was not possible to create a price table for any interval from csv files. The following errors and warnings occurred during parsing:\n\n0) Prices are not available at base interval {TDInterval.T20} as (aligned) data was not found at this interval for symbols '['MSFTEXTRA']'.\n\n1) Prices are not available at base interval {TDInterval.T1} as (aligned) data was not found at this interval for symbols '['MSFTEXTRA']'.\n\n2) Prices are not available at base interval {TDInterval.D1} as (aligned) data was not found at this interval for symbols '['MSFTEXTRA']'.\n\n3) Prices are not available at base interval {TDInterval.H1} as (aligned) data was not found at this interval for symbols '['MSFTEXTRA']'.\n\n4) Prices are not available at base interval {TDInterval.T2} as (aligned) data was not found at this interval for symbols '['MSFTEXTRA']'.\n\n5) For symbol 'MSFT' at base interval {TDInterval.T5} the csv file included the following indices that are not aligned with the evaluated index and: have therefore been ignored:\nDatetimeIndex(['2022-04-18 16:02:00+00:00'], dtype='datetime64[ns, UTC]', freq=None)\n\n6) For symbol 'MSFTEXTRA with interval '{TDInterval.T5}' no indice aligned with index evaluated from calendar 'XHKG'.\n\n7) Prices are not available at base interval {TDInterval.T5} as (aligned) data was not found at this interval for symbols '['MSFTEXTRA']'.\n\nSee the 'path' parameter and 'Notes' sections of help(PricesCsv) for advices on how csv files should be named and formatted and for use of the `read_csv_kwargs` parameter."
         )
         if WINDOWS
         else None
@@ -697,7 +697,7 @@ def test_raises_csv_no_data_error(csv_dir, symbols, calendars):
 def test_consolidated_warning(csv_dir, symbols, calendars):
     match = (
         re.escape(
-            f"Price data has been found for all symbols at a least one interval, however, you may find that not all the expected price data is available. See the `limits` property for available base intervals and the limits between which price data is available at each of these intervals. See the `csv_paths` property for paths to all csv files that were found for the requested symbols. See the 'path' parameter and 'Notes' sections of help(PricesCsv) for advices on how csv files should be named and formatted and for use of the `read_csv_kwargs` parameter.\n\nThe following errors and/or warnings occurred during parsing:\n\n0) Unable to create dataframe from csv file at 'f_9988.HK_T20_fails_on_ohlc_data.csv' due to the following error:\n\t<class 'market_prices.prices.csv.CsvIntervalError'> Date indices do not reflect the expected interval.\n\n1) Unable to create dataframe from csv file at 'f_AZN.L_H1_fails_on_vol_dtype.csv' due to the following error:\n\t<class 'market_prices.prices.csv.CsvVolDtypeError'> 'volume' column will not convert to 'float64' dtype.\nThe source error's message was:\n\t<class 'ValueError'>: could not convert string to float: 'not a volume'\n\n2) Unable to create dataframe from csv file at 'f_AZN.L_H1_fails_on_vol_dtype.csv' due to the following error:\n\t<class 'market_prices.prices.csv.CsvIntervalError'> Date indices do not reflect the expected interval.\n\n3) Unable to create dataframe from csv file at 'f_AZN.L_T20_fails_on_read_csv.csv' due to the following error:\n\t<class 'market_prices.prices.csv.CsvReadError'> `pd.read_csv` raises error.\nThe source error's message was:\n\t<class 'ValueError'>: could not convert string to float: 'not_digits'\n\n4) Unable to create dataframe from csv file at 'f_MSFT_H1_fails_on_no_data.csv' due to the following error:\n\t<class 'market_prices.prices.csv.CsvDataframeEmptyError'> No price data parsed from csv file.\n\n5) Unable to create dataframe from csv file at 'f_MSFT_H1_fails_on_no_data.csv' due to the following error:\n\t<class 'market_prices.prices.csv.CsvIntervalError'> Date indices do not reflect the expected interval.\n\n6) Unable to create dataframe from csv file at 'f_MSFT_T20_fails_on_high_low.csv' due to the following error:\n\t<class 'market_prices.prices.csv.CsvHighLowError'> At least one row has a high value that is lower than the corresponding low value.\n\n7) Unable to create dataframe from csv file at 'f_MSFT_T20_fails_on_high_low.csv' due to the following error:\n\t<class 'market_prices.prices.csv.CsvIntervalError'> Date indices do not reflect the expected interval.\n\n8) Prices are not available at base interval {TDInterval.H1} as data was not found at this interval for symbols '['AZN.L', 'MSFT']'.\n\n9) For symbol 'MSFT' at base interval {TDInterval.T5} the csv file included the following indices that are not aligned with the evaluated index and: have therefore been ignored:\nDatetimeIndex(['2022-04-18 16:02:00+00:00'], dtype='datetime64[ns, UTC]', freq=None)"
+            f"Price data has been found for all symbols at a least one interval, however, you may find that not all the expected price data is available. See the `limits` property for available base intervals and the limits between which price data is available at each of these intervals. See the `csv_paths` property for paths to all csv files that were found for the requested symbols. See the 'path' parameter and 'Notes' sections of help(PricesCsv) for advices on how csv files should be named and formatted and for use of the `read_csv_kwargs` parameter.\n\nThe following errors and/or warnings occurred during parsing:\n\n0) Unable to create dataframe from csv file at 'f_9988.HK_T20_fails_on_ohlc_data.csv' due to the following error:\n\t<class 'market_prices.prices.csv.CsvIntervalError'> Date indices do not reflect the expected interval.\n\n1) Unable to create dataframe from csv file at 'f_AZN.L_H1_fails_on_vol_dtype.csv' due to the following error:\n\t<class 'market_prices.prices.csv.CsvVolDtypeError'> 'volume' column will not convert to 'float64' dtype.\nThe source error's message was:\n\t<class 'ValueError'>: could not convert string to float: 'not a volume'\n\n2) Unable to create dataframe from csv file at 'f_AZN.L_H1_fails_on_vol_dtype.csv' due to the following error:\n\t<class 'market_prices.prices.csv.CsvIntervalError'> Date indices do not reflect the expected interval.\n\n3) Unable to create dataframe from csv file at 'f_AZN.L_T20_fails_on_read_csv.csv' due to the following error:\n\t<class 'market_prices.prices.csv.CsvReadError'> `pd.read_csv` raises error.\nThe source error's message was:\n\t<class 'ValueError'>: could not convert string to float: 'not_digits'\n\n4) Unable to create dataframe from csv file at 'f_MSFT_H1_fails_on_no_data.csv' due to the following error:\n\t<class 'market_prices.prices.csv.CsvDataframeEmptyError'> No price data parsed from csv file.\n\n5) Unable to create dataframe from csv file at 'f_MSFT_H1_fails_on_no_data.csv' due to the following error:\n\t<class 'market_prices.prices.csv.CsvIntervalError'> Date indices do not reflect the expected interval.\n\n6) Unable to create dataframe from csv file at 'f_MSFT_T20_fails_on_high_low.csv' due to the following error:\n\t<class 'market_prices.prices.csv.CsvHighLowError'> At least one row has a high value that is lower than the corresponding low value.\n\n7) Unable to create dataframe from csv file at 'f_MSFT_T20_fails_on_high_low.csv' due to the following error:\n\t<class 'market_prices.prices.csv.CsvIntervalError'> Date indices do not reflect the expected interval.\n\n8) Prices are not available at base interval {TDInterval.H1} as (aligned) data was not found at this interval for symbols '['AZN.L', 'MSFT']'.\n\n9) For symbol 'MSFT' at base interval {TDInterval.T5} the csv file included the following indices that are not aligned with the evaluated index and: have therefore been ignored:\nDatetimeIndex(['2022-04-18 16:02:00+00:00'], dtype='datetime64[ns, UTC]', freq=None)"
         )
         if WINDOWS
         else None
@@ -811,3 +811,40 @@ def test_prices_for_symbol(csv_dir, symbols, calendars):
     expected = intraday_df.drop(columns="9988.HK", level=0)
     expected = expected.dropna(axis=0, how="all")
     assert_frame_equal(expected, intraday_df_new)
+
+
+def test_not_live(csv_dir, symbols, calendars, one_min, monkeypatch):
+    """Ensures that doesn't re-request prices if considered 'live'.
+
+    Ensures doesn't re-request prices when 'now' falls within the last
+    interval (for example if the last session of daily data is 'today').
+
+    NB Has side effect that also tests `PricesBase.SOURCE_LIVE`.
+    """
+    with pytest.warns(m.PricesCsvParsingConsolidatedWarning):
+        prices = m.PricesCsv(csv_dir, symbols, calendars)
+
+    df = prices.get("5T")
+    NOW = (df.index[-1].left + one_min).tz_convert(None)
+
+    def mock_now(tz=None) -> pd.Timestamp:
+        return pd.Timestamp(NOW, tz=tz)
+
+    monkeypatch.setattr("pandas.Timestamp.now", mock_now)
+
+    with pytest.warns(m.PricesCsvParsingConsolidatedWarning):
+        prices = m.PricesCsv(csv_dir, symbols, calendars)
+
+    df_repeated = prices.get("5T")
+    pd.testing.assert_frame_equal(df, df_repeated)
+
+    # to check that would have thrown error if prices not considered static
+    class MockPricesCsv(m.PricesCsv):
+        SOURCE_LIVE = True
+
+    with pytest.warns(m.PricesCsvParsingConsolidatedWarning):
+        prices = MockPricesCsv(csv_dir, symbols, calendars)
+
+    match = "`PricesCsv._request_data` is not implemented outside of constructor"
+    with pytest.raises(NotImplementedError, match=match):
+        prices.get("5T")

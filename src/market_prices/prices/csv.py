@@ -448,8 +448,8 @@ class PricesCsvIntervalUnavailableWarning(PricesCsvWarning):
         symbols = list(symbols)
         symbols.sort()
         self._msg = (
-            f"Prices are not available at base interval {interval} as data was not"
-            f" found at this interval for symbols '{symbols}'."
+            f"Prices are not available at base interval {interval} as (aligned) data"
+            f" was not found at this interval for symbols '{symbols}'."
         )
 
 
@@ -1059,6 +1059,8 @@ class PricesCsv(base.PricesBase):
     regular trading hours will be ignored.
     """
 
+    SOURCE_LIVE: bool = False
+
     @parse
     def __init__(
         self,
@@ -1124,6 +1126,8 @@ class PricesCsv(base.PricesBase):
 
         # request all available data for all intervals
         for intrvl, pdata in self._pdata.items():
+            if intrvl not in self._tables:
+                continue  # did not align when compiled
             dr = (None, self.limits[intrvl][1])
             pdata.get_table(dr)
         # delete tables to avoid copies

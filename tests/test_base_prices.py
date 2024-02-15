@@ -17,6 +17,7 @@ from __future__ import annotations
 from collections import abc
 import datetime
 import itertools
+from pathlib import Path
 import re
 from typing import Literal
 from zoneinfo import ZoneInfo
@@ -33,11 +34,12 @@ from market_prices import errors, helpers, intervals, mptypes, pt, data
 from market_prices.helpers import UTC
 from market_prices.intervals import TDInterval, DOInterval
 from market_prices.mptypes import Anchor, OpenEnd, Priority
+from market_prices.prices import csv
 from market_prices.support import tutorial_helpers as th
 
 # from market_prices.utils import calendar_utils as calutils
 
-from .utils import get_resource_pbt
+from .utils import get_resource_pbt, RESOURCES_PATH, clean_temp_test_dir
 
 # pylint: disable=missing-function-docstring, missing-type-doc
 # pylint: disable=missing-param-doc, missing-any-param-doc, redefined-outer-name
@@ -6275,3 +6277,126 @@ def test_prices_for_symbols(prices_us_lon):
         # verify columns same length an order identically to compare
         assert len(table.columns) == len(orig._table.columns)
         assert_frame_equal(table[orig._table.columns], orig._table)
+
+
+@pytest.fixture
+def to_csv_dir() -> abc.Iterator[Path]:
+    """resources/csv directory"""
+    path = RESOURCES_PATH / "to_csv"
+    assert path.is_dir()
+    yield path
+
+
+@pytest.fixture
+def symbols() -> abc.Iterator[list[str]]:
+    """Selection of symbols represented in resources files in to_csv dir."""
+    yield ["MSFT", "AZN.L", "9988.HK"]
+
+
+@pytest.fixture
+def calendars(symbols) -> abc.Iterator[dict[str, str]]:
+    """Mapping of `symbols` to calendar names."""
+    calendars = {
+        "MSFT": "XNYS",
+        "AZN.L": "XLON",
+        "9988.HK": "XHKG",
+    }
+    assert set(symbols) == set(calendars)
+    yield calendars
+
+
+def test_to_csv(to_csv_dir, temp_dir, symbols, calendars, one_day):
+    match = re.escape(
+        "Price data has been found for all symbols at a least one interval, however, you may find that not all the expected price data is available. See the `limits` property for available base intervals and the limits between which price data is available at each of these intervals. See the `csv_paths` property for paths to all csv files that were found for the requested symbols. See the 'path' parameter and 'Notes' sections of help(PricesCsv) for advices on how csv files should be named and formatted and for use of the `read_csv_kwargs` parameter.\n\nThe following errors and/or warnings occurred during parsing:\n\n0) For symbol 'AZN.L with interval '1:00:00' no indice aligned with index evaluated from calendar 'XLON'.\n\n1) Prices are not available at base interval 1:00:00 as (aligned) data was not found at this interval for symbols '['AZN.L']'."
+    )
+    # get prices from csv files. Verify warns that 1H interval not available (files
+    # are there but data for XLON instrument does not align with XLON as file was
+    # generated form downsampled T5 data).
+    with pytest.warns(csv.PricesCsvParsingConsolidatedWarning, match=match):
+        prices = csv.PricesCsv(to_csv_dir, symbols, calendars)
+
+    def assert_output_as_original_files(paths: list[Path]):
+        for path in paths:
+            content = path.open().read()
+            content_orig = (to_csv_dir / path.name).open().read()
+            assert content == content_orig
+
+    # export all data to .csv files in temp dir
+    paths = prices.to_csv(temp_dir)
+
+    # verify that, when intervals are default, data is not included for unaligned
+    # base intervals (as if were to have been exported then data would have to
+    # have been downsampled from a lower base interval).
+    assert not any("_1H_" in path.name.upper() for path in paths)
+    assert_output_as_original_files(paths)
+
+    # verify can pass list of multiple intervals
+    clean_temp_test_dir()
+    intervals = ["5T", "2T"]
+    paths = prices.to_csv(temp_dir, intervals)
+    assert len(paths) == 6
+    assert_output_as_original_files(paths)
+
+    # verify effect of include
+    clean_temp_test_dir()
+    symbol = symbols[0]
+    paths = prices.to_csv(temp_dir, intervals, include=symbol)
+    assert len(paths) == 2
+    assert all(symbol in path.name for path in paths)
+    assert_output_as_original_files(paths)
+
+    # verify effect of exclude
+    clean_temp_test_dir()
+    paths = prices.to_csv(temp_dir, intervals, exclude=symbol)
+    assert len(paths) == 4
+    assert not any(symbol in path.name for path in paths)
+    assert_output_as_original_files(paths)
+
+    # verify can pass single interval, verify can pass an unaligned base interval
+    clean_temp_test_dir()
+    paths = prices.to_csv(temp_dir, "1H")
+    # verify output as original 1H files created from downsampled data...
+    assert_output_as_original_files(paths)
+
+    # verify can pass non-base interval
+    clean_temp_test_dir()
+    df = prices.get("10T")
+    paths = prices.to_csv(temp_dir, "10T")
+    prices_reloaded = csv.PricesCsv(temp_dir, symbols, calendars)
+    df_reloaded = prices_reloaded.get("10T")
+    assert_frame_equal(df, df_reloaded)
+
+    # verify can pass get_params
+    clean_temp_test_dir()
+    get_params = {"start": df.index[7].right, "end": df.index[-7].left}
+    paths = prices.to_csv(temp_dir, "5T", get_params=get_params)
+    assert len(paths) == 3
+    prices_reloaded = csv.PricesCsv(temp_dir, symbols, calendars)
+    df_reloaded = prices_reloaded.get("5T")
+    assert df_reloaded.pt.interval == prices.bis.T5
+    assert df_reloaded.pt.first_ts == get_params["start"]
+    assert df_reloaded.pt.last_ts == get_params["end"]
+
+    # verify raises when no get_params
+    clean_temp_test_dir()
+    match = re.escape(
+        "It was not possible to export prices as an error was raised when prices were"
+        " requested for interval 0:01:00. The error is included at the top of the"
+        " traceback.\nNB prices have not been exported for any interval."
+    )
+    with pytest.raises(errors.PricesUnavailableForExport, match=match):
+        prices.to_csv(temp_dir, include=["NOT_A_SYMBOL"])
+    assert not list(temp_dir.iterdir())
+
+    # verify raises when pass get_params
+    get_params = {"start": df.pt.first_ts - (one_day * 7)}
+    match = re.escape(
+        "It was not possible to export prices as an error was raised when"
+        " prices were requested for interval 0:05:00. The error is included at the"
+        " top of the traceback. Prices were requested with the following kwargs:"
+        " {'start': Timestamp('2023-12-11 09:40:00-0500', tz='America/New_York')}"
+        "\nNB prices have not been exported for any interval."
+    )
+    with pytest.raises(errors.PricesUnavailableForExport, match=match):
+        prices.to_csv(temp_dir, "5T", get_params=get_params)
+    assert not list(temp_dir.iterdir())

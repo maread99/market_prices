@@ -821,6 +821,24 @@ class IndexConflictError(MarketPricesError):
         )
 
 
+class PricesUnavailableForExport(PricesUnavailableError):
+    """Prices unavailable to export."""
+
+    def __init__(self, interval: intervals.PTInterval, kwargs: dict | None = None):
+
+        msg = (
+            "It was not possible to export prices as an error was raised"
+            f" when prices were requested for interval {interval}. The"
+            " error is included at the top of the traceback."
+        )
+
+        if kwargs is not None:
+            msg += f" Prices were requested with the following kwargs: {kwargs}"
+
+        msg += "\nNB prices have not been exported for any interval."
+        self._msg = msg
+
+
 class TutorialDataUnavailableError(MarketPricesError):
     """No sessions conform with the requested restrictions.
 
