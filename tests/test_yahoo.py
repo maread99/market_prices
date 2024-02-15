@@ -924,7 +924,7 @@ class TestRequestDataIntraday:
     @pytest.mark.filterwarnings("ignore:Prices from Yahoo are missing for:UserWarning")
     @pytest.mark.filterwarnings("ignore:A value is trying to be set on a:FutureWarning")
     @pytest.mark.filterwarnings("ignore:'S' is deprecated:FutureWarning")
-    def test_request_from_left_limit(self):
+    def test_request_from_left_limit(self, one_min):
         """Test data requests from left limit.
 
         The Yahoo API appears to exhibit flaky behaviour when requesting
@@ -953,8 +953,10 @@ class TestRequestDataIntraday:
                 if not rl < table.pt.last_ts:
                     # <= bi.as_minutes as rl is 'now' + bi and that bi can all be
                     # trading minutes beyond the right of the last indice
+                    # + one_min to provide for processing between getting calendar
+                    # and evaluating minutes
                     num_mins = len(cal.minutes_in_range(table.pt.last_ts, rl))
-                    assert num_mins <= bi.as_minutes
+                    assert num_mins <= bi.as_minutes + 1
             else:
                 ll = prices.limit_daily
                 assert table.pt.first_ts == prices.cc.date_to_session(ll, "next")
@@ -979,8 +981,10 @@ class TestRequestDataIntraday:
                 if not rl < table.pt.last_ts:
                     # <= bi.as_minutes as rl is 'now' + bi and that bi can all be
                     # trading minutes beyond the right of the last indice
+                    # + one_min to provide for processing between getting calendar
+                    # and evaluating minutes
                     num_mins = len(cal.minutes_in_range(table.pt.last_ts, rl))
-                    assert num_mins <= bi.as_minutes
+                    assert num_mins <= bi.as_minutes + 1
             else:
                 ll = prices.limit_daily
                 assert table.pt.first_ts == prices.cc.date_to_session(ll, "next")
@@ -1000,7 +1004,10 @@ class TestRequestDataIntraday:
             len_mins = []
             for cal in prices.calendars_unique:
                 len_mins.append(len(cal.minutes_in_range(prices.limits[bi][0], limit)))
-            assert (1 + bi.as_minutes) == min(len_mins)
+            # NB the number of trading minutes will be less than 1 + bi during the
+            # period between a session close and one bi prior to that close (unless
+            # calendar 24h)
+            assert (1 + bi.as_minutes) >= min(len_mins)
 
     def test_prices_us(self, pricess):
         """Verify return from specific fixture."""
