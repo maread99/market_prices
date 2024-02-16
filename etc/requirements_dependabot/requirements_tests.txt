@@ -51,7 +51,7 @@ msgpack==1.0.7
     # via blosc2
 mypy-extensions==1.0.0
     # via black
-ndindex==1.7
+ndindex==1.8
     # via blosc2
 numexpr==2.9.0
     # via tables
