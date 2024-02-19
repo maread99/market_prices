@@ -35,7 +35,7 @@ flake8==7.0.0
     #   market-prices (pyproject.toml)
 flake8-docstrings==1.7.0
     # via market-prices (pyproject.toml)
-hypothesis==6.98.6
+hypothesis==6.98.8
     # via market-prices (pyproject.toml)
 idna==3.6
     # via requests
@@ -51,7 +51,7 @@ msgpack==1.0.7
     # via blosc2
 mypy-extensions==1.0.0
     # via black
-ndindex==1.7
+ndindex==1.8
     # via blosc2
 numexpr==2.9.0
     # via tables
@@ -91,7 +91,7 @@ pyflakes==3.2.0
     # via flake8
 pyluach==2.2.0
     # via exchange-calendars
-pytest==8.0.0
+pytest==8.0.1
     # via
     #   market-prices (pyproject.toml)
     #   pytest-mock
@@ -132,9 +132,9 @@ tzdata==2024.1
     #   exchange-calendars
     #   market-prices (pyproject.toml)
     #   pandas
-urllib3==2.2.0
+urllib3==2.2.1
     # via requests
-valimp==0.2
+valimp==0.3
     # via market-prices (pyproject.toml)
 yahooquery==2.3.7
     # via market-prices (pyproject.toml)

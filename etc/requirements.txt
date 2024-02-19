@@ -55,9 +55,9 @@ tzdata==2024.1
     #   exchange-calendars
     #   market-prices (pyproject.toml)
     #   pandas
-urllib3==2.2.0
+urllib3==2.2.1
     # via requests
-valimp==0.2
+valimp==0.3
     # via market-prices (pyproject.toml)
 yahooquery==2.3.7
     # via market-prices (pyproject.toml)

@@ -51,9 +51,9 @@ flake8==7.0.0
     #   market-prices (pyproject.toml)
 flake8-docstrings==1.7.0
     # via market-prices (pyproject.toml)
-hypothesis==6.98.6
+hypothesis==6.98.8
     # via market-prices (pyproject.toml)
-identify==2.5.34
+identify==2.5.35
     # via pre-commit
 idna==3.6
     # via requests
@@ -80,7 +80,7 @@ mypy-extensions==1.0.0
     #   black
     #   market-prices (pyproject.toml)
     #   mypy
-ndindex==1.7
+ndindex==1.8
     # via blosc2
 nodeenv==1.8.0
     # via pre-commit
@@ -106,11 +106,11 @@ pandas==2.2.0
     #   exchange-calendars
     #   market-prices (pyproject.toml)
     #   yahooquery
-pandas-stubs==2.1.4.231227
+pandas-stubs==2.2.0.240218
     # via market-prices (pyproject.toml)
 pathspec==0.12.1
     # via black
-pip-tools==7.3.0
+pip-tools==7.4.0
     # via market-prices (pyproject.toml)
 platformdirs==4.2.0
     # via
@@ -119,7 +119,7 @@ platformdirs==4.2.0
     #   virtualenv
 pluggy==1.4.0
     # via pytest
-pre-commit==3.6.1
+pre-commit==3.6.2
     # via market-prices (pyproject.toml)
 py-cpuinfo==9.0.0
     # via
@@ -136,8 +136,10 @@ pylint==3.0.3
 pyluach==2.2.0
     # via exchange-calendars
 pyproject-hooks==1.0.0
-    # via build
-pytest==8.0.0
+    # via
+    #   build
+    #   pip-tools
+pytest==8.0.1
     # via
     #   market-prices (pyproject.toml)
     #   pytest-mock
@@ -193,9 +195,9 @@ tzdata==2024.1
     #   exchange-calendars
     #   market-prices (pyproject.toml)
     #   pandas
-urllib3==2.2.0
+urllib3==2.2.1
     # via requests
-valimp==0.2
+valimp==0.3
     # via market-prices (pyproject.toml)
 virtualenv==20.25.0
     # via pre-commit
