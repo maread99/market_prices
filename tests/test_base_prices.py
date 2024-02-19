@@ -6368,18 +6368,18 @@ def test_to_csv(to_csv_dir, temp_dir, symbols, calendars, one_day):
     df_reloaded = df_reloaded[df_reloaded.columns.sort_values()]
     assert_frame_equal(df, df_reloaded)
 
-    # verify can pass get_params
+    # verify can pass kwargs
     clean_temp_test_dir()
-    get_params = {"start": df.index[7].right, "end": df.index[-7].left}
-    paths = prices.to_csv(temp_dir, "5T", get_params=get_params)
+    kwargs = {"start": df.index[7].right, "end": df.index[-7].left}
+    paths = prices.to_csv(temp_dir, "5T", **kwargs)
     assert len(paths) == 3
     prices_reloaded = csv.PricesCsv(temp_dir, symbols, calendars)
     df_reloaded = prices_reloaded.get("5T")
     assert df_reloaded.pt.interval == prices.bis.T5
-    assert df_reloaded.pt.first_ts == get_params["start"]
-    assert df_reloaded.pt.last_ts == get_params["end"]
+    assert df_reloaded.pt.first_ts == kwargs["start"]
+    assert df_reloaded.pt.last_ts == kwargs["end"]
 
-    # verify raises when no get_params
+    # verify raises when no kwargs
     clean_temp_test_dir()
     match = re.escape(
         "It was not possible to export prices as an error was raised when prices were"
@@ -6390,8 +6390,8 @@ def test_to_csv(to_csv_dir, temp_dir, symbols, calendars, one_day):
         prices.to_csv(temp_dir, include=["NOT_A_SYMBOL"])
     assert not list(temp_dir.iterdir())
 
-    # verify raises when pass get_params
-    get_params = {"start": df.pt.first_ts - (one_day * 7)}
+    # verify raises when pass kwargs
+    kwargs = {"start": df.pt.first_ts - (one_day * 7)}
     match = re.escape(
         "It was not possible to export prices as an error was raised when"
         f" prices were requested for interval {TDInterval.T5}. The error is included at"
@@ -6400,5 +6400,5 @@ def test_to_csv(to_csv_dir, temp_dir, symbols, calendars, one_day):
         "\nNB prices have not been exported for any interval."
     )
     with pytest.raises(errors.PricesUnavailableForExport, match=match):
-        prices.to_csv(temp_dir, "5T", get_params=get_params)
+        prices.to_csv(temp_dir, "5T", **kwargs)
     assert not list(temp_dir.iterdir())

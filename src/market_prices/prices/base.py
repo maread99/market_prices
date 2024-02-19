@@ -5122,7 +5122,7 @@ class PricesBase(metaclass=abc.ABCMeta):
         ] = None,
         include: Optional[mptypes.Symbols] = None,
         exclude: Optional[mptypes.Symbols] = None,
-        get_params: Optional[dict] = None,
+        **kwargs,
     ) -> list[Path]:
         """Export price data to .csv file(s).
 
@@ -5176,23 +5176,20 @@ class PricesBase(metaclass=abc.ABCMeta):
             By default, if neither exclude nor include are passed then data
             will be exported for all symbols.
 
-        get_params
-            Dictionary of parameters to be passed on to the `.get` method
-            to define the period over which prices are to be exported. Can
+        kwargs
+            All other kwargs will be passed on to the `.get` method to
+            define the period over which prices are to be exported. Can
             include other options, for example 'anchor', 'priority',
             'strict' etc.
 
-            If not passed then by default all available data will be
-            exported for each requested symbol / interval.
+            If no other kwargs are not passed then by default all available
+            data will be exported for each requested symbol / interval.
 
         Returns
         -------
         paths
             List of Path objects to which data exported.
         """
-        # NOTE If / when valimp supports **kwargs then the 'get_params'
-        # parameter could be changed to **kwargs (more convenient for client).
-
         if TYPE_CHECKING:
             assert isinstance(path, Path)
 
@@ -5204,18 +5201,16 @@ class PricesBase(metaclass=abc.ABCMeta):
         else:
             intervals_ = [to_ptinterval(intervals)]
 
-        if get_params is not None and "lose_single_symbol" in get_params:
-            get_params["lose_single_symbol"] = False
+        if kwargs.get("lose_single_symbol", False):
+            kwargs["lose_single_symbol"] = False
 
         dfs = {}
         for intrvl in intervals_:
-            if get_params is not None:
+            if kwargs:
                 try:
-                    df = self.get(
-                        intrvl, include=include, exclude=exclude, **get_params
-                    )
+                    df = self.get(intrvl, include=include, exclude=exclude, **kwargs)
                 except Exception as err:
-                    raise errors.PricesUnavailableForExport(intrvl, get_params) from err
+                    raise errors.PricesUnavailableForExport(intrvl, kwargs) from err
             else:
                 try:
                     df = self.get(
