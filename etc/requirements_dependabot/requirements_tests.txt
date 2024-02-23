@@ -68,7 +68,7 @@ packaging==23.2
     #   black
     #   pytest
     #   tables
-pandas==2.2.0
+pandas==2.2.1
     # via
     #   exchange-calendars
     #   market-prices (pyproject.toml)
