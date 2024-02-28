@@ -130,17 +130,23 @@ def _get_interval_from_filename(name: str) -> TDInterval | None:
     """
     parts = name.split("_")
     intrvl = timedelta(0)
+    errors = False
     for part in parts:
         if (intrvl_ := _get_csv_interval(part)) is None:
             continue
-        if intrvl_ in [ERROR_MALFORMED_INTRVL, ERROR_DAILY_INTRVL]:
+        if intrvl_ is ERROR_DAILY_INTRVL:
             return None
+        if intrvl_ is ERROR_MALFORMED_INTRVL:
+            errors = True
+            continue
         if intrvl and intrvl != intrvl_:
             # at least two different valid intervals in filename
             return None
         intrvl = intrvl_
     if intrvl:
         return intrvl
+    if errors:
+        return None
     return TDInterval.D1  # assume data is daily
 
 
