@@ -47,7 +47,7 @@ lxml==4.9.4
     # via yahooquery
 mccabe==0.7.0
     # via flake8
-msgpack==1.0.7
+msgpack==1.0.8
     # via blosc2
 mypy-extensions==1.0.0
     # via black
