@@ -8,7 +8,7 @@ attrs==23.2.0
     # via hypothesis
 beautifulsoup4==4.12.3
     # via yahooquery
-black==24.2.0
+black==24.3.0
     # via market-prices (pyproject.toml)
 blosc2==2.5.1
     # via tables
