@@ -125,7 +125,7 @@ toolz==0.12.1
     # via exchange-calendars
 tqdm==4.66.2
     # via yahooquery
-typing-extensions==4.9.0
+typing-extensions==4.11.0
     # via black
 tzdata==2024.1
     # via
