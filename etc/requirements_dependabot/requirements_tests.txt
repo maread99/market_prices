@@ -37,7 +37,7 @@ flake8-docstrings==1.7.0
     # via market-prices (pyproject.toml)
 hypothesis==6.98.8
     # via market-prices (pyproject.toml)
-idna==3.6
+idna==3.7
     # via requests
 iniconfig==2.0.0
     # via pytest
