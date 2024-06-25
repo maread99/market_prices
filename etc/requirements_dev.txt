@@ -86,7 +86,7 @@ nodeenv==1.9.1
     # via pre-commit
 numexpr==2.10.1
     # via tables
-numpy==1.26.4
+numpy==2.0.0
     # via
     #   blosc2
     #   exchange-calendars
