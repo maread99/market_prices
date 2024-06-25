@@ -404,7 +404,7 @@ class CsvIncongruentValuesError(CsvParsingError):
         super().__init__(path)
         self._msg = (
             "Parsed high and/or low values are incongrument with open"
-            f" and/or close values (threshold {self.thres*100}% of rows)."
+            f" and/or close values (threshold {self.thres * 100}% of rows)."
         )
 
 
