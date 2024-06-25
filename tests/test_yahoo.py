@@ -48,6 +48,8 @@ from .test_base_prices import (
 # ...sessions that yahoo temporarily fails to return prices for if (seemingly)
 # send a high frequency of requests for prices from the same IP address.
 _flakylist = (
+    pd.Timestamp("2024-05-28"),
+    pd.Timestamp("2024-05-27"),
     pd.Timestamp("2024-01-21"),
     pd.Timestamp("2023-09-08"),
     pd.Timestamp("2023-09-01"),
@@ -430,8 +432,8 @@ class TestConstructor:
     @pytest.fixture(scope="class")
     def symbols(self) -> abc.Iterator[str]:
         yield (
-            "GOOG IT4500.MI ^IBEX ^FTMC 9988.HK GBPEUR=X GC=F BTC-GBP CL=F"
-            " ES=F ZB=F HG=F GEN.L QAN.AX CA.PA BAS.DE FER.MC SPY QQQ ARKQ"
+            "GOOG FTSEMIB.MI ^IBEX ^FTMC 9988.HK GBPEUR=X GC=F BTC-GBP CL=F"
+            " ES=F ZB=F HG=F GEN.L QAN.AX CA.PA BAS.DE FER.MC SPY QQQ ARKG"
         )
 
     @pytest.fixture(scope="class")
@@ -444,7 +446,7 @@ class TestConstructor:
             "CA.PA": "XPAR",
             "BAS.DE": "XFRA",
             "FER.MC": "XMAD",
-            "IT4500.MI": "XMIL",
+            "FTSEMIB.MI": "XMIL",
             "^IBEX": "XMAD",
             "^FTMC": "XLON",
             "GBPEUR=X": "24/5",
@@ -456,7 +458,7 @@ class TestConstructor:
             "HG=F": "CMES",
             "SPY": "XNYS",  # ETF, yahoo exchange name is 'NYSEArca'
             "QQQ": "XNYS",  # ETF, yahoo exchange name is 'NasdaqGM'
-            "ARKQ": "XNYS",  # ETF, yahoo exchange name is 'BATS'
+            "ARKG": "XNYS",  # ETF, yahoo exchange name is 'BATS'
         }
 
     @pytest.fixture(scope="class")
@@ -469,7 +471,7 @@ class TestConstructor:
             "CA.PA": 15,
             "BAS.DE": 15,
             "FER.MC": 15,
-            "IT4500.MI": 15,
+            "FTSEMIB.MI": 15,
             "^IBEX": 15,
             "^FTMC": 15,
             "GBPEUR=X": 0,
@@ -481,7 +483,7 @@ class TestConstructor:
             "HG=F": 10,
             "SPY": 0,
             "QQQ": 0,
-            "ARKQ": 0,
+            "ARKG": 0,
         }
 
     def test_invalid_symbol(self, symbols):
@@ -554,7 +556,7 @@ class TestConstructor:
         repeated call (see 'Tests for `PricesYahoo`'
         section of docs/developers/testing).
         """
-        symbol, cal_name = "MSFT", "XNYS"
+        symbol, cal_name = "AZN.L", "XLON"
         prices = m.PricesYahoo(symbol, calendars=cal_name, delays=0)
         prices_adj = m.PricesYahoo(symbol, calendars=cal_name, delays=0, adj_close=True)
 
