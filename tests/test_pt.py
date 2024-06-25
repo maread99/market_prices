@@ -2142,6 +2142,11 @@ class TestDownsampleDaily:
             df.pt.downsample("3d", xnys),
         )
 
+    # TODO Remove xfail when pandas >2.2 released
+    # NB pd bug manifests in test, not package (manifests where takes a slice to
+    # evaluate 'subset').
+    # pandas issue ref is https://github.com/pandas-dev/pandas/issues/58604
+    @pytest.mark.xfail(reason="Known pd issue with py3.12, should resolve with pd>2.2")
     def test_monthly_freq(self, daily_pt, xnys, x247, one_day, symbols):
         """Verify "MS" and "QS" frequencies."""
         df = daily_pt

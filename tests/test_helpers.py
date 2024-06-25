@@ -312,6 +312,11 @@ def test_volume_to_na(intraday_pt, intraday_pt_ss):
     assert_frame_equal(rtrn, df)
 
 
+# TODO Remove xfail when pandas >2.2 released
+# NB pd bug manifests in test, not package (manifests where evaluate
+# `expected_ooo.index = df[::12]`)
+# pandas issue ref is https://github.com/pandas-dev/pandas/issues/58604
+@pytest.mark.xfail(reason="Known pd issue with py3.12, should resolve with pd>2.2")
 def test_resample(intraday_pt):
     """Test `resample`.
 
