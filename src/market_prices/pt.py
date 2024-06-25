@@ -2415,7 +2415,7 @@ class PTMultipleSessions(_PTIntervalIndexNotIntraday):
         elif len(dates) == len(sessions) and (dates == sessions).all():
             return True
         else:
-            return np.NaN
+            return np.nan
 
     @functools.cache
     @parse
@@ -2625,7 +2625,7 @@ class PTDailyIntradayComposite(_PTIntervalIndexNotIntraday):
 
         For symbols where `date` represents a trading session, price will
         be as at session close. For all other symbols price is as at
-        previous close (or np.NaN if prices table starts later than the
+        previous close (or np.nan if prices table starts later than the
         previous close).
 
         Note: only available over range of index defined by sessions

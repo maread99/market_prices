@@ -1811,7 +1811,7 @@ class PricesBase(metaclass=abc.ABCMeta):
             indices_aligned = self._indices_aligned[bi]
             for session, start, end in zip(sessions, session_opens, session_opens_next):
                 if not indices_aligned[session]:
-                    status[session] = np.NaN
+                    status[session] = np.nan
                     continue
                 bv = (all_in_left_nanos >= start.value) & (
                     all_in_right_nanos <= end.value
@@ -4649,7 +4649,7 @@ class PricesBase(metaclass=abc.ABCMeta):
             c = self.calendars[s]
             sdf = table[s].dropna()
             if sdf.empty:
-                d[s] = np.NaN
+                d[s] = np.nan
                 continue
             v = None
             if set_indice_to_now:

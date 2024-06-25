@@ -94,18 +94,18 @@ def test_fill_reindexed():
         return m.fill_reindexed(df, cal, mock_bi, mock_symbol, "Yahoo")
 
     ohlcv = (
-        [np.NaN, np.NaN, np.NaN, np.NaN, np.NaN],
+        [np.nan, np.nan, np.nan, np.nan, np.nan],
         [1.4, 1.8, 1.2, 1.6, 11],
         [2.4, 2.8, 2.2, 2.6, 22],
         [3.4, 3.8, 3.2, 3.6, 33],
-        [np.NaN, np.NaN, np.NaN, np.NaN, np.NaN],
-        [np.NaN, np.NaN, np.NaN, np.NaN, np.NaN],
-        [np.NaN, np.NaN, np.NaN, np.NaN, np.NaN],
-        [np.NaN, np.NaN, np.NaN, np.NaN, np.NaN],
+        [np.nan, np.nan, np.nan, np.nan, np.nan],
+        [np.nan, np.nan, np.nan, np.nan, np.nan],
+        [np.nan, np.nan, np.nan, np.nan, np.nan],
+        [np.nan, np.nan, np.nan, np.nan, np.nan],
         [8.4, 8.8, 8.2, 8.6, 88],
-        [np.NaN, np.NaN, np.NaN, np.NaN, np.NaN],
+        [np.nan, np.nan, np.nan, np.nan, np.nan],
         [10.4, 10.8, 10.2, 10.6, 101],
-        [np.NaN, np.NaN, np.NaN, np.NaN, np.NaN],
+        [np.nan, np.nan, np.nan, np.nan, np.nan],
     )
     index = pd.DatetimeIndex(
         [
@@ -176,9 +176,9 @@ def test_fill_reindexed():
 
     ohlcv = (
         [0.4, 0.8, 0.2, 0.6, 1],
-        [np.NaN, np.NaN, np.NaN, np.NaN, np.NaN],
+        [np.nan, np.nan, np.nan, np.nan, np.nan],
         [2.4, 2.8, 2.2, 2.6, 22],
-        [np.NaN, np.NaN, np.NaN, np.NaN, np.NaN],
+        [np.nan, np.nan, np.nan, np.nan, np.nan],
         [4.4, 4.8, 4.2, 4.6, 44],
     )
 
@@ -203,9 +203,9 @@ def test_fill_reindexed():
         [0.4, 0.8, 0.2, 0.6, 1],
         [1.4, 1.8, 1.2, 1.6, 11],
         [2.4, 2.8, 2.2, 2.6, 22],
-        [np.NaN, np.NaN, np.NaN, np.NaN, np.NaN],
-        [np.NaN, np.NaN, np.NaN, np.NaN, np.NaN],
-        [np.NaN, np.NaN, np.NaN, np.NaN, np.NaN],
+        [np.nan, np.nan, np.nan, np.nan, np.nan],
+        [np.nan, np.nan, np.nan, np.nan, np.nan],
+        [np.nan, np.nan, np.nan, np.nan, np.nan],
         [6.4, 6.8, 6.2, 6.6, 66],
         [7.4, 7.8, 7.2, 7.6, 77],
         [8.4, 8.8, 8.2, 8.6, 88],
@@ -252,9 +252,9 @@ def test_fill_reindexed():
     # when prices for a first day are missing, verify raises warning and
     # fills back from next open.
     ohlcv = (
-        [np.NaN, np.NaN, np.NaN, np.NaN, np.NaN],
-        [np.NaN, np.NaN, np.NaN, np.NaN, np.NaN],
-        [np.NaN, np.NaN, np.NaN, np.NaN, np.NaN],
+        [np.nan, np.nan, np.nan, np.nan, np.nan],
+        [np.nan, np.nan, np.nan, np.nan, np.nan],
+        [np.nan, np.nan, np.nan, np.nan, np.nan],
         [3.4, 3.8, 3.2, 3.6, 33],
         [4.4, 4.8, 4.2, 4.6, 44],
         [5.4, 5.8, 5.2, 5.6, 55],
@@ -291,24 +291,24 @@ def test_fill_reindexed():
     # verify raises warning and fills both ways (as noted above) for both xlon and
     # xasx (i.e. crossing UTC midnight, which involves different code path).
     ohlcv = (
-        [np.NaN, np.NaN, np.NaN, np.NaN, np.NaN],
-        [np.NaN, np.NaN, np.NaN, np.NaN, np.NaN],
-        [np.NaN, np.NaN, np.NaN, np.NaN, np.NaN],
+        [np.nan, np.nan, np.nan, np.nan, np.nan],
+        [np.nan, np.nan, np.nan, np.nan, np.nan],
+        [np.nan, np.nan, np.nan, np.nan, np.nan],
         [1.4, 1.8, 1.2, 1.6, 11],
         [2.4, 2.8, 2.2, 2.6, 22],
         [3.4, 3.8, 3.2, 3.6, 33],
-        [np.NaN, np.NaN, np.NaN, np.NaN, np.NaN],
-        [np.NaN, np.NaN, np.NaN, np.NaN, np.NaN],
-        [np.NaN, np.NaN, np.NaN, np.NaN, np.NaN],
-        [np.NaN, np.NaN, np.NaN, np.NaN, np.NaN],
-        [np.NaN, np.NaN, np.NaN, np.NaN, np.NaN],
-        [np.NaN, np.NaN, np.NaN, np.NaN, np.NaN],
+        [np.nan, np.nan, np.nan, np.nan, np.nan],
+        [np.nan, np.nan, np.nan, np.nan, np.nan],
+        [np.nan, np.nan, np.nan, np.nan, np.nan],
+        [np.nan, np.nan, np.nan, np.nan, np.nan],
+        [np.nan, np.nan, np.nan, np.nan, np.nan],
+        [np.nan, np.nan, np.nan, np.nan, np.nan],
         [6.4, 6.8, 6.2, 6.6, 66],
         [7.4, 7.8, 7.2, 7.6, 77],
         [8.4, 8.8, 8.2, 8.6, 88],
-        [np.NaN, np.NaN, np.NaN, np.NaN, np.NaN],
-        [np.NaN, np.NaN, np.NaN, np.NaN, np.NaN],
-        [np.NaN, np.NaN, np.NaN, np.NaN, np.NaN],
+        [np.nan, np.nan, np.nan, np.nan, np.nan],
+        [np.nan, np.nan, np.nan, np.nan, np.nan],
+        [np.nan, np.nan, np.nan, np.nan, np.nan],
     )
     index = pd.DatetimeIndex(
         [
@@ -419,15 +419,15 @@ def test_fill_reindexed_daily(one_min, monkeypatch):
         ]
     )
     ohlcv = (
-        [np.NaN, np.NaN, np.NaN, np.NaN, np.NaN],
+        [np.nan, np.nan, np.nan, np.nan, np.nan],
         [1.4, 1.8, 1.2, 1.6, 11],
         [2.4, 2.8, 2.2, 2.6, 22],
-        [np.NaN, np.NaN, np.NaN, np.NaN, np.NaN],
-        [np.NaN, np.NaN, np.NaN, np.NaN, np.NaN],
+        [np.nan, np.nan, np.nan, np.nan, np.nan],
+        [np.nan, np.nan, np.nan, np.nan, np.nan],
         [5.4, 5.8, 5.2, 5.6, 55],
-        [np.NaN, np.NaN, np.NaN, np.NaN, np.NaN],
+        [np.nan, np.nan, np.nan, np.nan, np.nan],
         [7.4, 7.8, 7.2, 7.6, 77],
-        [np.NaN, np.NaN, np.NaN, np.NaN, np.NaN],
+        [np.nan, np.nan, np.nan, np.nan, np.nan],
     )
 
     df = pd.DataFrame(ohlcv, index=index, columns=columns)
@@ -473,7 +473,7 @@ def test_fill_reindexed_daily(one_min, monkeypatch):
         warnings.warn(warnings_[0])
 
     missing_row = pd.DataFrame(
-        [[np.NaN] * 5], index=index[-1:], columns=columns, dtype="float64"
+        [[np.nan] * 5], index=index[-1:], columns=columns, dtype="float64"
     )
     expected = pd.concat([expected[:-1], missing_row])
     assert_frame_equal(rtrn, expected)
@@ -502,7 +502,7 @@ def test_fill_reindexed_daily(one_min, monkeypatch):
         [5.4, 5.8, 5.2, 5.6, 55],
         [6.4, 6.8, 6.2, 6.6, 66],
         [7.4, 7.8, 7.2, 7.6, 77],
-        [np.NaN, np.NaN, np.NaN, np.NaN, np.NaN],
+        [np.nan, np.nan, np.nan, np.nan, np.nan],
     )
     df = pd.DataFrame(ohlcv, index=index, columns=columns)
     rtrn, _ = f(df.copy(), xlon)
@@ -527,8 +527,8 @@ def test_fill_reindexed_daily(one_min, monkeypatch):
 
     # verify that missing prices before mindate are not filled and no warning raised
     ohlcv = (
-        [np.NaN, np.NaN, np.NaN, np.NaN, np.NaN],
-        [np.NaN, np.NaN, np.NaN, np.NaN, np.NaN],
+        [np.nan, np.nan, np.nan, np.nan, np.nan],
+        [np.nan, np.nan, np.nan, np.nan, np.nan],
         [2.4, 2.8, 2.2, 2.6, 22],
         [3.4, 3.8, 3.2, 3.6, 33],
         [4.4, 4.8, 4.2, 4.6, 44],
@@ -2383,7 +2383,7 @@ class TestPricesBaseSetup:
         sessions = get_sessions(prices, bi)
         xasx_sessions, xhkg_sessions = get_calendars_sessions(prices, bi, [xasx, xhkg])
         # ...on a normal day sessions will conflict
-        expected = pd.Series(np.NaN, index=sessions, dtype="object")
+        expected = pd.Series(np.nan, index=sessions, dtype="object")
         # ...but if xasx open and xhkg closed, no partial indices
         expected[xasx_sessions.difference(xhkg_sessions)] = True
         # ...whilst if xhkg open and xasx closed, always partial indices
