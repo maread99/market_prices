@@ -4,19 +4,19 @@
 #
 #    pip-compile --extra=dev --output-file=etc/requirements_dev.txt pyproject.toml
 #
-astroid==3.0.3
+astroid==3.2.2
     # via pylint
 attrs==23.2.0
     # via hypothesis
 beautifulsoup4==4.12.3
     # via yahooquery
-black==24.2.0
+black==24.4.2
     # via market-prices (pyproject.toml)
 blosc2==2.5.1
     # via tables
-build==1.0.3
+build==1.2.1
     # via pip-tools
-certifi==2024.2.2
+certifi==2024.6.2
     # via requests
 cfgv==3.4.0
     # via pre-commit
@@ -37,27 +37,27 @@ dill==0.3.8
     # via pylint
 distlib==0.3.8
     # via virtualenv
-exceptiongroup==1.2.0
+exceptiongroup==1.2.1
     # via
     #   hypothesis
     #   pytest
-exchange-calendars==4.5.3
+exchange-calendars==4.5.5
     # via market-prices (pyproject.toml)
-filelock==3.13.1
+filelock==3.15.4
     # via virtualenv
-flake8==7.0.0
+flake8==7.1.0
     # via
     #   flake8-docstrings
     #   market-prices (pyproject.toml)
 flake8-docstrings==1.7.0
     # via market-prices (pyproject.toml)
-hypothesis==6.98.8
+hypothesis==6.104.0
     # via market-prices (pyproject.toml)
-identify==2.5.35
+identify==2.5.36
     # via pre-commit
-idna==3.6
+idna==3.7
     # via requests
-importlib-metadata==7.0.1
+importlib-metadata==7.2.1
     # via build
 iniconfig==2.0.0
     # via pytest
@@ -71,9 +71,9 @@ mccabe==0.7.0
     # via
     #   flake8
     #   pylint
-msgpack==1.0.7
+msgpack==1.0.8
     # via blosc2
-mypy==1.8.0
+mypy==1.10.1
     # via market-prices (pyproject.toml)
 mypy-extensions==1.0.0
     # via
@@ -82,11 +82,11 @@ mypy-extensions==1.0.0
     #   mypy
 ndindex==1.8
     # via blosc2
-nodeenv==1.8.0
+nodeenv==1.9.1
     # via pre-commit
-numexpr==2.9.0
+numexpr==2.10.1
     # via tables
-numpy==1.26.4
+numpy==2.0.0
     # via
     #   blosc2
     #   exchange-calendars
@@ -95,63 +95,63 @@ numpy==1.26.4
     #   pandas
     #   pandas-stubs
     #   tables
-packaging==23.2
+packaging==24.1
     # via
     #   black
     #   build
     #   pytest
     #   tables
-pandas==2.2.0
+pandas==2.2.2
     # via
     #   exchange-calendars
     #   market-prices (pyproject.toml)
     #   yahooquery
-pandas-stubs==2.2.0.240218
+pandas-stubs==2.2.2.240603
     # via market-prices (pyproject.toml)
 pathspec==0.12.1
     # via black
-pip-tools==7.4.0
+pip-tools==7.4.1
     # via market-prices (pyproject.toml)
-platformdirs==4.2.0
+platformdirs==4.2.2
     # via
     #   black
     #   pylint
     #   virtualenv
-pluggy==1.4.0
+pluggy==1.5.0
     # via pytest
-pre-commit==3.6.2
+pre-commit==3.7.1
     # via market-prices (pyproject.toml)
 py-cpuinfo==9.0.0
     # via
     #   blosc2
     #   tables
-pycodestyle==2.11.1
+pycodestyle==2.12.0
     # via flake8
 pydocstyle==6.3.0
     # via flake8-docstrings
 pyflakes==3.2.0
     # via flake8
-pylint==3.0.3
+pylint==3.2.3
     # via market-prices (pyproject.toml)
 pyluach==2.2.0
     # via exchange-calendars
-pyproject-hooks==1.0.0
+pyproject-hooks==1.1.0
     # via
     #   build
     #   pip-tools
-pytest==8.0.1
+pytest==8.2.2
     # via
     #   market-prices (pyproject.toml)
     #   pytest-mock
-pytest-mock==3.12.0
+pytest-mock==3.14.0
     # via market-prices (pyproject.toml)
-python-dateutil==2.8.2
+python-dateutil==2.9.0.post0
     # via pandas
 pytz==2024.1
     # via pandas
 pyyaml==6.0.1
     # via pre-commit
-requests==2.31.0
+requests==2.32.3
     # via
     #   requests-futures
     #   yahooquery
@@ -174,17 +174,16 @@ tomli==2.0.1
     #   mypy
     #   pip-tools
     #   pylint
-    #   pyproject-hooks
     #   pytest
-tomlkit==0.12.3
+tomlkit==0.12.5
     # via pylint
 toolz==0.12.1
     # via exchange-calendars
-tqdm==4.66.2
+tqdm==4.66.4
     # via yahooquery
-types-pytz==2024.1.0.20240203
+types-pytz==2024.1.0.20240417
     # via pandas-stubs
-typing-extensions==4.9.0
+typing-extensions==4.12.2
     # via
     #   astroid
     #   black
@@ -195,17 +194,17 @@ tzdata==2024.1
     #   exchange-calendars
     #   market-prices (pyproject.toml)
     #   pandas
-urllib3==2.2.1
+urllib3==2.2.2
     # via requests
 valimp==0.3
     # via market-prices (pyproject.toml)
-virtualenv==20.25.0
+virtualenv==20.26.3
     # via pre-commit
-wheel==0.42.0
+wheel==0.43.0
     # via pip-tools
 yahooquery==2.3.7
     # via market-prices (pyproject.toml)
-zipp==3.17.0
+zipp==3.19.2
     # via importlib-metadata
 
 # The following packages are considered to be unsafe in a requirements file:

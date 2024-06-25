@@ -52,7 +52,7 @@ classifiers = [
 
 dependencies = [
     "exchange_calendars",
-    "numpy<2",
+    "numpy",
     "pandas",
     "tzdata",
     "yahooquery",
