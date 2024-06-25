@@ -8,11 +8,11 @@ attrs==23.2.0
     # via hypothesis
 beautifulsoup4==4.12.3
     # via yahooquery
-black==24.2.0
+black==24.4.2
     # via market-prices (pyproject.toml)
 blosc2==2.5.1
     # via tables
-certifi==2024.2.2
+certifi==2024.6.2
     # via requests
 charset-normalizer==3.3.2
     # via requests
@@ -23,21 +23,21 @@ colorama==0.4.6
     #   click
     #   pytest
     #   tqdm
-exceptiongroup==1.2.0
+exceptiongroup==1.2.1
     # via
     #   hypothesis
     #   pytest
-exchange-calendars==4.5.3
+exchange-calendars==4.5.5
     # via market-prices (pyproject.toml)
-flake8==7.0.0
+flake8==7.1.0
     # via
     #   flake8-docstrings
     #   market-prices (pyproject.toml)
 flake8-docstrings==1.7.0
     # via market-prices (pyproject.toml)
-hypothesis==6.98.8
+hypothesis==6.104.0
     # via market-prices (pyproject.toml)
-idna==3.6
+idna==3.7
     # via requests
 iniconfig==2.0.0
     # via pytest
@@ -47,13 +47,13 @@ lxml==4.9.4
     # via yahooquery
 mccabe==0.7.0
     # via flake8
-msgpack==1.0.7
+msgpack==1.0.8
     # via blosc2
 mypy-extensions==1.0.0
     # via black
 ndindex==1.8
     # via blosc2
-numexpr==2.9.0
+numexpr==2.10.1
     # via tables
 numpy==1.26.4
     # via
@@ -63,27 +63,27 @@ numpy==1.26.4
     #   numexpr
     #   pandas
     #   tables
-packaging==23.2
+packaging==24.1
     # via
     #   black
     #   pytest
     #   tables
-pandas==2.2.0
+pandas==2.2.2
     # via
     #   exchange-calendars
     #   market-prices (pyproject.toml)
     #   yahooquery
 pathspec==0.12.1
     # via black
-platformdirs==4.2.0
+platformdirs==4.2.2
     # via black
-pluggy==1.4.0
+pluggy==1.5.0
     # via pytest
 py-cpuinfo==9.0.0
     # via
     #   blosc2
     #   tables
-pycodestyle==2.11.1
+pycodestyle==2.12.0
     # via flake8
 pydocstyle==6.3.0
     # via flake8-docstrings
@@ -91,17 +91,17 @@ pyflakes==3.2.0
     # via flake8
 pyluach==2.2.0
     # via exchange-calendars
-pytest==8.0.1
+pytest==8.2.2
     # via
     #   market-prices (pyproject.toml)
     #   pytest-mock
-pytest-mock==3.12.0
+pytest-mock==3.14.0
     # via market-prices (pyproject.toml)
-python-dateutil==2.8.2
+python-dateutil==2.9.0.post0
     # via pandas
 pytz==2024.1
     # via pandas
-requests==2.31.0
+requests==2.32.3
     # via
     #   requests-futures
     #   yahooquery
@@ -123,16 +123,16 @@ tomli==2.0.1
     #   pytest
 toolz==0.12.1
     # via exchange-calendars
-tqdm==4.66.2
+tqdm==4.66.4
     # via yahooquery
-typing-extensions==4.9.0
+typing-extensions==4.12.2
     # via black
 tzdata==2024.1
     # via
     #   exchange-calendars
     #   market-prices (pyproject.toml)
     #   pandas
-urllib3==2.2.1
+urllib3==2.2.2
     # via requests
 valimp==0.3
     # via market-prices (pyproject.toml)
