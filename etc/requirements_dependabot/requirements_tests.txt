@@ -35,7 +35,7 @@ flake8==7.1.0
     #   market-prices (pyproject.toml)
 flake8-docstrings==1.7.0
     # via market-prices (pyproject.toml)
-hypothesis==6.104.0
+hypothesis==6.108.5
     # via market-prices (pyproject.toml)
 idna==3.7
     # via requests
