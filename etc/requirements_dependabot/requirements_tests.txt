@@ -10,7 +10,7 @@ beautifulsoup4==4.12.3
     # via yahooquery
 black==24.4.2
     # via market-prices (pyproject.toml)
-blosc2==2.5.1
+blosc2==2.7.1
     # via tables
 certifi==2024.6.2
     # via requests
