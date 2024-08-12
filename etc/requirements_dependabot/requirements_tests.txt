@@ -43,7 +43,7 @@ iniconfig==2.0.0
     # via pytest
 korean-lunar-calendar==0.3.1
     # via exchange-calendars
-lxml==4.9.4
+lxml==5.3.0
     # via yahooquery
 mccabe==0.7.0
     # via flake8
