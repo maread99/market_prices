@@ -9,8 +9,6 @@ and 'end' values will have been parsed initially with
 `market_prices.parsing.parse_start_end`.
 """
 
-from __future__ import annotations
-
 import contextlib
 import itertools
 import re

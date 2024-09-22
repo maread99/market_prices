@@ -1,11 +1,8 @@
 """Get prices via yahooquery."""
 
-from __future__ import annotations
-
 import datetime
 import functools
 import warnings
-from typing import Optional, Union
 
 from pandas import DataFrame
 import pandas as pd
@@ -353,12 +350,12 @@ class PricesYahoo(base.PricesBase):
     @parse
     def __init__(
         self,
-        symbols: Union[str, list[str]],
-        calendars: Optional[mptypes.Calendars] = None,
-        lead_symbol: Optional[str] = None,
-        delays: Optional[Union[int, list[int], dict[str, int]]] = None,
+        symbols: str | list[str],
+        calendars: mptypes.Calendars | None = None,
+        lead_symbol: str | None = None,
+        delays: int | list[int] | dict[str, int] | None = None,
         adj_close: bool = False,
-        proxies: Optional[dict[str, str]] = None,
+        proxies: dict[str, str] | None = None,
     ):
         symbols = helpers.symbols_to_list(symbols)
         self._ticker = yq.Ticker(

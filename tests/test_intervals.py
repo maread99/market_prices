@@ -1,7 +1,5 @@
 """Tests for market_prices.intervals module."""
 
-from __future__ import annotations
-
 from collections import abc
 from datetime import timedelta
 import itertools

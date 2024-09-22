@@ -1,7 +1,5 @@
 """Helper functions to identify data to use in tutorials or tests."""
 
-from __future__ import annotations
-
 import exchange_calendars as xcals
 import pandas as pd
 

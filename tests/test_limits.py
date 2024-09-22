@@ -5,8 +5,6 @@ and over either or both of left and right limits and with 'strict' as both
 True and False. Also tests effect of 'priority'.
 """
 
-from __future__ import annotations
-
 import itertools
 import re
 import typing

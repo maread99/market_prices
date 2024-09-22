@@ -4,8 +4,6 @@ PricesBase(metaclass=abc.ABCMeta):
     ABC for serving price data obtained from a source.
 """
 
-from __future__ import annotations
-
 import abc
 import collections
 import contextlib
@@ -17,7 +15,7 @@ import itertools
 import warnings
 from collections.abc import Callable
 from pathlib import Path
-from typing import TYPE_CHECKING, Annotated, Any, Literal, Optional, Union
+from typing import TYPE_CHECKING, Annotated, Any, Literal
 from zoneinfo import ZoneInfo
 
 import exchange_calendars as xcals
@@ -3292,15 +3290,15 @@ class PricesBase(metaclass=abc.ABCMeta):
     def get(
         self,
         interval: Annotated[
-            Union[str, pd.Timedelta, datetime.timedelta, None],
+            str | pd.Timedelta | datetime.timedelta | None,
             Parser(intervals.parse_interval, parse_none=False),
         ] = None,
         start: Annotated[
-            Union[pd.Timestamp, str, datetime.datetime, int, float, None],
+            pd.Timestamp | str | datetime.datetime | int | float | None,
             Coerce(pd.Timestamp),
         ] = None,
         end: Annotated[
-            Union[pd.Timestamp, str, datetime.datetime, int, float, None],
+            pd.Timestamp |str | datetime.datetime | int | float | None,
             Coerce(pd.Timestamp),
         ] = None,
         minutes: int = 0,
@@ -3310,9 +3308,9 @@ class PricesBase(metaclass=abc.ABCMeta):
         months: int = 0,
         years: int = 0,
         add_a_row: bool = False,
-        lead_symbol: Annotated[Optional[str], Parser(parsing.lead_symbol)] = None,
+        lead_symbol: Annotated[str | None, Parser(parsing.lead_symbol)] = None,
         tzin: Annotated[
-            Optional[Union[str, ZoneInfo]],
+            str | ZoneInfo | None,
             Parser(parsing.to_prices_timezone, parse_none=False),
         ] = None,
         anchor: Literal["workback", "open"] = "open",
@@ -3322,13 +3320,13 @@ class PricesBase(metaclass=abc.ABCMeta):
         composite: bool = False,
         force: bool = False,
         tzout: Annotated[
-            Optional[Union[str, ZoneInfo]],
+            str | ZoneInfo | None,
             Parser(parsing.to_prices_timezone, parse_none=False),
         ] = None,
-        fill: Optional[Literal["ffill", "bfill", "both"]] = None,
-        include: Optional[mptypes.Symbols] = None,
-        exclude: Optional[mptypes.Symbols] = None,
-        side: Optional[Literal["left", "right"]] = None,
+        fill: Literal["ffill", "bfill", "both"] | None = None,
+        include: mptypes.Symbols | None = None,
+        exclude: mptypes.Symbols | None = None,
+        side: Literal["left", "right"] | None = None,
         close_only: bool = False,
         lose_single_symbol: bool = False,
     ) -> pd.DataFrame:
@@ -4288,7 +4286,7 @@ class PricesBase(metaclass=abc.ABCMeta):
     def session_prices(
         self,
         session: Annotated[
-            Union[pd.Timestamp, str, datetime.datetime, int, float, None],
+            pd.Timestamp | str | datetime.datetime | int | float | None,
             Coerce(pd.Timestamp),
             Parser(parsing.verify_datetimestamp, parse_none=False),
         ] = None,
@@ -4380,7 +4378,7 @@ class PricesBase(metaclass=abc.ABCMeta):
     def close_at(
         self,
         date: Annotated[
-            Union[pd.Timestamp, str, datetime.datetime, int, float, None],
+            pd.Timestamp | str | datetime.datetime | int | float | None,
             Coerce(pd.Timestamp),
             Parser(parsing.verify_datetimestamp, parse_none=False),
         ] = None,
@@ -4684,12 +4682,12 @@ class PricesBase(metaclass=abc.ABCMeta):
     def price_at(
         self,
         minute: Annotated[
-            Union[pd.Timestamp, str, datetime.datetime, int, float, None],
+            pd.Timestamp | str | datetime.datetime | int | float | None,
             Coerce(pd.Timestamp),
             Parser(parsing.verify_timetimestamp, parse_none=False),
         ] = None,
         tz: Annotated[
-            Optional[Union[str, ZoneInfo]],
+            str | ZoneInfo | None,
             Parser(parsing.to_prices_timezone, parse_none=False),
         ] = None,
     ) -> pd.DataFrame:
@@ -4858,11 +4856,11 @@ class PricesBase(metaclass=abc.ABCMeta):
     def price_range(
         self,
         start: Annotated[
-            Union[pd.Timestamp, str, datetime.datetime, int, float, None],
+            pd.Timestamp | str | datetime.datetime | int | float | None,
             Coerce(pd.Timestamp),
         ] = None,
         end: Annotated[
-            Union[pd.Timestamp, str, datetime.datetime, int, float, None],
+            pd.Timestamp | str | datetime.datetime | int | float | None,
             Coerce(pd.Timestamp),
         ] = None,
         minutes: int = 0,
@@ -4871,21 +4869,21 @@ class PricesBase(metaclass=abc.ABCMeta):
         weeks: int = 0,
         months: int = 0,
         years: int = 0,
-        lead_symbol: Annotated[Optional[str], Parser(parsing.lead_symbol)] = None,
+        lead_symbol: Annotated[str | None, Parser(parsing.lead_symbol)] = None,
         tzin: Annotated[
-            Optional[Union[str, ZoneInfo]],
+            str | ZoneInfo | None,
             Parser(parsing.to_prices_timezone, parse_none=False),
         ] = None,
         strict: bool = True,
         tzout: Annotated[
-            Optional[Union[str, ZoneInfo]],
+            str | ZoneInfo | None,
             Parser(parsing.to_prices_timezone, parse_none=False),
         ] = None,
-        include: Optional[mptypes.Symbols] = None,
-        exclude: Optional[mptypes.Symbols] = None,
+        include: mptypes.Symbols | None = None,
+        exclude: mptypes.Symbols | None = None,
         stack: bool = False,
         underlying: bool = False,
-    ) -> Union[pd.DataFrame, tuple[pd.DataFrame, pd.DataFrame]]:
+    ) -> pd.DataFrame | tuple[pd.DataFrame, pd.DataFrame]:
         """Return OHLCV data for a period.
 
         Returns the following for each symbol:
@@ -5107,21 +5105,18 @@ class PricesBase(metaclass=abc.ABCMeta):
     @parse
     def to_csv(
         self,
-        path: Annotated[
-            Union[str, Path], Coerce(Path), Parser(parsing.verify_directory)
-        ],
-        intervals: Optional[  # pylint: disable=redefined-outer-name
-            Union[
-                str,
-                pd.Timedelta,
-                datetime.timedelta,
-                list[str],
-                list[pd.Timedelta],
-                list[datetime.timedelta],
-            ]
-        ] = None,
-        include: Optional[mptypes.Symbols] = None,
-        exclude: Optional[mptypes.Symbols] = None,
+        path: Annotated[str | Path, Coerce(Path), Parser(parsing.verify_directory)],
+        intervals: (
+            str
+            | pd.Timedelta
+            | datetime.timedelta
+            | list[str]
+            | list[pd.Timedelta]
+            | list[datetime.timedelta]
+            | None
+        ) = None,
+        include: mptypes.Symbols | None = None,
+        exclude: mptypes.Symbols | None = None,
         **kwargs,
     ) -> list[Path]:
         """Export price data to .csv file(s).

@@ -10,8 +10,6 @@ when a parameter is, or evaluates to, a session or minute that lies outside
 of these bounds.
 """
 
-from __future__ import annotations
-
 import typing
 from typing import TYPE_CHECKING
 import copy

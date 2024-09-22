@@ -12,8 +12,6 @@ defined on `test_yahoo.py` for the convenience of using fixtures and helpers
 best defined there.
 """
 
-from __future__ import annotations
-
 from collections import abc
 import datetime
 import itertools

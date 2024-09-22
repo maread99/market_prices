@@ -1,7 +1,5 @@
 """Tests for market_prices.data module."""
 
-from __future__ import annotations
-
 from collections import abc
 
 import exchange_calendars as xcals
