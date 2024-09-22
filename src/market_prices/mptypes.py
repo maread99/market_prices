@@ -12,11 +12,9 @@ NOTE: types concerning intervals are maintained on the
 `market_prices.intervals` module.
 """
 
-from __future__ import annotations
-
 import datetime
 import enum
-from typing import TypedDict, Union
+from typing import TypedDict
 
 import pandas as pd
 from exchange_calendars import ExchangeCalendar
@@ -24,13 +22,13 @@ from exchange_calendars import ExchangeCalendar
 
 # ----------------------------- Type aliases ------------------------------
 
-Symbols = Union[list[str], str]
+Symbols = list[str] | str
 """For public parameters that define instrument symbol(s)."""
 
-Calendar = Union[str, ExchangeCalendar]  # pylint: disable=no-member
+Calendar = str | ExchangeCalendar  # pylint: disable=no-member
 """Acceptable types to define a single calendar."""
 
-Calendars = Union[Calendar, list[Calendar], dict[str, Calendar]]
+Calendars = Calendar | list[Calendar] | dict[str, Calendar]
 """For public parameters that can define calendars by-symbol."""
 
 # ----------------------------- Custom types ------------------------------
@@ -64,14 +62,14 @@ class PandasFrequency(str):
 # ------------------------------ Type aliases -----------------------------
 
 # Aliases with no public use
-DateRangeAmb = tuple[Union[pd.Timestamp, None], Union[pd.Timestamp, None]]
+DateRangeAmb = tuple[pd.Timestamp | None, pd.Timestamp | None]
 """For internal types that define a range of dates which can be ambiguous.
 
 tuple[0]: Range start date. If None, earliest available date.
 tuple[1]: Range end date. If None, latest available date.
 """
 
-DateRangeReq = tuple[Union[pd.Timestamp, None], pd.Timestamp]
+DateRangeReq = tuple[pd.Timestamp | None, pd.Timestamp]
 """For internal types that define a range of dates over which to request prices.
 
 tuple[0]: Range start date. If None, earliest date for which prices are available.
@@ -85,7 +83,7 @@ tuple[0]: Range start date.
 tuple[1]: Range end date.
 """
 
-DateTimestamp = Union[pd.Timestamp, str, datetime.datetime, int, float]
+DateTimestamp = pd.Timestamp | str | datetime.datetime | int | float
 """Type to annotate an input that takes a value representing a date.
 
 Used in abstract base classes to identify inputs that should be coerced to
@@ -93,7 +91,7 @@ a `pd.Timestamp` and validated as a date with
 `market_prices.parsing.to_datetimestamp`.
 """
 
-TimeTimestamp = Union[pd.Timestamp, str, datetime.datetime, int, float]
+TimeTimestamp = pd.Timestamp | str | datetime.datetime | int | float
 """Type to annotate an input that takes a value representing a time.
 
 Used in abstract base classes to identify inputs that should be coerced to

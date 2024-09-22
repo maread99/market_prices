@@ -1,6 +1,5 @@
 """Tests for market_prices.utils.pandas_utils module."""
 
-from __future__ import annotations
 from collections import abc
 import re
 from typing import Annotated

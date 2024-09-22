@@ -1,7 +1,5 @@
 """Tests for market_prices.helpers module."""
 
-from __future__ import annotations
-
 from collections.abc import Iterator
 from zoneinfo import ZoneInfo
 

@@ -8,8 +8,6 @@ Tests for the base module that require price data to be requested are on
 `test_base_prices`.
 """
 
-from __future__ import annotations
-
 from collections import abc
 import dataclasses
 import itertools

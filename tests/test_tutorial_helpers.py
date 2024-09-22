@@ -1,7 +1,5 @@
 """Tests for market_prices.support.tutorial_helpers module."""
 
-from __future__ import annotations
-
 from collections import abc
 import re
 

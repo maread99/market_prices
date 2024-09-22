@@ -398,7 +398,7 @@ def create_base_intervals_enum(intervals: list[TDInterval]) -> _BaseInterval:
 
 
 BI = _BaseInterval
-PTInterval = typing.Union[TDInterval, DOInterval, BI]
+PTInterval = TDInterval | DOInterval | BI
 
 ONE_MIN: TDInterval = TDInterval.T1
 ONE_DAY: TDInterval = TDInterval.D1

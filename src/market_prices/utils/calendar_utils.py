@@ -5,8 +5,6 @@ Of note:
     times of multiple underlying calendars.
 """
 
-from __future__ import annotations
-
 import functools
 from collections import abc
 from typing import TYPE_CHECKING, Literal

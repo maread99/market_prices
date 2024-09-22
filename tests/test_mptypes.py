@@ -3,8 +3,6 @@
 Tests mptypes for invalid input and expected return.
 """
 
-from __future__ import annotations
-
 from typing import Annotated
 
 import pandas as pd

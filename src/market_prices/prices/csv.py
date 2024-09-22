@@ -7,7 +7,7 @@ import os
 import pprint
 import traceback
 import typing
-from typing import Union, Optional, Any, Literal, Annotated
+from typing import Any, Literal, Annotated
 import warnings
 from collections import defaultdict
 from datetime import timedelta
@@ -1070,13 +1070,11 @@ class PricesCsv(base.PricesBase):
     @parse
     def __init__(
         self,
-        path: Annotated[
-            Union[str, Path], Coerce(Path), Parser(parsing.verify_directory)
-        ],
-        symbols: Union[str, list[str]],
+        path: Annotated[str | Path, Coerce(Path), Parser(parsing.verify_directory)],
+        symbols: str | list[str],
         calendars: mptypes.Calendars,
-        lead_symbol: Optional[str] = None,
-        read_csv_kwargs: Optional[dict[str, Any]] = None,
+        lead_symbol: str | None = None,
+        read_csv_kwargs: dict[str, Any] | None = None,
         ohlc_thres: float = 0.08,
         pm_subsession_origin: Literal["open", "break_end"] = "open",
         verbose: bool = False,

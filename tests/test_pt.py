@@ -1,7 +1,5 @@
 """Tests for market_prices.pt module."""
 
-from __future__ import annotations
-
 import math
 import re
 import typing

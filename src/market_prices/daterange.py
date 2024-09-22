@@ -1,7 +1,5 @@
 """Classes to get date ranges over which to request prices."""
 
-from __future__ import annotations
-
 import abc
 from collections.abc import Callable
 from datetime import timedelta

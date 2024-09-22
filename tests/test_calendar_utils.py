@@ -6,8 +6,6 @@ Exception testing.
     Tests only test for exceptions raised directly by the tested method.
 """
 
-from __future__ import annotations
-
 import functools
 import itertools
 import re

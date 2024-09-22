@@ -1,7 +1,5 @@
 """Tests for market_prices.prices.csv module."""
 
-from __future__ import annotations
-
 import copy
 import os
 import re

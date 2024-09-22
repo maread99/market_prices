@@ -9,8 +9,6 @@ Functions to parse/validate via a `valimp.Parser` are defined under a
 dedicated sections.
 """
 
-from __future__ import annotations
-
 from pathlib import Path
 import typing
 from typing import Any

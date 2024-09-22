@@ -1,11 +1,9 @@
 """Utility functions and classes for pandas library."""
 
-from __future__ import annotations
-
 import warnings
 from collections import abc
 from contextlib import contextmanager
-from typing import Any, Literal, Union, Annotated
+from typing import Any, Literal, Annotated
 from zoneinfo import ZoneInfo
 
 import numpy as np
@@ -500,7 +498,7 @@ def verify_interval_datetime_index(
 @parse
 def interval_index_new_tz(
     index: Annotated[pd.IntervalIndex, Parser(verify_interval_datetime_index)],
-    tz: Union[ZoneInfo, str, None],
+    tz: ZoneInfo | str | None,
 ) -> pd.IntervalIndex:
     """Return pd.IntervalIndex with different timezone.
 
@@ -551,7 +549,7 @@ def interval_index_new_tz(
 @parse
 def index_is_normalized(
     index: Annotated[
-        Union[pd.DatetimeIndex, pd.IntervalIndex],
+        pd.DatetimeIndex | pd.IntervalIndex,
         Parser(verify_interval_datetime_index),
     ]
 ) -> bool:
@@ -620,7 +618,7 @@ def indexes_union(indexes: list[pd.Index]) -> pd.Index:
 
 
 @parse
-def index_union(indexes: list[Union[pd.Index, pd.Series, pd.DataFrame]]) -> pd.Index:
+def index_union(indexes: list[pd.Index | pd.Series | pd.DataFrame]) -> pd.Index:
     """Union indexes of multiple indexes, Series and/or DataFrame.
 
     Parameters

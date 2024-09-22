@@ -1,7 +1,5 @@
 """Tests for market_prices.parsing module."""
 
-from __future__ import annotations
-
 from collections import abc
 from collections.abc import Callable
 import dataclasses
@@ -10,7 +8,7 @@ import itertools
 from pathlib import Path
 import re
 import typing
-from typing import Annotated, Union, TYPE_CHECKING
+from typing import Annotated, TYPE_CHECKING
 import zoneinfo
 from zoneinfo import ZoneInfo
 
@@ -1179,9 +1177,7 @@ def assert_valid_timezone(func: Callable, field: str):
 
 def test_to_timezone():
     @parse
-    def mock_func(
-        arg: Annotated[Union[ZoneInfo, str], Parser(m.to_timezone)]
-    ) -> ZoneInfo:
+    def mock_func(arg: Annotated[ZoneInfo | str, Parser(m.to_timezone)]) -> ZoneInfo:
         assert isinstance(arg, ZoneInfo)
         return arg
 
@@ -1204,8 +1200,7 @@ def test_to_prices_timezone():
 
         @parse
         def mock_func(
-            self,
-            arg: Annotated[Union[str, ZoneInfo], Parser(m.to_prices_timezone)],
+            self, arg: Annotated[str | ZoneInfo, Parser(m.to_prices_timezone)]
         ) -> ZoneInfo:
             assert isinstance(arg, ZoneInfo)
             return arg
@@ -1226,7 +1221,7 @@ def test_to_datetimestamp():
     @parse
     def mock_func(
         arg: Annotated[
-            Union[pd.Timestamp, str, datetime.datetime, int, float, None],
+            pd.Timestamp | str | datetime.datetime | int | float | None,
             Coerce(pd.Timestamp),
             Parser(m.verify_datetimestamp, parse_none=False),
         ] = None,
@@ -1265,7 +1260,7 @@ def test_to_timetimestamp():
     @parse
     def mock_func(
         arg: Annotated[
-            Union[pd.Timestamp, str, datetime.datetime, int, float, None],
+            pd.Timestamp | str | datetime.datetime | int | float | None,
             Coerce(pd.Timestamp),
             Parser(m.verify_timetimestamp, parse_none=False),
         ] = None,

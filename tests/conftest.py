@@ -1,7 +1,5 @@
 """Common pytest fixtures."""
 
-from __future__ import annotations
-
 from collections import abc
 import os
 from pathlib import Path

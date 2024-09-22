@@ -3,8 +3,6 @@
 Data: administrator of price data for a specific base interval.
 """
 
-from __future__ import annotations
-
 import math
 from collections.abc import Callable, Sequence
 

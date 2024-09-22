@@ -7,7 +7,7 @@ import collections
 import datetime
 import functools
 import warnings
-from typing import TYPE_CHECKING, Literal, Optional, Union, Annotated
+from typing import TYPE_CHECKING, Literal, Annotated
 from zoneinfo import ZoneInfo
 
 import exchange_calendars as xcals
@@ -366,10 +366,10 @@ class _PT(metaclass=abc.ABCMeta):
     def get_trading_index(
         self,
         calendar: xcals.ExchangeCalendar,
-        closed: Optional[Literal["left", "right"]] = "left",
+        closed: Literal["left", "right"] | None = "left",
         force=False,
         ignore_breaks=False,
-    ) -> Union[pd.DatetimeIndex, pd.IntervalIndex]:
+    ) -> pd.DatetimeIndex | pd.IntervalIndex:
         """Calendar-based trading index over period covered by table.
 
         Parameters
@@ -446,7 +446,7 @@ class _PT(metaclass=abc.ABCMeta):
         calendar: xcals.ExchangeCalendar,
         force: bool = False,
         ignore_breaks: bool = True,
-        fill: Optional[Literal["ffill", "bfill", "both"]] = None,
+        fill: Literal["ffill", "bfill", "both"] | None = None,
     ) -> pd.DataFrame:
         """Reindex prices table against a given calendar.
 
@@ -547,7 +547,7 @@ class _PT(metaclass=abc.ABCMeta):
     @parse
     def indices_trading(
         self, calendar: xcals.ExchangeCalendar
-    ) -> Union[pd.DatetimeIndex, pd.IntervalIndex]:
+    ) -> pd.DatetimeIndex | pd.IntervalIndex:
         """Return trading indices only.
 
         Parameters
@@ -581,7 +581,7 @@ class _PT(metaclass=abc.ABCMeta):
     @parse
     def indices_non_trading(
         self, calendar: xcals.ExchangeCalendar
-    ) -> Union[pd.DatetimeIndex, pd.IntervalIndex]:
+    ) -> pd.DatetimeIndex | pd.IntervalIndex:
         """Return non-trading indices only.
 
         Parameters
@@ -613,7 +613,7 @@ class _PT(metaclass=abc.ABCMeta):
     @parse
     def indices_partial_trading(
         self, calendar: xcals.ExchangeCalendar
-    ) -> Union[pd.DatetimeIndex, pd.IntervalIndex]:
+    ) -> pd.DatetimeIndex | pd.IntervalIndex:
         """Return only partial-trading indices.
 
         Parameters
@@ -885,17 +885,17 @@ class _PT(metaclass=abc.ABCMeta):
     @parse
     def operate(
         self,
-        tz: Optional[Union[Literal[False], str, ZoneInfo]] = False,
-        fill: Optional[Literal["ffill", "bfill", "both"]] = None,
-        include: Optional[Symbols] = None,
-        exclude: Optional[Symbols] = None,
+        tz: Literal[False] | str | ZoneInfo | None = False,
+        fill: Literal["ffill", "bfill", "both"] | None = None,
+        include: Symbols | None = None,
+        exclude: Symbols | None = None,
         data_for_all: bool = False,
         data_for_all_start: bool = False,
         data_for_all_end: bool = False,
-        side: Optional[Literal["left", "right"]] = None,
+        side: Literal["left", "right"] | None = None,
         close_only: bool = False,
         lose_single_symbol: bool = False,
-    ) -> Union[pd.Series, pd.DataFrame]:
+    ) -> pd.Series | pd.DataFrame:
         """Undertake common table operation(s).
 
         Note: some operations are also provided via the `get` method of
@@ -1178,7 +1178,7 @@ class PTDaily(_PT):
     def session_prices(
         self,
         session: Annotated[
-            Union[pd.Timestamp, str, datetime.datetime, int, float],
+            pd.Timestamp | str | datetime.datetime | int | float,
             Coerce(pd.Timestamp),
             Parser(parsing.verify_datetimestamp),
         ],
@@ -1213,7 +1213,7 @@ class PTDaily(_PT):
     def close_at(
         self,
         date: Annotated[
-            Union[pd.Timestamp, str, datetime.datetime, int, float],
+            pd.Timestamp | str | datetime.datetime | int | float,
             Coerce(pd.Timestamp),
             Parser(parsing.verify_datetimestamp),
         ],
@@ -1366,10 +1366,8 @@ class PTDaily(_PT):
     @parse
     def downsample(  # pylint: disable=arguments-differ
         self,
-        pdfreq: Union[str, pd.offsets.BaseOffset],
-        calendar: Optional[
-            Union[xcals.ExchangeCalendar, calutils.CompositeCalendar]
-        ] = None,
+        pdfreq: str | pd.offsets.BaseOffset,
+        calendar: xcals.ExchangeCalendar | calutils.CompositeCalendar | None = None,
         drop_incomplete_last_indice: bool = True,
     ) -> pd.DataFrame:
         """Return table downsampled to a given pandas frequency.
@@ -1643,8 +1641,8 @@ class PTIntraday(_PTIntervalIndex):
     @parse
     def sessions(
         self,
-        calendar: Union[xcals.ExchangeCalendar, calutils.CompositeCalendar],
-        direction: Optional[Literal["previous", "next"]] = "previous",
+        calendar: xcals.ExchangeCalendar | calutils.CompositeCalendar,
+        direction: Literal["previous", "next"] | None = "previous",
     ) -> pd.Series:
         """Return pd.Series mapping indices sessions.
 
@@ -1685,7 +1683,7 @@ class PTIntraday(_PTIntervalIndex):
     @parse
     def session_column(
         self,
-        calendar: Union[xcals.ExchangeCalendar, calutils.CompositeCalendar],
+        calendar: xcals.ExchangeCalendar | calutils.CompositeCalendar,
         direction: Literal["previous", "next", None] = "previous",
     ) -> pd.DataFrame:
         """Return table with extra column mapping indices to sessions.
@@ -1952,12 +1950,12 @@ class PTIntraday(_PTIntervalIndex):
     def price_at(  # pylint: disable=arguments-differ
         self,
         ts: Annotated[
-            Union[pd.Timestamp, str, datetime.datetime, int, float],
+            pd.Timestamp | str | datetime.datetime | int | float,
             Coerce(pd.Timestamp),
             Parser(parsing.verify_timetimestamp),
         ],
         tz: Annotated[
-            Union[ZoneInfo, str, None],
+            ZoneInfo | str | None,
             Parser(parsing.to_timezone, parse_none=False),
         ] = None,
     ) -> pd.DataFrame:
@@ -2192,9 +2190,9 @@ class PTIntraday(_PTIntervalIndex):
         self,
         pdfreq: Annotated[str, Coerce(mptypes.PandasFrequency)],
         anchor: Literal["workback", "open"] = "workback",
-        calendar: Optional[xcals.ExchangeCalendar] = None,
+        calendar: xcals.ExchangeCalendar | None = None,
         curtail_end: bool = False,
-        composite_calendar: Optional[CompositeCalendar] = None,
+        composite_calendar: CompositeCalendar | None = None,
     ) -> pd.DataFrame:
         """Return table downsampled to a frequency defined in minutes/hours.
 
@@ -2570,7 +2568,7 @@ class PTDailyIntradayComposite(_PTIntervalIndexNotIntraday):
     def price_at(
         self,
         ts: Annotated[
-            Union[pd.Timestamp, str, datetime.datetime, int, float],
+            pd.Timestamp | str | datetime.datetime | int | float,
             Coerce(pd.Timestamp),
             Parser(parsing.verify_timetimestamp),
         ],
