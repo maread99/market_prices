@@ -27,7 +27,7 @@ keywords = [
     "commodities",
     "indices",
 ]
-requires-python = "~=3.9"
+requires-python = "~=3.10"
 
 classifiers = [
 	"Development Status :: 4 - Beta",
@@ -41,7 +41,6 @@ classifiers = [
 	"Programming Language :: Python",
 	"Programming Language :: Python :: 3",
 	"Programming Language :: Python :: 3 :: Only",
-	"Programming Language :: Python :: 3.9",
 	"Programming Language :: Python :: 3.10",
 	"Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
@@ -53,7 +52,7 @@ classifiers = [
 
 dependencies = [
     "exchange_calendars",
-    "numpy<2",
+    "numpy",
     "pandas",
     "tzdata",
     "yahooquery",
@@ -99,4 +98,4 @@ write_to = "src/market_prices/_version.py"
 
 [tool.black]
 line-length = 88
-target-version = ['py39', 'py310', 'py311', 'py312']
+target-version = ['py310', 'py311', 'py312']

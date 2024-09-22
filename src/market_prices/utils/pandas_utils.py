@@ -566,10 +566,10 @@ def index_is_normalized(
     --------
     >>> index = pd.date_range('2021-05-01 12:00', periods=5, freq='h')
     >>> index_is_normalized(index)
-    False
+    np.False_
     >>> index = pd.date_range('2021-05-01', periods=5, freq='1D')
     >>> index_is_normalized(index)
-    True
+    np.True_
 
     >>> index = pd.interval_range(
     ...     pd.Timestamp('2021-05-01 12:00'), periods=5, freq='h'
@@ -666,7 +666,7 @@ def most_common(values: abc.Sequence[Any] | pd.Series) -> Any:
     >>> most_common(['foo', 'bar', 'foo', 'bar', 'spam', 'spam', 'foo'])
     'foo'
     >>> most_common([2, 1, 3, 3, 4, 2, 2, 2, 1, 1, 2, 2, 2])
-    2
+    np.int64(2)
 
     Where two values share maximum incidence, first to appear is returned.
     >>> most_common(['foo', 'bar', 'bar', 'bar', 'foo', 'foo'])
