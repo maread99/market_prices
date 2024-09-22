@@ -68,7 +68,7 @@ def calendar_session(
     draw,
     calendar_name: str,
     limit: tuple[pd.Timestamp | None, pd.Timestamp | None] = (None, None),
-) -> st.SearchStrategy[pd.Timestamp]:
+) -> pd.Timestamp:
     """Return strategy to generate a session for a given calendar.
 
     Parameters
@@ -96,7 +96,7 @@ def calendar_start_end_sessions(
     limit: tuple[pd.Timestamp | None, pd.Timestamp | None] = (None, None),
     min_dist: int | pd.Timedelta = 0,
     max_dist: int | pd.Timedelta | None = None,
-) -> st.SearchStrategy[tuple[pd.Timestamp, pd.Timestamp]]:
+) -> tuple[pd.Timestamp, pd.Timestamp]:
     """Return strategy to generate a start and end session for a given calendar.
 
     Parameters
@@ -163,7 +163,7 @@ def start_minutes(
     draw,
     calendar_name: str,
     limit: tuple[pd.Timestamp | None, pd.Timestamp | None] = (None, None),
-) -> st.SearchStrategy[pd.Timestamp]:
+) -> pd.Timestamp:
     """Return strategy to generate a 'start' minute for a given calendar.
 
     Minute will represent a trading minute (not a close).
@@ -211,7 +211,7 @@ def end_minutes(
     draw,
     calendar_name: str,
     limit: tuple[pd.Timestamp | None, pd.Timestamp | None] = (None, None),
-) -> st.SearchStrategy[pd.Timestamp]:
+) -> pd.Timestamp:
     """Return strategy to generate an 'end' minute for a given calendar.
 
     Minute will represent a trading minute, excluding open minutes, or a
@@ -267,7 +267,7 @@ def end_minutes(
 def calendar_start_end_minutes(
     draw,
     calendar_name: str,
-) -> st.SearchStrategy[tuple[pd.Timestamp, pd.Timestamp]]:
+) -> tuple[pd.Timestamp, pd.Timestamp]:
     """Return strategy to generate a start and end minute for a given calendar.
 
     'start' will be a trading minute.
@@ -297,9 +297,7 @@ def get_pp_default() -> dict[str, typing.Any]:
 
 
 @st.composite
-def pp_start_end_sessions(
-    draw, calendar_name: str
-) -> st.SearchStrategy[dict[str, typing.Any]]:
+def pp_start_end_sessions(draw, calendar_name: str) -> dict[str, typing.Any]:
     """Return strategy to generate period parameters with 'start' and 'end' only.
 
     'start' and 'end' will both be sessions of `calendar`.
@@ -312,9 +310,7 @@ def pp_start_end_sessions(
 
 
 @st.composite
-def pp_end_minute_only(
-    draw, calendar_name: str
-) -> st.SearchStrategy[dict[str, typing.Any]]:
+def pp_end_minute_only(draw, calendar_name: str) -> dict[str, typing.Any]:
     """Return strategy to generate period parameters with 'end' only.
 
     'end' will be a trading minute or a close minute of `calendar_name`.
@@ -327,9 +323,7 @@ def pp_end_minute_only(
 
 
 @st.composite
-def pp_start_end_minutes(
-    draw, calendar_name: str
-) -> st.SearchStrategy[dict[str, typing.Any]]:
+def pp_start_end_minutes(draw, calendar_name: str) -> dict[str, typing.Any]:
     """Return strategy to generate period parameters with 'start' and 'end' only.
 
     'start' will be a trading minute, 'end' will be a trading minute or a
@@ -344,7 +338,7 @@ def pp_start_end_minutes(
 
 
 @st.composite
-def pp_days(draw, calendar_name: str) -> st.SearchStrategy[dict[str, typing.Any]]:
+def pp_days(draw, calendar_name: str) -> dict[str, typing.Any]:
     """Return strategy to generate specific arrangment of period parameters.
 
         duration defined in 'days'.
@@ -374,7 +368,7 @@ def pp_days_start_session(
     draw,
     calendar_name: str,
     start_will_roll_to_ms: bool = False,
-) -> st.SearchStrategy[dict[str, typing.Any]]:
+) -> dict[str, typing.Any]:
     """Return strategy to generate specific arrangment of period parameters.
 
         duration defined in 'days'.
@@ -411,9 +405,7 @@ def pp_days_start_session(
 
 
 @st.composite
-def pp_days_end_session(
-    draw, calendar_name: str
-) -> st.SearchStrategy[dict[str, typing.Any]]:
+def pp_days_end_session(draw, calendar_name: str) -> dict[str, typing.Any]:
     """Return strategy to generate specific arrangment of period parameters.
 
         duration defined in 'days'.
@@ -438,9 +430,7 @@ def pp_days_end_session(
 
 
 @st.composite
-def pp_days_start_minute(
-    draw, calendar_name: str
-) -> st.SearchStrategy[dict[str, typing.Any]]:
+def pp_days_start_minute(draw, calendar_name: str) -> dict[str, typing.Any]:
     """Return strategy to generate specific arrangment of period parameters.
 
         duration defined in 'days'.
@@ -461,9 +451,7 @@ def pp_days_start_minute(
 
 
 @st.composite
-def pp_days_end_minute(
-    draw, calendar_name: str
-) -> st.SearchStrategy[dict[str, typing.Any]]:
+def pp_days_end_minute(draw, calendar_name: str) -> dict[str, typing.Any]:
     """Return strategy to generate specific arrangment of period parameters.
 
         duration defined in 'days'.
@@ -481,7 +469,7 @@ def pp_days_end_minute(
 
 
 @st.composite
-def pp_caldur(draw) -> st.SearchStrategy[dict[str, typing.Any]]:
+def pp_caldur(draw) -> dict[str, typing.Any]:
     """Return strategy to generate specific arrangment of period parameters.
 
         duration defined in 'weeks' and/or 'months' and/or 'years' (i.e.
@@ -500,9 +488,7 @@ def pp_caldur(draw) -> st.SearchStrategy[dict[str, typing.Any]]:
 
 
 @st.composite
-def pp_caldur_start_session(
-    draw, calendar_name: str
-) -> st.SearchStrategy[dict[str, typing.Any]]:
+def pp_caldur_start_session(draw, calendar_name: str) -> dict[str, typing.Any]:
     """Return strategy to generate specific arrangment of period parameters.
 
         - duration defined in 'weeks' and/or 'months' and/or 'years' (i.e.
@@ -530,9 +516,7 @@ def pp_caldur_start_session(
 
 
 @st.composite
-def pp_caldur_end_session(
-    draw, calendar_name: str
-) -> st.SearchStrategy[dict[str, typing.Any]]:
+def pp_caldur_end_session(draw, calendar_name: str) -> dict[str, typing.Any]:
     """Return strategy to generate specific arrangment of period parameters.
 
         - duration defined in 'weeks' and/or 'months' and/or 'years' (i.e.
@@ -568,9 +552,7 @@ def pp_caldur_end_session(
 
 
 @st.composite
-def pp_caldur_start_minute(
-    draw, calendar_name: str
-) -> st.SearchStrategy[dict[str, typing.Any]]:
+def pp_caldur_start_minute(draw, calendar_name: str) -> dict[str, typing.Any]:
     """Return strategy to generate specific arrangment of period parameters.
 
         - duration defined in 'weeks' and/or 'months' and/or 'years' (i.e.
@@ -598,9 +580,7 @@ def pp_caldur_start_minute(
 
 
 @st.composite
-def pp_caldur_end_minute(
-    draw, calendar_name: str
-) -> st.SearchStrategy[dict[str, typing.Any]]:
+def pp_caldur_end_minute(draw, calendar_name: str) -> dict[str, typing.Any]:
     """Return strategy to generate specific arrangment of period parameters.
 
         - duration defined in 'weeks' and/or 'months' and/or 'years' (i.e.
@@ -619,7 +599,7 @@ def pp_caldur_end_minute(
 
 
 @st.composite
-def pp_intraday(draw) -> st.SearchStrategy[dict[str, typing.Any]]:
+def pp_intraday(draw) -> dict[str, typing.Any]:
     """Return strategy to generate specific arrangment of period parameters.
 
         - duration defined in 'minutes' and/or 'hours' (i.e. in trading
@@ -637,9 +617,7 @@ def pp_intraday(draw) -> st.SearchStrategy[dict[str, typing.Any]]:
 
 
 @st.composite
-def pp_intraday_start_minute(
-    draw, calendar_name: str
-) -> st.SearchStrategy[dict[str, typing.Any]]:
+def pp_intraday_start_minute(draw, calendar_name: str) -> dict[str, typing.Any]:
     """Return strategy to generate specific arrangment of period parameters.
 
         - duration defined in 'minutes' and/or 'hours' (i.e. in trading
@@ -660,9 +638,7 @@ def pp_intraday_start_minute(
 
 
 @st.composite
-def pp_intraday_end_minute(
-    draw, calendar_name: str
-) -> st.SearchStrategy[dict[str, typing.Any]]:
+def pp_intraday_end_minute(draw, calendar_name: str) -> dict[str, typing.Any]:
     """Return strategy to generate specific arrangment of period parameters.
 
         - duration defined in 'minutes' and/or 'hours' (i.e. in trading
