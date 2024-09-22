@@ -3298,7 +3298,7 @@ class PricesBase(metaclass=abc.ABCMeta):
             Coerce(pd.Timestamp),
         ] = None,
         end: Annotated[
-            pd.Timestamp |str | datetime.datetime | int | float | None,
+            pd.Timestamp | str | datetime.datetime | int | float | None,
             Coerce(pd.Timestamp),
         ] = None,
         minutes: int = 0,

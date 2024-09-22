@@ -378,16 +378,6 @@ def resample(
 
     resampler = resample_me.resample(rule, closed="left", label="left", origin=origin)
     resampled = resampler.agg(agg_f)
-
-    # NOTE START... required for at least pandas 2.1.0.
-    # See https://github.com/pandas-dev/pandas/issues/55064
-    offset = pdutils.pdfreq_to_offset(rule) if isinstance(rule, str) else rule
-    first_index = data.index[0] if nominal_start is None else nominal_start
-    cut_off = first_index - offset
-    if resampled.index[0] <= cut_off:
-        resampled = resampled[resampled.index > cut_off]
-    # required for at least pandas 2.1.0. ...END
-
     resampled.columns = columns_
     resampled = volume_to_na(resampled)
     return resampled
