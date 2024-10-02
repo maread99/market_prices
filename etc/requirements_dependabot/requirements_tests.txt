@@ -119,7 +119,7 @@ soupsieve==2.6
     # via beautifulsoup4
 tables==3.10.1
     # via market-prices (pyproject.toml)
-tomli==2.0.1
+tomli==2.0.2
     # via
     #   black
     #   pytest
