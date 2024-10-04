@@ -123,7 +123,7 @@ tomli==2.0.1
     # via
     #   black
     #   pytest
-toolz==0.12.1
+toolz==1.0.0
     # via exchange-calendars
 tqdm==4.66.5
     # via yahooquery
