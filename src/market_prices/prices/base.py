@@ -179,10 +179,20 @@ def fill_reindexed_daily(
     if not na_rows.any():
         return df, warnings
 
-    if na_rows.iloc[-1] and helpers.now() <= cal.session_open(df.index[-1]) + delay:
-        na_rows.iloc[-1] = False
-        if not na_rows.any():
-            return df, warnings
+    # do not fill prices for any most recent sessions for which prices would not be
+    # expected to be available. NB this considers more than one session as for some
+    # funds prices many not be available for a number of days (in which case can pass
+    # the corresponding delay as a very high value).
+    i = 1
+    len_df = len(df)
+    while i <= len_df:
+        if na_rows.iloc[-i] and helpers.now() <= cal.session_open(df.index[-i]) + delay:
+            na_rows.iloc[-i] = False
+            if not na_rows.any():
+                return df, warnings
+        else:
+            break
+        i += 1
 
     # fill
     adj_close = df["close"].ffill()
