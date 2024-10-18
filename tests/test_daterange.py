@@ -2856,9 +2856,15 @@ class TestGetterIntraday:
             drg = self.get_drg(cal, pp, strict=False, **drg_kwargs)
             assert drg.daterange == ((limit, end), end)
 
-            drg = self.get_drg(cal, pp, strict=True, **drg_kwargs)
             start = end - (cal.day * pp["days"])
-            start = start if cal.is_trading_minute(start) else cal.previous_close(start)
+            if not cal.is_trading_minute(start):
+                # take off an extra day, otherwise drg would reasonably advance start to
+                # the start limit and not trigger StartTooEarlyError
+                pp["days"] += 1
+                start -= cal.day
+                start = start if cal.is_trading_minute(start) else cal.next_open(start)
+
+            drg = self.get_drg(cal, pp, strict=True, **drg_kwargs)
             error_msg = re.escape(
                 f"Prices unavailable as start evaluates to {helpers.fts(start)} which"
                 " is earlier than the earliest minute for which price data is"
