@@ -59,6 +59,7 @@ EXCHANGE_TO_CALENDAR: dict = {
     "Oslo": "XOSL",
     "CCC": "24/7",
     "CCY": "24/5",
+    "Frankfurt": "XFRA",
 }
 
 DELAY_MAPPING: dict = {
