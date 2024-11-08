@@ -1226,7 +1226,6 @@ class PricesBase(metaclass=abc.ABCMeta):
         d = {}
         max_delay = self.max_delay
         for bi in self.bis:
-            delay = max_delay if bi.is_intraday else None
             ll = self.base_limits[bi]
             if bi.is_daily:
                 if ll is not None:
@@ -1240,7 +1239,7 @@ class PricesBase(metaclass=abc.ABCMeta):
                 request=self._request_data,
                 cc=self.cc,
                 bi=bi,
-                delay=delay,
+                delay=max_delay,
                 left_limit=ll,
                 right_limit=self.base_limits_right[bi],
                 source_live=self.SOURCE_LIVE,
