@@ -1253,3 +1253,49 @@ class TestRanges:
         session_open = xlon.session_open(session)
         with pytest.raises(errors.PricesUnavailableFromSourceError):
             data.get_table((session_open, session_open + pd.Timedelta(30, "min")))
+
+
+def test_delay_daily(xlon_calendar_extended, today, one_day, monkeypatch):
+    cal = xlon_calendar_extended
+    cc = calutils.CompositeCalendar([cal])
+    bi = TDInterval.D1
+
+    end = helpers.to_tz_naive(cal.date_to_session(today, "previous"))
+    start = helpers.to_tz_naive(cal.session_offset(end, -7))
+    dr = start, end
+
+    now = cal.session_open(end) + pd.Timedelta(minutes=90)
+    monkeypatch.setattr(
+        "pandas.Timestamp.now", lambda *_, tz=None, **__: now.tz_convert(tz)
+    )
+
+    delay = pd.Timedelta(minutes=7200)
+
+    admin = MockRequestAdmin(cal)
+    request_data = admin.mock_request_data()
+    data = m.Data(request_data, cc, bi, delay, source_live=True)
+    table = data.get_table(dr)
+    assert (table.index[0], table.index[-1]) == (start, end)
+    assert admin.last_request == (start, end)
+    # repeat call, should still be requesting most recent 5 days of data
+    table = data.get_table(dr)
+    assert admin.last_request == (end - (one_day * 5), end)
+
+    admin.reset()
+    data = m.Data(request_data, cc, bi, delay, source_live=False)
+    table = data.get_table(dr)
+    assert (table.index[0], table.index[-1]) == (start, end)
+    assert admin.last_request == (start, end)
+    # repeat call, should now not be requesting live dates
+    table = data.get_table(dr)
+    assert admin.last_request == (end, end)
+
+    delay = None
+    admin.reset()
+    data = m.Data(request_data, cc, bi, delay, source_live=True)
+    table = data.get_table(dr)
+    assert (table.index[0], table.index[-1]) == (start, end)
+    assert admin.last_request == (start, end)
+    # repeat call, as no delay should assume one day live index
+    table = data.get_table(dr)
+    assert admin.last_request == (end - one_day, end)

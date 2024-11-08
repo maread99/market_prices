@@ -2655,7 +2655,7 @@ class TestGetterIntraday:
 
         start = end - pd.DateOffset(weeks=2)
         idx = ans.first_minutes.searchsorted(start)
-        start_evaluted = ans.first_minutes.iloc[idx]
+        start_evaluated = ans.first_minutes.iloc[idx]
         drg = self.get_drg(cal, pp, interval=bi, limit=limit, strict=True)
         if not limit_idx:
             error_msg = re.escape(
@@ -2669,13 +2669,28 @@ class TestGetterIntraday:
                 _ = drg.daterange
         else:
             error_msg = re.escape(
-                f"Prices unavailable as start evaluates to {helpers.fts(start_evaluted)}"
+                f"Prices unavailable as start evaluates to {helpers.fts(start_evaluated)}"
                 " which is earlier than the earliest minute for which price data is"
                 " available. The earliest minute for which prices are available is"
                 f" {helpers.fts(limit)}."
             )
-            with pytest.raises(errors.StartTooEarlyError, match=error_msg):
-                _ = drg.daterange
+            try:
+                with pytest.raises(errors.StartTooEarlyError, match=error_msg):
+                    _ = drg.daterange
+            except AssertionError:
+                if not ((ans.opens < start) & (ans.closes > start)).any():
+                    raise
+                # the evaluated start will be as start when start falls on a trading
+                # minute, rather than the close. This can happen if the close time
+                # as UTC) was later two weeks prior, for example with DST in spring.
+                error_msg = re.escape(
+                    f"Prices unavailable as start evaluates to {helpers.fts(start)}"
+                    " which is earlier than the earliest minute for which price data is"
+                    " available. The earliest minute for which prices are available is"
+                    f" {helpers.fts(limit)}."
+                )
+                with pytest.raises(errors.StartTooEarlyError, match=error_msg):
+                    _ = drg.daterange
 
     @hyp.given(data=sthyp.data())
     @hyp.settings(

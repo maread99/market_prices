@@ -663,7 +663,12 @@ class Data:
         """
         end = dr[1]
         if self.bi.is_one_day and end == helpers.now(self.bi):
-            end -= helpers.ONE_DAY
+            if self._delay is None:
+                margin = 1
+            else:
+                delay_in_days = self._delay.total_seconds() / (24 * 60 * 60)
+                margin = max(1, math.ceil(delay_in_days))
+            end -= helpers.ONE_DAY * margin
         elif self.bi.is_intraday:
             assert self._delay is not None
             # ten minutes to cover provider delays in publishing data.
