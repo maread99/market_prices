@@ -131,7 +131,7 @@ typing-extensions==4.12.2
     # via
     #   black
     #   tables
-tzdata==2024.1
+tzdata==2024.2
     # via
     #   exchange-calendars
     #   market-prices (pyproject.toml)
