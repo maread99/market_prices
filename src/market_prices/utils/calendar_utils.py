@@ -29,7 +29,9 @@ def get_exchange_info() -> pd.DataFrame:
         Information on exchanges for which calendars are available.
         Calendar codes given by column 'ISO Code'.
     """
-    return pd.read_html("https://pypi.org/project/exchange-calendars/")[1]
+    # 25/01/14 - for whatever reason seems that tables cannot currently be fetched
+    # from the prior address "https://pypi.org/project/exchange-calendars/".
+    return pd.read_html("https://github.com/gerrymanoim/exchange_calendars")[2]
 
 
 def minutes_in_period(

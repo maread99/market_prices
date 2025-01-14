@@ -6,13 +6,13 @@
 #
 beautifulsoup4==4.12.3
     # via yahooquery
-certifi==2024.8.30
+certifi==2024.12.14
     # via requests
-charset-normalizer==3.3.2
+charset-normalizer==3.4.1
     # via requests
 colorama==0.4.6
     # via tqdm
-exchange-calendars==4.5.6
+exchange-calendars==4.7
     # via market-prices (pyproject.toml)
 idna==3.10
     # via requests
@@ -20,7 +20,7 @@ korean-lunar-calendar==0.3.1
     # via exchange-calendars
 lxml==4.9.4
     # via yahooquery
-numpy==2.1.1
+numpy==2.2.1
     # via
     #   exchange-calendars
     #   market-prices (pyproject.toml)
@@ -40,22 +40,22 @@ requests==2.32.3
     # via
     #   requests-futures
     #   yahooquery
-requests-futures==1.0.1
+requests-futures==1.0.2
     # via yahooquery
-six==1.16.0
+six==1.17.0
     # via python-dateutil
 soupsieve==2.6
     # via beautifulsoup4
-toolz==0.12.1
+toolz==1.0.0
     # via exchange-calendars
-tqdm==4.66.5
+tqdm==4.67.1
     # via yahooquery
-tzdata==2024.1
+tzdata==2024.2
     # via
     #   exchange-calendars
     #   market-prices (pyproject.toml)
     #   pandas
-urllib3==2.2.3
+urllib3==2.3.0
     # via requests
 valimp==0.3
     # via market-prices (pyproject.toml)
