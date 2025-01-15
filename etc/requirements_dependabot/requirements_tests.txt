@@ -117,7 +117,7 @@ sortedcontainers==2.4.0
     # via hypothesis
 soupsieve==2.6
     # via beautifulsoup4
-tables==3.10.1
+tables==3.10.2
     # via market-prices (pyproject.toml)
 tomli==2.2.1
     # via
