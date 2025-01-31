@@ -27,7 +27,7 @@ exceptiongroup==1.2.2
     # via
     #   hypothesis
     #   pytest
-exchange-calendars==4.7
+exchange-calendars==4.9
     # via market-prices (pyproject.toml)
 flake8==7.1.1
     # via
