@@ -57,7 +57,7 @@ numexpr==2.10.2
     # via
     #   blosc2
     #   tables
-numpy==2.2.1
+numpy==2.2.4
     # via
     #   blosc2
     #   exchange-calendars
