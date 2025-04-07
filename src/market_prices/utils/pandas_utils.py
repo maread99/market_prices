@@ -551,7 +551,7 @@ def index_is_normalized(
     index: Annotated[
         pd.DatetimeIndex | pd.IntervalIndex,
         Parser(verify_interval_datetime_index),
-    ]
+    ],
 ) -> bool:
     """Query if an index is normalized.
 

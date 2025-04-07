@@ -4,15 +4,15 @@
 #
 #    pip-compile --output-file=etc/requirements.txt pyproject.toml
 #
-beautifulsoup4==4.12.3
+beautifulsoup4==4.13.3
     # via yahooquery
-certifi==2024.12.14
+certifi==2025.1.31
     # via requests
 charset-normalizer==3.4.1
     # via requests
 colorama==0.4.6
     # via tqdm
-exchange-calendars==4.7
+exchange-calendars==4.10
     # via market-prices (pyproject.toml)
 idna==3.10
     # via requests
@@ -20,7 +20,7 @@ korean-lunar-calendar==0.3.1
     # via exchange-calendars
 lxml==4.9.4
     # via yahooquery
-numpy==2.2.1
+numpy==2.2.4
     # via
     #   exchange-calendars
     #   market-prices (pyproject.toml)
@@ -34,7 +34,7 @@ pyluach==2.2.0
     # via exchange-calendars
 python-dateutil==2.9.0.post0
     # via pandas
-pytz==2024.2
+pytz==2025.2
     # via pandas
 requests==2.32.3
     # via
@@ -50,7 +50,9 @@ toolz==1.0.0
     # via exchange-calendars
 tqdm==4.67.1
     # via yahooquery
-tzdata==2024.2
+typing-extensions==4.13.1
+    # via beautifulsoup4
+tzdata==2025.2
     # via
     #   exchange-calendars
     #   market-prices (pyproject.toml)

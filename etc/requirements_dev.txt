@@ -4,19 +4,19 @@
 #
 #    pip-compile --extra=dev --output-file=etc/requirements_dev.txt pyproject.toml
 #
-astroid==3.3.8
+astroid==3.3.9
     # via pylint
-attrs==24.3.0
+attrs==25.3.0
     # via hypothesis
-beautifulsoup4==4.12.3
+beautifulsoup4==4.13.3
     # via yahooquery
-black==24.10.0
+black==25.1.0
     # via market-prices (pyproject.toml)
 blosc2==2.7.1
     # via tables
 build==1.2.2.post1
     # via pip-tools
-certifi==2024.12.14
+certifi==2025.1.31
     # via requests
 cfgv==3.4.0
     # via pre-commit
@@ -41,25 +41,25 @@ exceptiongroup==1.2.2
     # via
     #   hypothesis
     #   pytest
-exchange-calendars==4.7
+exchange-calendars==4.10
     # via market-prices (pyproject.toml)
-filelock==3.16.1
+filelock==3.18.0
     # via virtualenv
-flake8==7.1.1
+flake8==7.2.0
     # via
     #   flake8-docstrings
     #   market-prices (pyproject.toml)
 flake8-docstrings==1.7.0
     # via market-prices (pyproject.toml)
-hypothesis==6.123.17
+hypothesis==6.128.2
     # via market-prices (pyproject.toml)
-identify==2.6.5
+identify==2.6.9
     # via pre-commit
 idna==3.10
     # via requests
-iniconfig==2.0.0
+iniconfig==2.1.0
     # via pytest
-isort==5.13.2
+isort==6.0.1
     # via pylint
 korean-lunar-calendar==0.3.1
     # via exchange-calendars
@@ -71,7 +71,7 @@ mccabe==0.7.0
     #   pylint
 msgpack==1.1.0
     # via blosc2
-mypy==1.14.1
+mypy==1.15.0
     # via market-prices (pyproject.toml)
 mypy-extensions==1.0.0
     # via
@@ -86,7 +86,7 @@ numexpr==2.10.2
     # via
     #   blosc2
     #   tables
-numpy==2.2.1
+numpy==2.2.4
     # via
     #   blosc2
     #   exchange-calendars
@@ -106,32 +106,32 @@ pandas==2.2.3
     #   exchange-calendars
     #   market-prices (pyproject.toml)
     #   yahooquery
-pandas-stubs==2.2.3.241126
+pandas-stubs==2.2.3.250308
     # via market-prices (pyproject.toml)
 pathspec==0.12.1
     # via black
 pip-tools==7.4.1
     # via market-prices (pyproject.toml)
-platformdirs==4.3.6
+platformdirs==4.3.7
     # via
     #   black
     #   pylint
     #   virtualenv
 pluggy==1.5.0
     # via pytest
-pre-commit==4.0.1
+pre-commit==4.2.0
     # via market-prices (pyproject.toml)
 py-cpuinfo==9.0.0
     # via
     #   blosc2
     #   tables
-pycodestyle==2.12.1
+pycodestyle==2.13.0
     # via flake8
 pydocstyle==6.3.0
     # via flake8-docstrings
-pyflakes==3.2.0
+pyflakes==3.3.2
     # via flake8
-pylint==3.3.3
+pylint==3.3.6
     # via market-prices (pyproject.toml)
 pyluach==2.2.0
     # via exchange-calendars
@@ -139,7 +139,7 @@ pyproject-hooks==1.2.0
     # via
     #   build
     #   pip-tools
-pytest==8.3.4
+pytest==8.3.5
     # via
     #   market-prices (pyproject.toml)
     #   pytest-mock
@@ -147,7 +147,7 @@ pytest-mock==3.14.0
     # via market-prices (pyproject.toml)
 python-dateutil==2.9.0.post0
     # via pandas
-pytz==2024.2
+pytz==2025.2
     # via pandas
 pyyaml==6.0.2
     # via pre-commit
@@ -181,15 +181,16 @@ toolz==1.0.0
     # via exchange-calendars
 tqdm==4.67.1
     # via yahooquery
-types-pytz==2024.2.0.20241221
+types-pytz==2025.2.0.20250326
     # via pandas-stubs
-typing-extensions==4.12.2
+typing-extensions==4.13.1
     # via
     #   astroid
+    #   beautifulsoup4
     #   black
     #   mypy
     #   tables
-tzdata==2024.2
+tzdata==2025.2
     # via
     #   exchange-calendars
     #   market-prices (pyproject.toml)
@@ -198,7 +199,7 @@ urllib3==2.3.0
     # via requests
 valimp==0.3
     # via market-prices (pyproject.toml)
-virtualenv==20.28.1
+virtualenv==20.30.0
     # via pre-commit
 wheel==0.45.1
     # via pip-tools

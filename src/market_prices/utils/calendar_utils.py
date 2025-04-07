@@ -1057,7 +1057,7 @@ class _CompositeNonTradingIndex:
         i = 0
 
         def add_to_dict(srs: pd.Series):
-            nonlocal d, i
+            nonlocal i
             d[i] = srs
             i += 1
 
@@ -1076,7 +1076,7 @@ class _CompositeNonTradingIndex:
         i = 0
 
         def add_to_dict(srs: pd.Series):
-            nonlocal d, i
+            nonlocal i
             d[i] = srs
 
             i += 1

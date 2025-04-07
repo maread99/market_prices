@@ -154,7 +154,7 @@ def test_remove_intervals_from_interval_invalid_input(
 def test_verify_interval_datetime_index():
     @parse
     def mock_func(
-        arg: Annotated[pd.IntervalIndex, Parser(m.verify_interval_datetime_index)]
+        arg: Annotated[pd.IntervalIndex, Parser(m.verify_interval_datetime_index)],
     ) -> pd.IntervalIndex:
         return arg
 

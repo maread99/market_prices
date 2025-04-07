@@ -4,15 +4,15 @@
 #
 #    pip-compile --extra=tests --output-file=etc/requirements_dependabot/requirements_tests.txt pyproject.toml
 #
-attrs==24.3.0
+attrs==25.3.0
     # via hypothesis
-beautifulsoup4==4.12.3
+beautifulsoup4==4.13.3
     # via yahooquery
-black==24.10.0
+black==25.1.0
     # via market-prices (pyproject.toml)
 blosc2==2.7.1
     # via tables
-certifi==2024.12.14
+certifi==2025.1.31
     # via requests
 charset-normalizer==3.4.1
     # via requests
@@ -27,19 +27,19 @@ exceptiongroup==1.2.2
     # via
     #   hypothesis
     #   pytest
-exchange-calendars==4.7
+exchange-calendars==4.10
     # via market-prices (pyproject.toml)
-flake8==7.1.1
+flake8==7.2.0
     # via
     #   flake8-docstrings
     #   market-prices (pyproject.toml)
 flake8-docstrings==1.7.0
     # via market-prices (pyproject.toml)
-hypothesis==6.123.17
+hypothesis==6.128.2
     # via market-prices (pyproject.toml)
 idna==3.10
     # via requests
-iniconfig==2.0.0
+iniconfig==2.1.0
     # via pytest
 korean-lunar-calendar==0.3.1
     # via exchange-calendars
@@ -57,7 +57,7 @@ numexpr==2.10.2
     # via
     #   blosc2
     #   tables
-numpy==2.2.1
+numpy==2.2.4
     # via
     #   blosc2
     #   exchange-calendars
@@ -77,7 +77,7 @@ pandas==2.2.3
     #   yahooquery
 pathspec==0.12.1
     # via black
-platformdirs==4.3.6
+platformdirs==4.3.7
     # via black
 pluggy==1.5.0
     # via pytest
@@ -85,15 +85,15 @@ py-cpuinfo==9.0.0
     # via
     #   blosc2
     #   tables
-pycodestyle==2.12.1
+pycodestyle==2.13.0
     # via flake8
 pydocstyle==6.3.0
     # via flake8-docstrings
-pyflakes==3.2.0
+pyflakes==3.3.2
     # via flake8
 pyluach==2.2.0
     # via exchange-calendars
-pytest==8.3.4
+pytest==8.3.5
     # via
     #   market-prices (pyproject.toml)
     #   pytest-mock
@@ -101,7 +101,7 @@ pytest-mock==3.14.0
     # via market-prices (pyproject.toml)
 python-dateutil==2.9.0.post0
     # via pandas
-pytz==2024.2
+pytz==2025.2
     # via pandas
 requests==2.32.3
     # via
@@ -127,11 +127,12 @@ toolz==1.0.0
     # via exchange-calendars
 tqdm==4.67.1
     # via yahooquery
-typing-extensions==4.12.2
+typing-extensions==4.13.1
     # via
+    #   beautifulsoup4
     #   black
     #   tables
-tzdata==2024.2
+tzdata==2025.2
     # via
     #   exchange-calendars
     #   market-prices (pyproject.toml)
