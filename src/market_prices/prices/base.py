@@ -3303,11 +3303,11 @@ class PricesBase(metaclass=abc.ABCMeta):
             Parser(intervals.parse_interval, parse_none=False),
         ] = None,
         start: Annotated[
-            pd.Timestamp | str | datetime.datetime | int | float | None,
+            pd.Timestamp | str | datetime.datetime | datetime.date | int | float | None,
             Coerce(pd.Timestamp),
         ] = None,
         end: Annotated[
-            pd.Timestamp | str | datetime.datetime | int | float | None,
+            pd.Timestamp | str | datetime.datetime | datetime.date | int | float | None,
             Coerce(pd.Timestamp),
         ] = None,
         minutes: int = 0,
@@ -4295,7 +4295,7 @@ class PricesBase(metaclass=abc.ABCMeta):
     def session_prices(
         self,
         session: Annotated[
-            pd.Timestamp | str | datetime.datetime | int | float | None,
+            pd.Timestamp | str | datetime.datetime | datetime.date | int | float | None,
             Coerce(pd.Timestamp),
             Parser(parsing.verify_datetimestamp, parse_none=False),
         ] = None,
@@ -4306,7 +4306,8 @@ class PricesBase(metaclass=abc.ABCMeta):
         Parameters
         ----------
         session:
-            pd.Timestamp | str | datetime.datetime | int | float | None
+            pd.Timestamp | str | datetime.datetime | datetime.date
+            | int | float | None
         default: most recent available session
             Session to return prices for.
 
@@ -4387,7 +4388,7 @@ class PricesBase(metaclass=abc.ABCMeta):
     def close_at(
         self,
         date: Annotated[
-            pd.Timestamp | str | datetime.datetime | int | float | None,
+            pd.Timestamp | str | datetime.datetime | datetime.date | int | float | None,
             Coerce(pd.Timestamp),
             Parser(parsing.verify_datetimestamp, parse_none=False),
         ] = None,
@@ -4396,7 +4397,8 @@ class PricesBase(metaclass=abc.ABCMeta):
 
         Parameters
         ----------
-        date : pd.Timestamp, str | datetime.datetime | int | float | None
+        date : pd.Timestamp, str | datetime.datetime | datetime.date
+        | int | float | None
         default: most recent date
             Date for which to return most recent end-of-day prices.
 
@@ -4865,11 +4867,11 @@ class PricesBase(metaclass=abc.ABCMeta):
     def price_range(
         self,
         start: Annotated[
-            pd.Timestamp | str | datetime.datetime | int | float | None,
+            pd.Timestamp | str | datetime.datetime | datetime.date | int | float | None,
             Coerce(pd.Timestamp),
         ] = None,
         end: Annotated[
-            pd.Timestamp | str | datetime.datetime | int | float | None,
+            pd.Timestamp | str | datetime.datetime | datetime.date | int | float | None,
             Coerce(pd.Timestamp),
         ] = None,
         minutes: int = 0,

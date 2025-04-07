@@ -2813,6 +2813,8 @@ class TestGet:
         """Test expected valid inputs for `start` and `end`.
 
         Also tests `tzin`.
+
+        NB passing as datetime.date tested in `test_start_end_parsing`.
         """
         # pylint: disable=undefined-loop-variable
         prices = prices_us_lon
@@ -2871,6 +2873,8 @@ class TestGet:
 
         Tests `start` and `end` being passed as dates and times that are
         aligned and unaligned with indices anchored on open.
+
+        Also tests that `start` and `end` can be passed as `datetime.date`.
         """
         prices = prices_us
         cal = prices.calendar_default
@@ -2880,8 +2884,13 @@ class TestGet:
         end = pd.Timestamp("2021-12-10")
         # verify getting daily data
         df = prices.get("1D", start, end)
-
         assertions_daily(df, prices, start, end)
+
+        # repeat for datetime.date to test that start and end can be passed as dates
+        start_ = datetime.date(2021, 12, 6)
+        end_ = datetime.date(2021, 12, 10)
+        df_ = prices.get("1D", start_, end_)
+        assert_frame_equal(df_, df)
 
         # verify passing `start` and `end` as dates that do not represent sessions
         df = prices.get("1D", start="2021-12-04", end="2021-12-11")
