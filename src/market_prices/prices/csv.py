@@ -513,7 +513,7 @@ def compile_error_msgs(
 
 
 def _remove_unavailable_intervals_from_paths(
-    paths: dict[str, dict[TDInterval, Path]]
+    paths: dict[str, dict[TDInterval, Path]],
 ) -> tuple[
     dict[str, dict[TDInterval, Path]], list[PricesCsvIntervalUnavailableWarning]
 ]:
@@ -760,7 +760,7 @@ def parse_csvs(
 
 
 def _get_limits_from_parsed(
-    parsed: dict[TDInterval, dict[str, pd.DataFrame]]
+    parsed: dict[TDInterval, dict[str, pd.DataFrame]],
 ) -> tuple[dict[TDInterval, pd.Timestamp], dict[TDInterval, pd.Timestamp]]:
     """Get left and right limits by interval from parsed price data.
 

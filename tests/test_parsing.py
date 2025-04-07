@@ -73,7 +73,7 @@ def test_verify_period_parameters():
         if minutes or hours:
             trading_kwargs.append(dict(minutes=minutes, hours=hours))
 
-    days_kwargs = [(dict(days=1))]
+    days_kwargs = [dict(days=1)]
 
     calendar_kwargs = []
     for weeks, months, years in itertools.product([0, 1], [0, 1], [0, 1]):
