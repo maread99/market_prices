@@ -127,7 +127,7 @@ toolz==1.0.0
     # via exchange-calendars
 tqdm==4.67.1
     # via yahooquery
-typing-extensions==4.13.1
+typing-extensions==4.13.2
     # via
     #   beautifulsoup4
     #   black
