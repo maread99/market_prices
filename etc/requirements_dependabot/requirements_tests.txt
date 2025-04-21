@@ -115,7 +115,7 @@ snowballstemmer==2.2.0
     # via pydocstyle
 sortedcontainers==2.4.0
     # via hypothesis
-soupsieve==2.6
+soupsieve==2.7
     # via beautifulsoup4
 tables==3.10.1
     # via market-prices (pyproject.toml)
