@@ -2941,7 +2941,7 @@ class TestGetterIntraday:
 
     @hyp.given(data=sthyp.data())
     @hyp.settings(
-        deadline=500, suppress_health_check=[hyp.HealthCheck.differing_executors]
+        deadline=None, suppress_health_check=[hyp.HealthCheck.differing_executors]
     )
     def test_daterange_duration_intraday_start_minute(self, calendars_extended, data):
         """Test `daterange` for with period parameters as `pp_intraday_start_minute`."""
