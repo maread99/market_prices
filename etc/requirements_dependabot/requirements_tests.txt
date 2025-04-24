@@ -49,7 +49,7 @@ mccabe==0.7.0
     # via flake8
 msgpack==1.1.0
     # via blosc2
-mypy-extensions==1.0.0
+mypy-extensions==1.1.0
     # via black
 ndindex==1.9.2
     # via blosc2
