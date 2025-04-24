@@ -10,9 +10,11 @@ when a parameter is, or evaluates to, a session or minute that lies outside
 of these bounds.
 """
 
+import functools
 import typing
 from typing import TYPE_CHECKING
 import copy
+
 
 import exchange_calendars as xcals
 import pandas as pd
@@ -38,29 +40,14 @@ def noneify(value: typing.Any) -> st.SearchStrategy:
     return st.sampled_from([value, None])
 
 
-_calendar_cache: dict[str, xcals.ExchangeCalendar] = {}
 _calendar_end = pd.Timestamp("2021-11-17")
 _24h_calendars = ["CMES", "24/7"]
 
 
-def _add_to_cache(calendar_name: str) -> xcals.ExchangeCalendar:
-    # pylint: disable=protected-access, invalid-name
-    CalendarCls = xcals.calendar_utils._default_calendar_factories[calendar_name]
-    calendar = CalendarCls(end=_calendar_end, side="left")
-    _calendar_cache[calendar_name] = calendar
-    return calendar
-
-
-def _get_from_cache(calendar_name) -> xcals.ExchangeCalendar:
-    cached = _calendar_cache.get(calendar_name, False)
-    if not cached:
-        cached = _add_to_cache(calendar_name)
-    return cached
-
-
-def get_calendar(calendar_name: str) -> xcals.ExchangeCalendar:
+@functools.cache
+def get_calendar(calendar_name: str, side: str = "left") -> xcals.ExchangeCalendar:
     """Get a calendar."""
-    return _get_from_cache(calendar_name)
+    return xcals.get_calendar(calendar_name, end=_calendar_end, side=side)
 
 
 @st.composite
@@ -199,7 +186,6 @@ def start_minutes(
         l_limit = max(r_limit - offset, calendar.first_minute)  # type: ignore[operator]
 
     nanos = calendar.minutes_nanos
-
     start = None if l_limit is None else nanos.searchsorted(l_limit.value, side="left")
     stop = None if r_limit is None else nanos.searchsorted(r_limit.value, side="right")
     nano = draw(st.sampled_from(nanos[start:stop]))
@@ -221,8 +207,8 @@ def end_minutes(
     ----------
     limit
         Define limits of returned minute. Pass as tuple defining
-        (start_limit, end_limit), and defining a limit as None to use the
-        defaults.
+        (start_limit, end_limit). Define either as None to use the
+        default.
 
         Default right limit:
             close of second-to-last calendar close.
@@ -233,7 +219,7 @@ def end_minutes(
                 close if earlier.
     """
     # pylint: disable=too-many-locals
-    calendar = get_calendar(calendar_name)
+    calendar = get_calendar(calendar_name, side="right")
 
     l_limit, r_limit = limit
 
@@ -249,17 +235,10 @@ def end_minutes(
         alt_limit = r_limit - offset  # type: ignore[operator]  # is a valid operation
         l_limit = max(last_close, alt_limit)
 
-    start = calendar.closes_nanos.searchsorted(l_limit.value, side="left")
-    stop = calendar.closes_nanos.searchsorted(r_limit.value, side="right")
-
-    opens = calendar.opens_nanos[start:stop]
-    break_starts = calendar.break_starts_nanos[start:stop]
-    break_ends = calendar.break_ends_nanos[start:stop]
-    closes = calendar.closes_nanos[start:stop]
-    nanos = xcals.calendar_helpers.compute_minutes(
-        opens, break_starts, break_ends, closes, side="right"
-    )
-    nano = draw(st.sampled_from(nanos))
+    nanos = calendar.minutes_nanos
+    start = nanos.searchsorted(l_limit.value, side="left")
+    stop = nanos.searchsorted(r_limit.value, side="right")
+    nano = draw(st.sampled_from(nanos[start:stop]))
     return nano_to_min(nano)
 
 
