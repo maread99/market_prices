@@ -51,6 +51,7 @@ classifiers = [
 ]
 
 dependencies = [
+    "curl-cffi",
     "exchange_calendars",
     "numpy",
     "pandas",

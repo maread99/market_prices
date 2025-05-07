@@ -6,15 +6,19 @@
 #
 attrs==25.3.0
     # via hypothesis
-beautifulsoup4==4.13.3
+beautifulsoup4==4.13.4
     # via yahooquery
 black==25.1.0
     # via market-prices (pyproject.toml)
-blosc2==2.7.1
+blosc2==3.3.2
     # via tables
-certifi==2025.1.31
-    # via requests
-charset-normalizer==3.4.1
+certifi==2025.4.26
+    # via
+    #   curl-cffi
+    #   requests
+cffi==1.17.1
+    # via curl-cffi
+charset-normalizer==3.4.2
     # via requests
 click==8.1.8
     # via black
@@ -23,6 +27,8 @@ colorama==0.4.6
     #   click
     #   pytest
     #   tqdm
+curl-cffi==0.10.0
+    # via market-prices (pyproject.toml)
 exceptiongroup==1.2.2
     # via
     #   hypothesis
@@ -35,7 +41,7 @@ flake8==7.2.0
     #   market-prices (pyproject.toml)
 flake8-docstrings==1.7.0
     # via market-prices (pyproject.toml)
-hypothesis==6.131.8
+hypothesis==6.131.14
     # via market-prices (pyproject.toml)
 idna==3.10
     # via requests
@@ -49,7 +55,7 @@ mccabe==0.7.0
     # via flake8
 msgpack==1.1.0
     # via blosc2
-mypy-extensions==1.0.0
+mypy-extensions==1.1.0
     # via black
 ndindex==1.9.2
     # via blosc2
@@ -57,7 +63,7 @@ numexpr==2.10.2
     # via
     #   blosc2
     #   tables
-numpy==2.2.4
+numpy==2.2.5
     # via
     #   blosc2
     #   exchange-calendars
@@ -65,7 +71,7 @@ numpy==2.2.4
     #   numexpr
     #   pandas
     #   tables
-packaging==24.2
+packaging==25.0
     # via
     #   black
     #   pytest
@@ -78,7 +84,9 @@ pandas==2.2.3
 pathspec==0.12.1
     # via black
 platformdirs==4.3.7
-    # via black
+    # via
+    #   black
+    #   blosc2
 pluggy==1.5.0
     # via pytest
 py-cpuinfo==9.0.0
@@ -87,6 +95,8 @@ py-cpuinfo==9.0.0
     #   tables
 pycodestyle==2.13.0
     # via flake8
+pycparser==2.22
+    # via cffi
 pydocstyle==6.3.0
     # via flake8-docstrings
 pyflakes==3.3.2
@@ -105,6 +115,7 @@ pytz==2025.2
     # via pandas
 requests==2.32.3
     # via
+    #   blosc2
     #   requests-futures
     #   yahooquery
 requests-futures==1.0.2
@@ -115,7 +126,7 @@ snowballstemmer==2.2.0
     # via pydocstyle
 sortedcontainers==2.4.0
     # via hypothesis
-soupsieve==2.6
+soupsieve==2.7
     # via beautifulsoup4
 tables==3.10.1
     # via market-prices (pyproject.toml)
@@ -127,7 +138,7 @@ toolz==1.0.0
     # via exchange-calendars
 tqdm==4.67.1
     # via yahooquery
-typing-extensions==4.13.1
+typing-extensions==4.13.2
     # via
     #   beautifulsoup4
     #   black
@@ -137,7 +148,7 @@ tzdata==2025.2
     #   exchange-calendars
     #   market-prices (pyproject.toml)
     #   pandas
-urllib3==2.3.0
+urllib3==2.4.0
     # via requests
 valimp==0.3
     # via market-prices (pyproject.toml)
