@@ -2,8 +2,10 @@
 
 import datetime
 import functools
+import random
 import warnings
 
+import curl_cffi
 from pandas import DataFrame
 import pandas as pd
 import exchange_calendars as xcals
@@ -358,6 +360,14 @@ class PricesYahoo(base.PricesBase):
         proxies: dict[str, str] | None = None,
     ):
         symbols = helpers.symbols_to_list(symbols)
+        # NOTE: Introduced to patch yahooquery issue 315. Should be able to remove
+        # if/when issue fixed there. Patch written based on instantiation of session
+        # object by yahooquery.utils.__init__.initialize_session.
+        session = curl_cffi.requests.Session(impersonate="chrome")
+        if proxies is not None:
+            session.proxies = proxies
+        session.headers = random.choice(yq.utils.HEADERS)
+
         self._ticker = yq.Ticker(
             symbols,
             formatted=False,
@@ -365,6 +375,7 @@ class PricesYahoo(base.PricesBase):
             max_workers=8,
             proxies=proxies,
             validate=True,
+            session=session,
         )
 
         if self._ticker.invalid_symbols is not None:
