@@ -122,7 +122,7 @@ requests-futures==1.0.2
     # via yahooquery
 six==1.17.0
     # via python-dateutil
-snowballstemmer==2.2.0
+snowballstemmer==3.0.1
     # via pydocstyle
 sortedcontainers==2.4.0
     # via hypothesis
