@@ -29,7 +29,7 @@ colorama==0.4.6
     #   tqdm
 curl-cffi==0.10.0
     # via market-prices (pyproject.toml)
-exceptiongroup==1.2.2
+exceptiongroup==1.3.0
     # via
     #   hypothesis
     #   pytest
