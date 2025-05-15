@@ -26,7 +26,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
-        python-version: ["3.10", "3.12"]
+        python-version: ["3.10", "3.13"]
 
     steps:
       - uses: actions/checkout@v4
@@ -35,11 +35,23 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
           cache: 'pip'
-          cache-dependency-path: 'etc/requirements_dependabot/requirements_tests.txt'
+          # When lose requirements_tests_upper also lose the following line (with the
+          # glob pattern) in favour of reinstating the commented out one after...
+          cache-dependency-path: 'etc/requirements_dependabot/requirements_tests*.txt'
+          # cache-dependency-path: 'etc/requirements_dependabot/requirements_tests.txt'
       - name: Install dependencies
+        shell: bash
+        # when minimum python version bumps to 3.11 should be able to lose
+        # requirements_tests_upper.txt and reinstate the following single line in
+        # place of the whole if clause.
+        #   pip install -r etc/requirements_dependabot/requirements_tests.txt
         run: |
           python -m pip install --upgrade pip
-          pip install -r etc/requirements_dependabot/requirements_tests.txt
+          if [ "${{ matrix.python-version }}" == "3.13" ]; then
+            pip install -r etc/requirements_dependabot/requirements_tests_upper.txt
+          else
+            pip install -r etc/requirements_dependabot/requirements_tests.txt
+          fi
           pip install -e .
       - name: Lint with flake8
         # fail it if doesn't pass flake8

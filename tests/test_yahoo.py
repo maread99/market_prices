@@ -46,6 +46,7 @@ from .test_base_prices import (
 # ...sessions that yahoo temporarily fails to return prices for if (seemingly)
 # send a high frequency of requests for prices from the same IP address.
 _flakylist = (
+    pd.Timestamp("2024-11-01"),
     pd.Timestamp("2024-08-26"),
     pd.Timestamp("2024-08-25"),
     pd.Timestamp("2024-08-24"),
@@ -923,11 +924,7 @@ def assertions_intraday_us(
 class TestRequestDataIntraday:
     """Verify implementation of abstract _request_data for intraday intervals."""
 
-    # TODO lose the last two filters when fixed on yahooquery, for example if
-    # https://github.com/dpguthrie/yahooquery/pull/262 merged and inlcuded to a release
     @pytest.mark.filterwarnings("ignore:Prices from Yahoo are missing for:UserWarning")
-    @pytest.mark.filterwarnings("ignore:A value is trying to be set on a:FutureWarning")
-    @pytest.mark.filterwarnings("ignore:'S' is deprecated:FutureWarning")
     def test_request_from_left_limit(self, one_min):
         """Test data requests from left limit.
 

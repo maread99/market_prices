@@ -10,7 +10,7 @@ beautifulsoup4==4.13.4
     # via yahooquery
 black==25.1.0
     # via market-prices (pyproject.toml)
-blosc2==3.3.2
+blosc2==3.3.3
     # via tables
 certifi==2025.4.26
     # via
@@ -20,20 +20,20 @@ cffi==1.17.1
     # via curl-cffi
 charset-normalizer==3.4.2
     # via requests
-click==8.1.8
+click==8.2.0
     # via black
 colorama==0.4.6
     # via
     #   click
     #   pytest
     #   tqdm
-curl-cffi==0.10.0
-    # via market-prices (pyproject.toml)
-exceptiongroup==1.2.2
+curl-cffi==0.11.1
+    # via yahooquery
+exceptiongroup==1.3.0
     # via
     #   hypothesis
     #   pytest
-exchange-calendars==4.10
+exchange-calendars==4.10.1
     # via market-prices (pyproject.toml)
 flake8==7.2.0
     # via
@@ -41,7 +41,7 @@ flake8==7.2.0
     #   market-prices (pyproject.toml)
 flake8-docstrings==1.7.0
     # via market-prices (pyproject.toml)
-hypothesis==6.131.14
+hypothesis==6.131.17
     # via market-prices (pyproject.toml)
 idna==3.10
     # via requests
@@ -49,7 +49,7 @@ iniconfig==2.1.0
     # via pytest
 korean-lunar-calendar==0.3.1
     # via exchange-calendars
-lxml==4.9.4
+lxml==5.4.0
     # via yahooquery
 mccabe==0.7.0
     # via flake8
@@ -83,7 +83,7 @@ pandas==2.2.3
     #   yahooquery
 pathspec==0.12.1
     # via black
-platformdirs==4.3.7
+platformdirs==4.3.8
     # via
     #   black
     #   blosc2
@@ -117,12 +117,11 @@ requests==2.32.3
     # via
     #   blosc2
     #   requests-futures
-    #   yahooquery
 requests-futures==1.0.2
     # via yahooquery
 six==1.17.0
     # via python-dateutil
-snowballstemmer==2.2.0
+snowballstemmer==3.0.1
     # via pydocstyle
 sortedcontainers==2.4.0
     # via hypothesis
@@ -142,6 +141,7 @@ typing-extensions==4.13.2
     # via
     #   beautifulsoup4
     #   black
+    #   exceptiongroup
     #   tables
 tzdata==2025.2
     # via
@@ -152,5 +152,5 @@ urllib3==2.4.0
     # via requests
 valimp==0.3
     # via market-prices (pyproject.toml)
-yahooquery==2.3.7
+yahooquery==2.4.0
     # via market-prices (pyproject.toml)
