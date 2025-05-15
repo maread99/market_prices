@@ -16,15 +16,15 @@ charset-normalizer==3.4.2
     # via requests
 colorama==0.4.6
     # via tqdm
-curl-cffi==0.10.0
-    # via market-prices (pyproject.toml)
-exchange-calendars==4.10
+curl-cffi==0.11.1
+    # via yahooquery
+exchange-calendars==4.10.1
     # via market-prices (pyproject.toml)
 idna==3.10
     # via requests
 korean-lunar-calendar==0.3.1
     # via exchange-calendars
-lxml==4.9.4
+lxml==5.4.0
     # via yahooquery
 numpy==2.2.5
     # via
@@ -45,9 +45,7 @@ python-dateutil==2.9.0.post0
 pytz==2025.2
     # via pandas
 requests==2.32.3
-    # via
-    #   requests-futures
-    #   yahooquery
+    # via requests-futures
 requests-futures==1.0.2
     # via yahooquery
 six==1.17.0
@@ -69,5 +67,5 @@ urllib3==2.4.0
     # via requests
 valimp==0.3
     # via market-prices (pyproject.toml)
-yahooquery==2.3.7
+yahooquery==2.4.0
     # via market-prices (pyproject.toml)

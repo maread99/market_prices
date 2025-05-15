@@ -2,10 +2,8 @@
 
 import datetime
 import functools
-import random
 import warnings
 
-import curl_cffi
 from pandas import DataFrame
 import pandas as pd
 import exchange_calendars as xcals
@@ -21,14 +19,6 @@ from .config import config_yahoo
 
 
 ERROR404 = {"error": "HTTP 404 Not Found.  Please try again"}
-
-
-# TODO remove when FutureWarning fixed on yahooquery, for example if
-# https://github.com/dpguthrie/yahooquery/pull/262 is merged and inlcuded to a release
-warnings.filterwarnings(
-    "ignore", "A value is trying to be set on a copy of a DataFrame", FutureWarning
-)
-warnings.filterwarnings("ignore", "'S' is deprecated", FutureWarning)
 
 
 class YahooAPIError(errors.APIError):
@@ -360,14 +350,6 @@ class PricesYahoo(base.PricesBase):
         proxies: dict[str, str] | None = None,
     ):
         symbols = helpers.symbols_to_list(symbols)
-        # NOTE: Introduced to patch yahooquery issue 315. Should be able to remove
-        # if/when issue fixed there. Patch written based on instantiation of session
-        # object by yahooquery.utils.__init__.initialize_session.
-        session = curl_cffi.requests.Session(impersonate="chrome")
-        if proxies is not None:
-            session.proxies = proxies
-        session.headers = random.choice(yq.utils.HEADERS)
-
         self._ticker = yq.Ticker(
             symbols,
             formatted=False,
@@ -375,10 +357,9 @@ class PricesYahoo(base.PricesBase):
             max_workers=8,
             proxies=proxies,
             validate=True,
-            session=session,
         )
 
-        if self._ticker.invalid_symbols is not None:
+        if self._ticker.invalid_symbols:
             raise ValueError(
                 "The following symbols are not recognised by the yahoo API:"
                 f" {self._ticker.invalid_symbols}."

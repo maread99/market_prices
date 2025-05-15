@@ -464,6 +464,8 @@ class TestGetterDaily:
             # a session
             duration = pd.Timedelta(0)
         end = start + duration
+        if end >= today:
+            return start, today
         last_indice_right = ds_interval.as_offset_ms.rollback(end + one_day)
         diff_months = (last_indice_right.to_period("M") - start.to_period("M")).n
         _, excess_months = divmod(diff_months, ds_interval.freq_value)
