@@ -1221,8 +1221,8 @@ class PricesBase(metaclass=abc.ABCMeta):
         """Latest first minute of any calendar."""
         return max(cal.first_minute for cal in self.calendars_unique)
 
-    def _set_pdata(self):
-        """Set --_pdata-- to dict with key as bi and value as `data.Data`."""
+    def _get_new_pdata(self) -> dict[BI, data.Data]:
+        """Return new instance of data.Data for each BI."""
         d = {}
         max_delay = self.max_delay
         for bi in self.bis:
@@ -1244,7 +1244,11 @@ class PricesBase(metaclass=abc.ABCMeta):
                 right_limit=self.base_limits_right[bi],
                 source_live=self.SOURCE_LIVE,
             )
-        self._pdata = d
+        return d
+
+    def _set_pdata(self):
+        """Set --_pdata-- to dict with key as bi and value as `data.Data`."""
+        self._pdata = self._get_new_pdata()
 
     @property
     def live_prices(self) -> bool:
@@ -5103,14 +5107,16 @@ class PricesBase(metaclass=abc.ABCMeta):
         prices_obj = self._get_class_instance(symbols)
         cals = list(prices_obj.calendars_unique)
         fewer_cals = len(cals) < len(self.calendars_unique)
+        new_pdata = self._get_new_pdata()
         for bi in self.bis:
-            new_pdata = copy.deepcopy(self._pdata[bi])
-            if new_pdata._table is not None:
-                table = new_pdata._table[symbols].copy()
-                if fewer_cals:
-                    table = self._remove_non_trading_indices(table, cals)
-                new_pdata._table = table
-            prices_obj._pdata[bi] = new_pdata
+            if self._pdata[bi]._table is None:
+                continue
+            table = self._pdata[bi]._table[symbols].copy()
+            if fewer_cals:
+                table = self._remove_non_trading_indices(table, cals)
+            new_pdata[bi]._table = table
+            new_pdata[bi]._ranges = copy.deepcopy(self._pdata[bi]._ranges)
+        prices_obj._pdata = new_pdata
         return prices_obj
 
     @parse
