@@ -124,7 +124,7 @@ platformdirs==4.3.8
     #   blosc2
     #   pylint
     #   virtualenv
-pluggy==1.5.0
+pluggy==1.6.0
     # via pytest
 pre-commit==4.2.0
     # via market-prices (pyproject.toml)
@@ -190,7 +190,7 @@ toolz==1.0.0
     # via exchange-calendars
 tqdm==4.67.1
     # via yahooquery
-types-pytz==2025.2.0.20250326
+types-pytz==2025.2.0.20250516
     # via pandas-stubs
 typing-extensions==4.13.2
     # via
@@ -213,7 +213,7 @@ virtualenv==20.31.2
     # via pre-commit
 wheel==0.45.1
     # via pip-tools
-yahooquery==2.4.0
+yahooquery==2.4.1
     # via market-prices (pyproject.toml)
 
 # The following packages are considered to be unsafe in a requirements file:
