@@ -103,7 +103,7 @@ pyflakes==3.3.2
     # via flake8
 pyluach==2.2.0
     # via exchange-calendars
-pytest==8.3.5
+pytest==8.4.1
     # via
     #   market-prices (pyproject.toml)
     #   pytest-mock
