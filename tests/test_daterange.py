@@ -16,9 +16,9 @@ from collections import abc
 
 import exchange_calendars as xcals
 import hypothesis as hyp
-from hypothesis import strategies as sthyp
 import pandas as pd
 import pytest
+from hypothesis import strategies as sthyp
 
 import market_prices.daterange as m
 import market_prices.utils.calendar_utils as calutils
@@ -26,29 +26,12 @@ from market_prices import errors, helpers, intervals
 from market_prices.intervals import DOInterval, TDInterval
 from market_prices.mptypes import Alignment, Anchor
 
-from .utils import Answers
 from . import conftest
 from . import hypstrtgy as stmp
 from .hypstrtgy import get_pp_default
+from .utils import Answers
 
-
-# pylint: disable=missing-function-docstring, missing-type-doc
-# pylint: disable=missing-param-doc, missing-any-param-doc, redefined-outer-name
-# pylint: disable=too-many-public-methods, too-many-arguments, too-many-locals
-# pylint: disable=too-many-statements
-# pylint: disable=protected-access, no-self-use, unused-argument, invalid-name
-#   missing-fuction-docstring: doc not required for all tests
-#   protected-access: not required for tests
-#   not compatible with use of fixtures to parameterize tests:
-#       too-many-arguments, too-many-public-methods
-#   not compatible with pytest fixtures:
-#       redefined-outer-name, no-self-use, missing-any-param-doc, missing-type-doc
-#   unused-argument: not compatible with pytest fixtures, caught by pylance anyway.
-#   invalid-name: names in tests not expected to strictly conform with snake_case.
-
-# Any flake8 disabled violations handled via per-file-ignores on .flake8
-
-# pylint: disable=too-many-lines
+# ruff: noqa: FBT003  boolean-positional-value-in-call  # Happy to ignore here
 
 
 def get_today(calendar: xcals.ExchangeCalendar) -> pd.Timestamp:
@@ -171,12 +154,12 @@ class TestGetterDaily:
         drg = self.get_drg(calendar, pp_default)
         session = answers.sessions_sample[-4]  # session before last 3
         ts = session.replace(minute=13, hour=15, second=35)
-        monkeypatch.setattr("pandas.Timestamp.now", lambda *a, **k: ts)
+        monkeypatch.setattr("pandas.Timestamp.now", lambda *_, **__: ts)
         assert drg.end_now == (session, session)
         if not answers.non_sessions.empty:
             non_session = answers.non_sessions[-1]
             ts = non_session.replace(minute=13, hour=15, second=35)
-            monkeypatch.setattr("pandas.Timestamp.now", lambda *a, **k: ts)
+            monkeypatch.setattr("pandas.Timestamp.now", lambda *_, **__: ts)
             session = answers.date_to_session(non_session, "previous")
             assert drg.end_now == (session, session)
 
@@ -409,7 +392,7 @@ class TestGetterDaily:
         latest_start = self.get_latest_start(ds_interval, end, cal)
         if latest_start is None:
             return
-        elif start > latest_start:
+        if start > latest_start:
             msg = self.match_do(drg, start, end, latest_start)
             with pytest.raises(
                 errors.PricesUnavailableDOIntervalPeriodError, match=msg
@@ -1027,7 +1010,7 @@ class TestGetterIntraday:
         calendar: xcals.ExchangeCalendar,
         pp: dict,
         composite_calendar: calutils.CompositeCalendar | None = None,
-        delay: pd.Timedelta = pd.Timedelta(0),
+        delay: pd.Timedelta = pd.Timedelta(0),  # noqa: B008
         limit: pd.Timestamp | None = None,
         ignore_breaks: bool | dict[intervals.BI, bool] = False,
         interval: TDInterval | None = None,
@@ -1098,7 +1081,7 @@ class TestGetterIntraday:
             assert drg.end_alignment is Alignment.BI
             assert drg.limit_right is None
             assert not drg.ignore_breaks
-            with pytest.raises(ValueError, match="`interval` has not been set."):
+            with pytest.raises(ValueError, match=r"`interval` has not been set."):
                 _ = drg.interval is None
             interval = TDInterval.T5
             drg.interval = interval
@@ -1181,7 +1164,6 @@ class TestGetterIntraday:
 
     def test_intervals(self, xlon_calendar, pp_default):
         """Test interval, ds_interval and final_interval properties."""
-        # pylint: disable=too-complex
         cal, pp = xlon_calendar, pp_default
 
         valid_intervals = [
@@ -1201,7 +1183,7 @@ class TestGetterIntraday:
 
         # setting interval property directly
         drg = self.get_drg(cal, pp)
-        with pytest.raises(ValueError, match="`interval` has not been set."):
+        with pytest.raises(ValueError, match=r"`interval` has not been set."):
             _ = drg.interval is None
         for interval in valid_intervals:
             drg.interval = interval
@@ -1336,7 +1318,6 @@ class TestGetterIntraday:
         with `market_prices.parsing.parse_timestamp` and subsequently with
         `market_prices.parsing.parse_start_end`.
         """
-        # pylint: disable=too-complex
         cal, ans = calendars_with_answers_extended
         pp = pp_default
         bi, ds_interval, interval = base_ds_interval
@@ -1445,9 +1426,10 @@ class TestGetterIntraday:
             drg.get_start(limit_right, limit=False)  # limit should have no effect
 
         match = re.escape(
-            f"Prices unavailable as start evaluates to {helpers.fts(too_early)} which is"
-            " earlier than the earliest minute for which price data is available. The"
-            f" earliest minute for which prices are available is {helpers.fts(limit)}."
+            f"Prices unavailable as start evaluates to {helpers.fts(too_early)} which"
+            " is earlier than the earliest minute for which price data is available."
+            " The earliest minute for which prices are available is"
+            f" {helpers.fts(limit)}."
         )
         drg = self.get_drg(cal, pp, limit=limit, strict=True, limit_right=limit_right)
         drg.interval = intervals.BI_ONE_MIN
@@ -1580,7 +1562,6 @@ class TestGetterIntraday:
         with `market_prices.parsing.parse_timestamp` and subsequently with
         `market_prices.parsing.parse_start_end`.
         """
-        # pylint: disable=too-complex
         cal, ans = calendars_with_answers_extended
         cc = calutils.CompositeCalendar([cal])
 
@@ -1766,7 +1747,6 @@ class TestGetterIntraday:
         initially with `market_prices.parsing.parse_timestamp` and
         subsequently with `market_prices.parsing.parse_start_end`.
         """
-        # pylint: disable=too-complex, too-many-branches
         cal, ans = calendars_with_answers_extended
         pp = pp_default
         bi, ds_interval, interval = base_ds_interval
@@ -1778,7 +1758,6 @@ class TestGetterIntraday:
             end_alignment_interval = ds_interval
 
         for ignore_breaks in (False, True):
-            # pylint: disable=cell-var-from-loop
             if ignore_breaks and ds_interval != intervals.TDInterval.H1:
                 # only interested in ignore_breaks when interval is H1
                 continue
@@ -1796,7 +1775,7 @@ class TestGetterIntraday:
 
             def get_session_length(session) -> pd.Timedelta:
                 """Get length of `session` or pm subsession."""
-                session_minutes = ans.get_session_minutes(session, ignore_breaks)[-1]
+                session_minutes = ans.get_session_minutes(session, ignore_breaks)[-1]  # noqa: B023
                 return session_minutes[-1] - session_minutes[0] + one_min
 
             def _modulus(session) -> pd.Timedelta:
@@ -2071,7 +2050,7 @@ class TestGetterIntraday:
         session = ans.sessions_sample[-4]
         open_ = ans.opens[session]
         now = open_ + pd.Timedelta(20, "min")
-        monkeypatch.setattr("pandas.Timestamp.now", lambda *a, **k: now)
+        monkeypatch.setattr("pandas.Timestamp.now", lambda *_, **__: now)
         drg = self.get_drg(cal, pp, interval=interval)
         end = open_ + (TDInterval.T15 * 2)  # end is end of current live interval
         assert drg.end_now == drg.get_end(None) == (end, now + one_min)
@@ -2089,7 +2068,7 @@ class TestGetterIntraday:
         session = sessions[-4]
         close = ans.closes[session]
         now = close + pd.Timedelta(10, "min")
-        monkeypatch.setattr("pandas.Timestamp.now", lambda *a, **k: now)
+        monkeypatch.setattr("pandas.Timestamp.now", lambda *_, **__: now)
         drg = self.get_drg(cal, pp, interval=TDInterval.T1)
         assert drg.end_now == drg.get_end(None) == (close, close)
 
@@ -2235,9 +2214,9 @@ class TestGetterIntraday:
                 duration_insert = f"\nPeriod duration evaluated as {duration_}."
             return re.escape(
                 f"Period does not span a full indice of length {final_interval}."
-                f"{duration_insert}\nPeriod start date evaluated as {start}.\nPeriod end"
-                f" date evaluated as {end}.\nPeriod dates evaluated from parameters:"
-                f" {pp}."
+                f"{duration_insert}\nPeriod start date evaluated as {start}.\nPeriod"
+                f" end date evaluated as {end}.\nPeriod dates evaluated from"
+                f" parameters: {pp}."
             )
 
         error = errors.PricesUnavailableIntervalPeriodError
@@ -2671,10 +2650,10 @@ class TestGetterIntraday:
                 _ = drg.daterange
         else:
             error_msg = re.escape(
-                f"Prices unavailable as start evaluates to {helpers.fts(start_evaluated)}"
-                " which is earlier than the earliest minute for which price data is"
-                " available. The earliest minute for which prices are available is"
-                f" {helpers.fts(limit)}."
+                "Prices unavailable as start evaluates to"
+                f" {helpers.fts(start_evaluated)} which is earlier than the earliest"
+                " minute for which price data is available. The earliest minute for"
+                f" which prices are available is {helpers.fts(limit)}."
             )
             try:
                 with pytest.raises(errors.StartTooEarlyError, match=error_msg):
@@ -2849,9 +2828,10 @@ class TestGetterIntraday:
             drg = self.get_drg(cal, pp, strict=True, **drg_kwargs)
             match = re.escape(
                 "Prices unavailable as start would resolve to an earlier minute than"
-                f" the earliest minute of calendar '{cal.name}'. The calendar's earliest"
-                f" minute is {helpers.fts(ans.first_minute)} (this bound should coincide"
-                " with the earliest minute or date for which price data is available)."
+                f" the earliest minute of calendar '{cal.name}'. The calendar's"
+                f" earliest minute is {helpers.fts(ans.first_minute)} (this bound"
+                " should coincide with the earliest minute or date for which price"
+                " data is available)."
             )
             with pytest.raises(errors.StartOutOfBoundsError, match=match):
                 _ = drg.daterange
@@ -3102,20 +3082,6 @@ class TestGetterIntraday:
         with pytest.raises(errors.StartTooEarlyError):
             _ = drg.daterange
 
-        # NB Nov 23. removed from test on removing requirement to raise error in event
-        # period defined with a duration and `start` that's earlier than the left limit.
-        # retained here in case reinstated. NOTE remove Nov 2025 if given no cause to
-        # reinstate.
-        # verify raises error, regardless of strict, when period defined by
-        # `start` and duration
-        # pp = get_pp_default()
-        # pp["start"], pp["days"] = start, 7
-
-        # for strict in (True, False):
-        #     drg = self.get_drg(xlon, pp, limit=limit, interval=interval, strict=strict)
-        #     with pytest.raises(errors.StartTooEarlyError):
-        #         _ = drg.daterange
-
     def test_daterange_tight(self, xlon_calendar_extended, pp_default):
         """Test daterange_tight for diverges from daterange as expected."""
         xlon = xlon_calendar_extended
@@ -3265,7 +3231,9 @@ class TestGetterIntraday:
         today = get_today(cal)
         bv = ans.sessions_sample <= today
         sessions = ans.sessions_sample[bv]
-        for start_session, end_session in zip(sessions, reversed(sessions)):
+        for start_session, end_session in zip(
+            sessions, reversed(sessions), strict=True
+        ):
             if start_session > end_session:
                 break
             open_ = ans.opens[start_session]

@@ -12,55 +12,37 @@ defined on `test_yahoo.py` for the convenience of using fixtures and helpers
 best defined there.
 """
 
-from collections import abc
 import datetime
 import itertools
-from pathlib import Path
 import re
+from collections import abc
+from pathlib import Path
 from typing import Literal
 from zoneinfo import ZoneInfo
 
 import attr
 import exchange_calendars as xcals
 import pandas as pd
-from pandas.testing import assert_index_equal, assert_frame_equal
 import pytest
 import valimp
+from pandas.testing import assert_frame_equal, assert_index_equal
 
 import market_prices.prices.base as m
-from market_prices import errors, helpers, intervals, mptypes, pt, data
+from market_prices import data, errors, helpers, intervals, mptypes, pt
 from market_prices.helpers import UTC
-from market_prices.intervals import TDInterval, DOInterval
+from market_prices.intervals import DOInterval, TDInterval
 from market_prices.mptypes import Anchor, OpenEnd, Priority
 from market_prices.prices import csv
 from market_prices.support import tutorial_helpers as th
 
-# from market_prices.utils import calendar_utils as calutils
+from .utils import RESOURCES_PATH, clean_temp_test_dir, get_resource_pbt
 
-from .utils import get_resource_pbt, RESOURCES_PATH, clean_temp_test_dir
-
-# pylint: disable=missing-function-docstring, missing-type-doc
-# pylint: disable=missing-param-doc, missing-any-param-doc, redefined-outer-name
-# pylint: disable=too-many-public-methods, too-many-arguments, too-many-locals
-# pylint: disable=too-many-statements, too-many-lines
-# pylint: disable=protected-access, no-self-use, unused-argument, invalid-name
-#   missing-fuction-docstring: doc not required for all tests
-#   protected-access: not required for tests
-#   not compatible with use of fixtures to parameterize tests:
-#       too-many-arguments, too-many-public-methods
-#   not compatible with pytest fixtures:
-#       redefined-outer-name, no-self-use, missing-any-param-doc, missing-type-doc
-#   unused-argument: not compatible with pytest fixtures, caught by pylance anyway.
-#   invalid-name: names in tests not expected to strictly conform with snake_case.
-
-# Any flake8 disabled violations handled via per-file-ignores on .flake8
+# ruff: noqa: PLW0127  # self-assigning-variable serves role in some tests here
 
 
 @attr.s(auto_attribs=True)
 class TstSymbol:
     """Data for a test symbol."""
-
-    # pylint: disable=too-few-public-methods
 
     symbol: str
     calendar: str
@@ -871,10 +853,8 @@ def get_current_session(calendar: xcals.ExchangeCalendar) -> pd.Timestamp:
     if calendar.is_session(today):
         if helpers.now() >= calendar.session_open(today):
             return today
-        else:
-            return calendar.previous_session(today)
-    else:
-        return calendar.date_to_session(today, "previous")
+        return calendar.previous_session(today)
+    return calendar.date_to_session(today, "previous")
 
 
 def get_consecutive_sessions(
@@ -908,10 +888,9 @@ def get_conforming_sessions(
     session_start, session_end = th.get_sessions_range_for_bi(prices, bi)
     # margin allowing for prices at bi to be available over at least one prior session
     session_start = prices.cc.next_session(session_start)
-    sessions = th.get_conforming_sessions(
+    return th.get_conforming_sessions(
         calendars, session_length, session_start, session_end, num_sessions
     )
-    return sessions
 
 
 def get_sessions_xnys_xhkg_xlon(bi: TDInterval, num: int = 2) -> pd.DatetimeIndex:
@@ -1350,9 +1329,6 @@ class TestTableIntraday:
             assert_bounds(table_T5, (start, end))
             assert_interval(table_T5, ds_interval)
 
-        # make explicit that taking from last loop iteration.
-        table_T5 = table_T5  # pylint: disable=self-assigning-variable
-
         # verify prices unavailable if period extends beyond limit of availability
         prices = get_prices_limit_mock(prices, prices.bis.T5, start)
         f = prices._get_bi_table_intraday
@@ -1460,9 +1436,6 @@ class TestTableIntraday:
             assert bi is prices.bis.T1
             assert_interval(table_T1, prices.bis.T1)
             assert_bounds(table_T1, (start, end))
-
-        # make explicit that taking from last loop iteration.
-        table_T1 = table_T1  # pylint: disable=self-assigning-variable
 
         # verify prices unavailable if period extends beyond limit of availability
         start_session = cal.minute_to_past_session(start_limit, 2)
@@ -1757,7 +1730,7 @@ class TestTableIntraday:
 
         exp_end = end if expected_end is None else expected_end
 
-        for start, exp_start in zip(starts, expected_starts):
+        for start, exp_start in zip(starts, expected_starts, strict=True):
             for factor in factors:
                 ds_interval = intervals.to_ptinterval(bi * factor)
                 pp = get_pp(start=start, end=end)
@@ -1780,7 +1753,7 @@ class TestTableIntraday:
                 assert_index_equal(rtrn.index, expected_index)
 
                 for row in rtrn.iterrows():
-                    row = rtrn.iloc[0]
+                    row = rtrn.iloc[0]  # noqa: PLW2901
                     left = row.name.left
                     right = row.name.right - helpers.ONE_SEC
                     subset = df_bi[left:right]
@@ -1833,7 +1806,7 @@ class TestTableIntraday:
         starts = (start, cal.session_open(start) + one_min)
         factors = (2, 5)
         self.assertions_downsample_bi_table(
-            prices, factors, bi, starts, end, None, None, None, True
+            prices, factors, bi, starts, end, None, None, None, ignore_breaks=True
         )
 
     def test__downsample_bi_table_detached(
@@ -1872,7 +1845,7 @@ class TestTableIntraday:
         starts = (start, bvmf.session_open(start) + one_min)
         exp_starts = (bvmf_open, bvmf_open + one_min)
         self.assertions_downsample_bi_table(
-            prices, (2, 5), bi, starts, end, exp_starts, None, lead, True
+            prices, (2, 5), bi, starts, end, exp_starts, None, lead, ignore_breaks=True
         )
 
 
@@ -2071,7 +2044,6 @@ class TestForcePartialIndices:
         hk_pm_closes = pd.DatetimeIndex(xhkg.closes[slc], tz=UTC)
         all_closes = brz_closes.union(hk_pm_closes).union(hk_am_closes)
 
-        # pylint: disable=comparison-with-callable  # there's no such comparison
         bv_left = index.left != index_forced.left
         # assert all indices with left side changed now reflect a xhkg pm open.
         assert index_forced.left[bv_left].isin(hk_pm_opens).all()
@@ -2816,7 +2788,6 @@ class TestGet:
 
         NB passing as datetime.date tested in `test_start_end_parsing`.
         """
-        # pylint: disable=undefined-loop-variable
         prices = prices_us_lon
         cal = prices.calendar_default
 
@@ -2847,7 +2818,7 @@ class TestGet:
         ends = (end_utc, end_local, end_str, end_str2, end_int, end_dt)
 
         df_base = prices.get("2h", starts[0], ends[0])
-        for start, end in zip(starts[1:], ends[1:]):
+        for start, end in zip(starts[1:], ends[1:], strict=True):
             df = prices.get("2h", start, end)
             assert_frame_equal(df, df_base)
 
@@ -2908,7 +2879,7 @@ class TestGet:
         df = prices.get("5min", start_session, end_session)
         start = cal.session_open(start_session)
         end = cal.session_close(end_session)
-        num_rows = int((session_length_xnys / prices.bis.T5)) * num_sessions
+        num_rows = int(session_length_xnys / prices.bis.T5) * num_sessions
         assertions_intraday(df, TDInterval.T5, prices, start, end, num_rows)
 
         # verify a random multiple day interval
@@ -3286,7 +3257,7 @@ class TestGet:
         """
         index = pd.IntervalIndex([])
         index = self.create_single_index(starts[0], ends[0], interval)
-        for start, end in zip(starts[1:], ends[1:]):
+        for start, end in zip(starts[1:], ends[1:], strict=True):
             session_index = self.create_single_index(start, end, interval)
             index = index.union(session_index)
         return index
@@ -3501,8 +3472,8 @@ class TestGet:
         # Verify for indices anchored "open" with xlon as lead cal
         df = prices.get(**kwargs, anchor="open", lead_symbol=xlon_symb)
         assert df.pt.has_regular_interval
-        assert (df.index.left.minute == 0).all()  # pylint: disable=compare-to-zero
-        assert (df.index.right.minute == 0).all()  # pylint: disable=compare-to-zero
+        assert (df.index.left.minute == 0).all()
+        assert (df.index.right.minute == 0).all()
 
         starts, ends = [], []
         starts.append(xlon.session_open(start_session))
@@ -3576,7 +3547,7 @@ class TestGet:
         """
         prices = prices_with_break
         xhkg = prices.calendar_default
-        session = session = get_conforming_sessions(
+        session = get_conforming_sessions(
             prices, prices.bis.T1, [xhkg], [session_length_xhkg], 1
         )[0]
 
@@ -3638,7 +3609,7 @@ class TestGet:
         """
         prices = prices_with_break
         xhkg = prices.calendar_default
-        session = session = get_conforming_sessions(
+        session = get_conforming_sessions(
             prices, prices.bis.T1, [xhkg], [session_length_xhkg], 1
         )[0]
 
@@ -4535,10 +4506,7 @@ def test_request_all_prices(prices_us_lon):
         assert earliest_minute <= first_ts <= earliest_minute + bi
 
         last_ts = table.pt.last_ts
-        if xnys.is_trading_minute(now):
-            latest_minute = now
-        else:
-            latest_minute = xnys.previous_close(now)
+        latest_minute = now if xnys.is_trading_minute(now) else xnys.previous_close(now)
         assert latest_minute - bi <= last_ts <= latest_minute + bi
 
     bi = prices.bis.D1
@@ -4555,8 +4523,6 @@ def test_request_all_prices(prices_us_lon):
 
 class TestPriceAt:
     """Tests for `price_at` and immediate dependencies."""
-
-    # pylint: disable=self-assigning-variable
 
     @staticmethod
     def assert_price_at_rtrn_format(table: pd.DataFrame, df: pd.DataFrame):
@@ -4691,7 +4657,8 @@ class TestPriceAt:
         # xnys open
         minute = xnys.session_open(session)
         df = f(minute, UTC)
-        # unchanged as from daily data unable to get value for AZN.L open as at xnys open
+        # unchanged as from daily data unable to get value for AZN.L open as at xnys
+        # open
         indice = indice
         values = values
         self.assertions(table, df, indice, values)
@@ -5654,7 +5621,7 @@ class TestPriceAt:
         )
         indice = indice  # unchanged
         values = values  # unchanged
-        for minute_ in minutes:
+        for minute_ in minutes:  # noqa: B007
             df = f(minute, UTC)
             self.assertions(table, df, indice, values)
 
@@ -6314,7 +6281,18 @@ def calendars(symbols) -> abc.Iterator[dict[str, str]]:
 
 def test_to_csv(to_csv_dir, temp_dir, symbols, calendars, one_day):
     match = re.escape(
-        f"Price data has been found for all symbols at a least one interval, however, you may find that not all the expected price data is available. See the `limits` property for available base intervals and the limits between which price data is available at each of these intervals. See the `csv_paths` property for paths to all csv files that were found for the requested symbols. See the 'path' parameter and 'Notes' sections of help(PricesCsv) for advices on how csv files should be named and formatted and for use of the `read_csv_kwargs` parameter.\n\nThe following errors and/or warnings occurred during parsing:\n\n0) For symbol 'AZN.L with interval '{TDInterval.H1}' no indice aligned with index evaluated from calendar 'XLON'.\n\n1) Prices are not available at base interval {TDInterval.H1} as (aligned) data was not found at this interval for symbols '['AZN.L']'."
+        "Price data has been found for all symbols at a least one interval, however,"
+        " you may find that not all the expected price data is available. See the"
+        " `limits` property for available base intervals and the limits between which"
+        " price data is available at each of these intervals. See the `csv_paths`"
+        " property for paths to all csv files that were found for the requested"
+        " symbols. See the 'path' parameter and 'Notes' sections of help(PricesCsv)"
+        " for advices on how csv files should be named and formatted and for use of"
+        " the `read_csv_kwargs` parameter.\n\nThe following errors and/or warnings"
+        " occurred during parsing:\n\n0) For symbol 'AZN.L with interval"
+        f" '{TDInterval.H1}' no indice aligned with index evaluated from calendar"
+        f" 'XLON'.\n\n1) Prices are not available at base interval {TDInterval.H1} as"
+        " (aligned) data was not found at this interval for symbols '['AZN.L']'."
     )
     # get prices from csv files. Verify warns that 1H interval not available (files
     # are there but data for XLON instrument does not align with XLON as file was

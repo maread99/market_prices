@@ -1,34 +1,19 @@
 """Tests for market_prices.support.tutorial_helpers module."""
 
-from collections import abc
 import re
+from collections import abc
 
-import pytest
-import pandas as pd
-from pandas.testing import assert_index_equal
-from pandas import Timestamp as T
 import exchange_calendars as xcals
+import pandas as pd
+import pytest
+from pandas import Timestamp as T
+from pandas.testing import assert_index_equal
 
-from market_prices import intervals, errors
-from market_prices.helpers import UTC
-from market_prices.utils import calendar_utils as calutils
-from market_prices.prices.base import PricesBase
 import market_prices.support.tutorial_helpers as m
-
-# pylint: disable=missing-function-docstring, missing-type-doc
-# pylint: disable=missing-param-doc, missing-any-param-doc, redefined-outer-name
-# pylint: disable=too-many-public-methods, too-many-arguments, too-many-locals
-# pylint: disable=too-many-statements
-# pylint: disable=protected-access, unused-argument, invalid-name
-#   missing-fuction-docstring - doc not required for all tests
-#   protected-access not required for tests
-#   not compatible with use of fixtures to parameterize tests:
-#       too-many-arguments,too-many-public-methods
-#   not compatible with pytest fixtures:
-#       redefined-outer-name,no-self-use, missing-any-param-doc
-#   unused-argument not compatible with pytest fixtures, caught by pylance anyway
-
-# Any flake8 disabled violations handled via per-file-ignores on .flake8
+from market_prices import errors, intervals
+from market_prices.helpers import UTC
+from market_prices.prices.base import PricesBase
+from market_prices.utils import calendar_utils as calutils
 
 
 @pytest.fixture(scope="class")
@@ -55,7 +40,7 @@ def xhkg(side) -> abc.Iterator[xcals.ExchangeCalendar]:
 def PricesMock() -> abc.Iterator[type[PricesBase]]:
     """Mock of PricesBase with T1 and T5 base intervals defined."""
 
-    class PricesMock_(PricesBase):
+    class PricesMock_(PricesBase):  # noqa: N801
         """Mock of PricesBase with T1 and T5 base intervals defined."""
 
         BaseInterval = intervals._BaseInterval(
@@ -93,7 +78,6 @@ def get_prices_limit_mock(
     }
 
     class PricesMockLimits(Prices):  # type: ignore[valid-type, misc]
-        # pylint: disable=missing-class-docstring, too-few-public-methods
         BASE_LIMITS = limits
 
     symbols = [cal.name for cal in calendars]
@@ -252,7 +236,6 @@ def test_get_conforming_sessions(xlon, xhkg, xnys):
 
     Expected returns evaluated from investigation of schedules.
     """
-    # pylint: disable=too-complex,too-many-statements
     f = m.get_conforming_sessions
     f_var = m.get_conforming_sessions_var
     f_cc = m.get_conforming_cc_sessions
@@ -361,7 +344,7 @@ def test_get_conforming_sessions(xlon, xhkg, xnys):
     lengths = [cc_lengths]
     assert_index_equal(f_var(cals, lengths, start, end), full_expected[:2])
     assert_index_equal(f_cc_var(cc, cc_lengths, start, end), full_expected[:2])
-    cc_lengths = cc_lengths + [full_session_xlon]
+    cc_lengths = [*cc_lengths, full_session_xlon]
     lengths = [cc_lengths]
     assert_index_equal(f_var(cals, lengths, start, end), full_expected)
     assert_index_equal(f_cc_var(cc, cc_lengths, start, end), full_expected)
@@ -455,9 +438,7 @@ def test_get_conforming_sessions(xlon, xhkg, xnys):
 
     lengths_all = []
     for i in range(num_iterations):
-        lengths_ = []
-        for cal_lengths in lengths:
-            lengths_.append(cal_lengths[: i + 1])
+        lengths_ = [cal_lengths[: i + 1] for cal_lengths in lengths]
         lengths_all.append(lengths_)
 
     for i in range(num_iterations):

@@ -1,46 +1,29 @@
 """Tests for market_prices.prices.yahoo module."""
 
-from collections import abc
 import functools
 import itertools
-import typing
 import re
+import typing
+from collections import abc
 
 import exchange_calendars as xcals
 import numpy as np
 import pandas as pd
-from pandas.testing import assert_frame_equal, assert_series_equal
 import pytest
 import yahooquery as yq
+from pandas.testing import assert_frame_equal, assert_series_equal
 
 import market_prices.prices.yahoo as m
-from market_prices import daterange, helpers, intervals, errors
+from market_prices import daterange, errors, helpers, intervals
 from market_prices.helpers import UTC
 from market_prices.support import tutorial_helpers as th
 from market_prices.utils import calendar_utils as calutils
+
 from .test_base_prices import (
-    assertions_intraday_common,
     assertions_daily,
     assertions_intraday,
+    assertions_intraday_common,
 )
-
-# pylint: disable=missing-function-docstring, missing-type-doc
-# pylint: disable=missing-param-doc, missing-any-param-doc, redefined-outer-name
-# pylint: disable=too-many-public-methods, too-many-arguments, too-many-locals
-# pylint: disable=too-many-statements
-# pylint: disable=protected-access, no-self-use, unused-argument, invalid-name
-#   missing-fuction-docstring: doc not required for all tests
-#   protected-access: not required for tests
-#   not compatible with use of fixtures to parameterize tests:
-#       too-many-arguments, too-many-public-methods
-#   not compatible with pytest fixtures:
-#       redefined-outer-name, no-self-use, missing-any-param-doc, missing-type-doc
-#   unused-argument: not compatible with pytest fixtures, caught by pylance anyway.
-#   invalid-name: names in tests not expected to strictly conform with snake_case.
-
-# Any flake8 disabled violations handled via per-file-ignores on .flake8
-
-# pylint: disable=too-many-lines
 
 # NOTE See ../docs/developers/testing.md...
 # ...sessions that yahoo temporarily fails to return prices for if (seemingly)
@@ -129,7 +112,7 @@ def current_session_in_flakylist(calendars: list[xcals.ExchangeCalendar]) -> boo
     return minute_in_flakylist(helpers.now(), calendars)
 
 
-class skip_if_fails_and_today_flakylisted:
+class skip_if_fails_and_today_flakylisted:  # noqa: N801
     """Decorator to skip test if fails due to today being flakylisted.
 
     Skips test if test raises errors.PricesUnavailableFromSourceError and
@@ -148,8 +131,6 @@ class skip_if_fails_and_today_flakylisted:
         if exception of any of these types is raised and 'today' is
         flakylisted.
     """
-
-    # pylint: disable=too-few-public-methods
 
     def __init__(
         self,
@@ -176,7 +157,7 @@ class skip_if_fails_and_today_flakylisted:
         return wrapped_test
 
 
-class skip_if_prices_unavailable_for_flakylisted_session:
+class skip_if_prices_unavailable_for_flakylisted_session:  # noqa: N801
     """Decorator to skip test if fails due to unavailable prices.
 
     Skips test if raises `errors.PricesUnavailableFromSourceError` for a
@@ -189,8 +170,6 @@ class skip_if_prices_unavailable_for_flakylisted_session:
         Names of calendars against which to evaluate sessions corresponding
         with period bounds.
     """
-
-    # pylint: disable=too-few-public-methods
 
     def __init__(self, cal_names: list[str]):
         cals = [xcals.get_calendar(name) for name in cal_names]
@@ -279,7 +258,6 @@ class ValidSessionUnavailableError(DataUnavailableForTestError):
     """
 
     def __init__(self, session: pd.Timestamp, limit: pd.Timestamp):
-        # pylint: disable=super-init-not-called
         self._msg = (
             f"There are no valid sessions from {session} and with limit as {limit}."
         )
@@ -362,7 +340,6 @@ class ValidSessionsUnavailableError(DataUnavailableForTestError):
         session_length: list[pd.Timedelta],
         num_sessions: int,
     ):
-        # pylint: disable=super-init-not-called
         self._msg = (
             f"{num_sessions} valid consecutive sessions of the requested lengths"
             f" are not available from {start} through {end}."
@@ -497,7 +474,7 @@ class TestConstructor:
         with pytest.raises(ValueError, match=match):
             _ = m.PricesYahoo(invalid_symbol)
         symbols_ = symbols.split()
-        symbols_ = symbols_[:4] + [invalid_symbol] + symbols_[4:]
+        symbols_ = [*symbols_[:4], invalid_symbol, *symbols_[4:]]
         with pytest.raises(ValueError, match=match):
             _ = m.PricesYahoo(symbols_)
 
@@ -741,9 +718,7 @@ class TestRequestDataDaily:
         start = pd.Timestamp("2022-01-01")
         end = pd.Timestamp("2022-01-02")
         rtrn = prices._request_data(interval, start, end)
-        all_missing = []
-        for s in prices.symbols:
-            all_missing.append(rtrn[s].isna().all(axis=None))
+        all_missing = [rtrn[s].isna().all(axis=None) for s in prices.symbols]
         assert any(all_missing)
         assertions_daily(rtrn, prices, start, end)
 
@@ -925,7 +900,7 @@ class TestRequestDataIntraday:
     """Verify implementation of abstract _request_data for intraday intervals."""
 
     @pytest.mark.filterwarnings("ignore:Prices from Yahoo are missing for:UserWarning")
-    def test_request_from_left_limit(self, one_min):
+    def test_request_from_left_limit(self):
         """Test data requests from left limit.
 
         The Yahoo API appears to exhibit flaky behaviour when requesting
@@ -1002,9 +977,10 @@ class TestRequestDataIntraday:
         """
         for bi in prices.bis_intraday:
             limit = prices.limit_intraday_bi(bi)
-            len_mins = []
-            for cal in prices.calendars_unique:
-                len_mins.append(len(cal.minutes_in_range(prices.limits[bi][0], limit)))
+            len_mins = [
+                len(cal.minutes_in_range(prices.limits[bi][0], limit))
+                for cal in prices.calendars_unique
+            ]
             # NB the number of trading minutes will be less than 1 + bi during the
             # period between a session close and one bi prior to that close (unless
             # calendar 24h)
@@ -1206,7 +1182,7 @@ class TestRequestDataIntraday:
             assertions_intraday(df, interval, prices, start, end, expected_num_rows)
 
             assert cc.opens[slc].isin(df.index.left).all()
-            bv = cc.opens[slc].index.weekday == 0  # pylint: disable=compare-to-zero
+            bv = cc.opens[slc].index.weekday == 0
             assert not (cc.opens[slc][bv] - interval).isin(df.index.left).any()
             assert (cc.opens[slc][~bv] - interval)[1:].isin(df.index.left).all()
 
@@ -1355,7 +1331,7 @@ class TestRequestDataIntraday:
             for df_, col in itertools.product((df, df_not_mins), cols):
                 del df_[col]
             assert_frame_equal(df, df_not_mins, rtol=0.075)
-            print(
+            print(  # noqa: T201
                 "test_start_end_non_session_minutes: letting freq_equal assertion"
                 " pass with discrepancies in volume column(s)."
             )
@@ -1407,7 +1383,13 @@ class TestRequestDataIntraday:
         }
         for interval in prices.BaseInterval[:-1]:
             drg = daterange.GetterIntraday(
-                cal, cc, delay, prices.limits[interval][0], False, pp.copy(), interval
+                cal,
+                cc,
+                delay,
+                prices.limits[interval][0],
+                False,  # noqa: FBT003
+                pp.copy(),
+                interval,
             )
             (_, end), _ = drg.daterange
             df = prices._request_data(interval, start, end)
@@ -1453,7 +1435,7 @@ class TestRequestDataIntraday:
                     # because v rare bug can introduce an initial row with missing
                     # values and indice < start
                     hist_s = hist_s[1:].copy()
-                if not hist_s.index[-2] + interval == hist_s.index[-1]:
+                if hist_s.index[-2] + interval != hist_s.index[-1]:
                     # yahoo can return live indice at end of table
                     hist_s = hist_s[:-1].copy()
 
@@ -1479,7 +1461,7 @@ class TestRequestDataIntraday:
                 assert isinstance(hist_alt, pd.DataFrame)
                 hist_alt_s = hist_alt.loc[symbol].copy()
 
-                if not hist_alt_s.index[-2] + interval == hist_alt_s.index[-1]:
+                if hist_alt_s.index[-2] + interval != hist_alt_s.index[-1]:
                     # yahoo can return live indice at end of table
                     hist_alt_s = hist_alt_s[:-1].copy()
 
@@ -1487,7 +1469,8 @@ class TestRequestDataIntraday:
                 assert hist_alt_s.loc[indice].volume == df0_vol
 
                 # verify volume for rest of hist is as df
-                # hist will be missing any row for which at least one tick not registered
+                # hist will be missing any row for which at least one tick not
+                # registered
                 hist_vol = hist_s[1:].volume
                 df_vol = df.pt.indexed_left.loc[hist_vol.index].volume
                 try:
@@ -1497,7 +1480,7 @@ class TestRequestDataIntraday:
                     # high freq of requests, e.g. under execution of test suite.
                     bv = hist_vol != df_vol
                     diff = bv.sum() / len(bv)
-                    print(
+                    print(  # noqa: T201
                         "\ntest_volume_glitch: letting hist_vol == df_vol assertion"
                         f" pass with discrepancies in {diff:.2%} of rows."
                     )
@@ -1507,7 +1490,7 @@ class TestRequestDataIntraday:
                     # fail.
                     return
                 not_in_hist = df[1:].pt.indexed_left.index.difference(hist_vol.index)
-                bv = df.loc[not_in_hist].volume == 0  # pylint: disable=compare-to-zero
+                bv = df.loc[not_in_hist].volume == 0
                 assert bv.all()
 
         # Verify for us prices

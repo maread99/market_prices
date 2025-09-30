@@ -9,9 +9,6 @@ from hypothesis import strategies as hypst
 
 from . import hypstrtgy as m
 
-# pylint: disable=missing-any-param-doc, missing-function-docstring
-# pylint: disable=protected-access, invalid-name
-
 
 @hyp.given(data=hypst.data())
 def test_calendar_start_end_sessions(calendars_with_answers, data):

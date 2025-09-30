@@ -16,11 +16,13 @@ from market_prices.prices import csv as m
 from market_prices.prices.csv import ERROR_DAILY_INTRVL, ERROR_MALFORMED_INTRVL
 
 from .utils import (
+    RESOURCES_PATH,
     create_temp_file,
     create_temp_subdir,
-    RESOURCES_PATH,
     get_resource_pbt,
 )
+
+# ruff: noqa: E501  # line-too-long
 
 # for consolidated errors, only match error message on Windows. Different platforms
 # walk the directory tree in different manners, with the consequence that ordering of
@@ -81,7 +83,7 @@ def test_contstants(columns):
     }
 
     assert isinstance(m.CSV_READ_DFLT_KWARGS, dict)
-    for col in ["date"] + columns:
+    for col in ["date", *columns]:
         assert m.CSV_READ_DFLT_KWARGS["usecols"](col)
         assert m.CSV_READ_DFLT_KWARGS["usecols"](col.upper())
     assert not m.CSV_READ_DFLT_KWARGS["usecols"]("dates")
@@ -455,7 +457,6 @@ def test__get_csv_read_kwargs(csv_read_kwargs):
 
 def test_parse_csv_valid(csv_dir, csv_read_kwargs, utc):
     """Test valid inputs to parse_csv"""
-
     # test valid intraday input
     path = "MSFT_T5_with_added_indice.csv"
     interval = TDInterval.T5
@@ -562,7 +563,7 @@ def test_parse_csvs(csv_dir, csv_dir_paths, csv_read_kwargs, symbols):
         (m.CsvIntervalError, "f_MSFT_T20_fails_on_high_low.csv"),
     )
 
-    for error, (type_, filename) in zip(errors, expected_errors):
+    for error, (type_, filename) in zip(errors, expected_errors, strict=False):
         assert isinstance(error, type_)
         assert str(error.path).endswith(filename)
 
@@ -739,13 +740,12 @@ def test_consolidated_warning(csv_dir, symbols, calendars):
     ]
     assert len(expected_lines) == 10
     assert len(actual_lines) == 10
-    for expected, actual in zip(expected_lines, actual_lines):
+    for expected, actual in zip(expected_lines, actual_lines, strict=True):
         assert actual == expected
 
 
 def test_read_csv_kwargs(csv_dir):
     """Test can pass through `read_csv_kwargs`."""
-
     symbol, calendar = "MSFTALT", "XNYS"
     with pytest.raises(m.CsvNoDataError):
         m.PricesCsv(csv_dir, symbol, calendar)

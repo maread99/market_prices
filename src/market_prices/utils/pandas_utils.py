@@ -3,12 +3,12 @@
 import warnings
 from collections import abc
 from contextlib import contextmanager
-from typing import Any, Literal, Annotated
+from typing import Annotated, Any, Literal
 from zoneinfo import ZoneInfo
 
 import numpy as np
 import pandas as pd
-from valimp import parse, Parser
+from valimp import Parser, parse
 
 
 def pdfreq_to_offset(pdfreq: str) -> pd.offsets.BaseOffset:
@@ -55,7 +55,6 @@ def timestamps_in_interval_of_intervals(
     timestamps: pd.Timestamp | abc.Sequence[pd.Timestamp] | pd.DatetimeIndex,
     intervals: pd.IntervalIndex,
 ) -> bool:
-    # pylint: disable=line-too-long
     """Query if given timestamps are all in an interval of an interval index.
 
     Parameters
@@ -106,17 +105,17 @@ def timestamps_in_interval_of_intervals(
     IntervalIndex([[2021-03-02 00:00:00, 2021-03-12 00:00:00], [2021-03-12 00:00:00, 2021-03-22 00:00:00]], dtype='interval[datetime64[ns], both]')
     >>> timestamps_in_interval_of_intervals(timestamps, intervals)
     True
-    """
-    # NOTE Can lose doctest skip when pandas support is >= 2.2
+    """  # noqa: E501
+    # NOTE: Can lose doctest skip when pandas support is >= 2.2
     timestamps = [timestamps] if isinstance(timestamps, pd.Timestamp) else timestamps
     ser = intervals.to_series()
-    bv = ser.apply(lambda x: all({ts in x for ts in timestamps}))
+    bv = ser.apply(lambda x: all(ts in x for ts in timestamps))
     return any(bv)
 
 
 def make_non_overlapping(
     index: pd.IntervalIndex,
-    fully_overlapped: Literal["remove", "keep", None] = "keep",
+    fully_overlapped: Literal["remove", "keep"] | None = "keep",
 ) -> pd.IntervalIndex:
     """Make pd.IntervalIndex ascending non_overlapping.
 
@@ -206,7 +205,6 @@ def make_non_overlapping(
     4    (2021-05-01 16:00:00, 2021-05-01 17:00:00]
     dtype: interval
     """
-    # pylint: disable=missing-param-doc
     index = index.sort_values()
     if not index.is_overlapping:
         return index
@@ -245,7 +243,7 @@ def make_non_overlapping(
             raise ValueError(msg)
 
     next_left = index.left.to_series().shift(-1)
-    columns = dict(right=index.right, next_left=next_left)
+    columns = {"right": index.right, "next_left": next_left}
     new_right = pd.DataFrame(columns, index=index.left).min(axis=1)
     ii = pd.IntervalIndex.from_arrays(index.left, new_right, closed=index.closed)
     if tz is not None:
@@ -293,7 +291,6 @@ def get_interval_index(
     4    [2021-05-01 16:00:00, 2021-05-01 16:33:00)
     dtype: interval
     """
-    # pylint: disable=missing-param-doc
     if isinstance(offset, str):
         offset = pdfreq_to_offset(offset)
     right = left.shift(freq=offset)
@@ -301,8 +298,7 @@ def get_interval_index(
     index = pd.IntervalIndex.from_arrays(left, right, closed=closed)
     if non_overlapping and index.is_overlapping:
         return make_non_overlapping(index)
-    else:
-        return index
+    return index
 
 
 @parse
@@ -541,7 +537,7 @@ def interval_index_new_tz(
     for indx in [index.left, index.right]:
         try:
             indices.append(indx.tz_convert(tz))
-        except TypeError:
+        except TypeError:  # noqa: PERF203
             indices.append(indx.tz_localize(tz))
     return pd.IntervalIndex.from_arrays(indices[0], indices[1], closed=index.closed)
 
@@ -582,12 +578,8 @@ def index_is_normalized(
     True
     """
     if isinstance(index, pd.IntervalIndex):
-        for indx in [index.left, index.right]:
-            if not index_is_normalized(indx):
-                return False
-        return True
-    else:
-        return (index == index.normalize()).all()
+        return all(index_is_normalized(indx) for indx in [index.left, index.right])
+    return (index == index.normalize()).all()
 
 
 @parse
@@ -675,8 +667,7 @@ def most_common(values: abc.Sequence[Any] | pd.Series) -> Any:
     max_vcs = vcs[vcs == vcs.max()]
     if len(max_vcs) == 1:
         return max_vcs.index[0]
-    else:
-        return next((v for v in values if v in max_vcs.index))
+    return next(v for v in values if v in max_vcs.index)
 
 
 @contextmanager

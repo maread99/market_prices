@@ -6,24 +6,25 @@ import copy
 import os
 import pprint
 import traceback
-import typing
-from typing import Any, Literal, Annotated
 import warnings
 from collections import defaultdict
 from datetime import timedelta
 from pathlib import Path
+from typing import TYPE_CHECKING, Annotated, Any, Literal
 
-from exchange_calendars import ExchangeCalendar
 import numpy as np
 import pandas as pd
-from valimp import parse, Coerce, Parser
+from valimp import Coerce, Parser, parse
 
 from market_prices import helpers, intervals, mptypes, parsing
-from market_prices.errors import MarketPricesError, PricesWarning, PricesMissingWarning
+from market_prices.errors import MarketPricesError, PricesMissingWarning, PricesWarning
 from market_prices.helpers import UTC
 from market_prices.intervals import TDInterval
 from market_prices.prices import base
 from market_prices.utils.general_utils import remove_digits
+
+if TYPE_CHECKING:
+    from exchange_calendars import ExchangeCalendar
 
 
 ERROR_MALFORMED_INTRVL = ValueError("Possible malformed interval")
@@ -48,7 +49,7 @@ CSV_READ_DTYPE_VALUE: dict[str, str] = {
 # IDENTIFY CSV FILES
 
 
-def _get_csv_interval(s: str) -> TDInterval | None | ValueError:
+def _get_csv_interval(s: str) -> TDInterval | None | ValueError:  # noqa: C901, PLR0911
     """Evaluate any interval represented in part of a filename.
 
     Returns
@@ -87,7 +88,7 @@ def _get_csv_interval(s: str) -> TDInterval | None | ValueError:
             interval = intervals.to_ptinterval(value + unit)
         if not interval:
             continue
-        if typing.TYPE_CHECKING:
+        if TYPE_CHECKING:
             assert isinstance(interval, intervals.TDInterval)
         if interval.is_daily and interval.days != 1:
             return ERROR_DAILY_INTRVL
@@ -176,7 +177,7 @@ def get_csv_paths(
     """
     paths: dict[str, dict[TDInterval, Path]] = defaultdict(dict)
     # NOTE from min python 3.12 can use .walk on the pathlib.Path instance
-    for dir_, subdirs, files in os.walk(root):
+    for dir_, _subdirs, files in os.walk(root):
         path_dir = Path(dir_)
         for file in files:
             path = Path(path_dir / file).relative_to(root)
@@ -253,7 +254,10 @@ class CsvPathsError(CsvError):
         if not paths:
             msg_end = ""
         else:
-            msg_end = f" Only the following files were found:\n{pprint.pformat(paths, indent=2)}"
+            msg_end = (
+                " Only the following files were found:"
+                f"\n{pprint.pformat(paths, indent=2)}"
+            )
         self._msg = (
             "No csv files for were found at any interval for symbols"
             f" '{missing_symbols}'. Searched files in and under the directory {root}."
@@ -289,7 +293,7 @@ class CsvPathsIntervalsError(CsvError):
             " although no interval is available to all symbols:\n"
             f"{pprint.pformat(paths, indent=2)}"
             "\n\nThe following warnings occurred when evaluating available intervals:"
-            f"\n{compile_error_msgs(warnings_, False)}"
+            f"\n{compile_error_msgs(warnings_, verbose=False)}"
             f"\n\nSee the 'path' parameter and 'Notes' sections of help(PricesCsv) for"
             " advices on how csv files should be named and formatted and for use of"
             " the `read_csv_kwargs` parameter."
@@ -336,13 +340,13 @@ class CsvParsingError(CsvError):
         if not verbose:
             msg += (
                 "\nThe source error's message was:"
-                f"\n\t{type(self.source)}: {str(self.source)}"
+                f"\n\t{type(self.source)}: {self.source}"
             )
             return msg
 
         try:
             raise self.source
-        except Exception:
+        except Exception:  # noqa: BLE001
             msg += f"\nThe source error's traceback was:\n{traceback.format_exc()}"[:-2]
         return msg
 
@@ -537,10 +541,11 @@ def _remove_unavailable_intervals_from_paths(
 
     unique_intervals = set(intervals)
 
-    intervals_to_remove = []
-    for interval in unique_intervals:
-        if not all(interval in paths[symbol] for symbol in symbols):
-            intervals_to_remove.append(interval)
+    intervals_to_remove = [
+        interval
+        for interval in unique_intervals
+        if not all(interval in paths[symbol] for symbol in symbols)
+    ]
 
     warnings_ = []
     for interval in intervals_to_remove:
@@ -591,7 +596,6 @@ def check_adjust_high_low(
     path
         Path to csv file represented by `df`.
     """
-
     if (df.high < df.low).any():
         return CsvHighLowError(path)
 
@@ -604,7 +608,7 @@ def check_adjust_high_low(
     return df_copy
 
 
-def parse_csv(
+def parse_csv(  # noqa: C901, PLR0912
     root: Path,
     path: Path,
     kwargs: dict[str, Any],
@@ -640,19 +644,19 @@ def parse_csv(
     """
     try:
         df = pd.read_csv(root / path, **kwargs)
-    except Exception as err:
+    except Exception as err:  # noqa: BLE001
         return [CsvReadError(path, source=err)]
 
     df.columns = df.columns.str.lower()
     df.index.name = "date"
-    df.dropna(how="all", axis=0, inplace=True)
+    df = df.dropna(how="all", axis=0)
 
     errors = []
     # set type of any volume column
     if "volume" in df.columns:
         try:
             df["volume"] = df["volume"].astype(np.float64)
-        except Exception as err:
+        except Exception as err:  # noqa: BLE001
             errors.append(CsvVolDtypeError(path, source=err))
     else:
         df["volume"] = np.nan
@@ -689,8 +693,7 @@ def parse_csv(
     if errors:
         return errors
     df = helpers.order_cols(df)
-    df.sort_index(inplace=True)
-    return df
+    return df.sort_index()
 
 
 def parse_csvs(
@@ -1079,7 +1082,7 @@ class PricesCsv(base.PricesBase):
         pm_subsession_origin: Literal["open", "break_end"] = "open",
         verbose: bool = False,
     ):
-        if typing.TYPE_CHECKING:
+        if TYPE_CHECKING:
             assert isinstance(path, Path)
 
         self._receieved_kwargs = dict(
@@ -1124,7 +1127,7 @@ class PricesCsv(base.PricesBase):
             raise CsvNoDataError(symbols_, all_errors_warnings, verbose)
 
         if all_errors_warnings:
-            warnings.warn(
+            warnings.warn(  # noqa: B028
                 PricesCsvParsingConsolidatedWarning(all_errors_warnings, verbose)
             )
 
@@ -1165,7 +1168,7 @@ class PricesCsv(base.PricesBase):
             if not dfs:
                 continue
             df = pd.concat(dfs, axis=1)
-            df.sort_index(inplace=True)
+            df = df.sort_index()
             df.columns = df.columns.set_names("symbol", level=0)
             dfs_by_intrvl[interval] = df
 
@@ -1226,8 +1229,8 @@ class PricesCsv(base.PricesBase):
     def _request_data(
         self,
         interval: intervals.BI,
-        start: pd.Timestamp | None,
-        end: pd.Timestamp,
+        start: pd.Timestamp | None,  # noqa: ARG002
+        end: pd.Timestamp,  # noqa: ARG002
     ) -> pd.DataFrame:
         """Request data.
 
@@ -1267,7 +1270,7 @@ class PricesCsv(base.PricesBase):
             )
         return self._tables[interval]
 
-    def _get_class_instance(self, symbols: list[str], **kwargs) -> "PricesCsv":
+    def _get_class_instance(self, symbols: list[str], **kwargs) -> PricesCsv:
         """Return an instance of PricesCsv with same arguments as self.
 
         Notes
@@ -1280,13 +1283,11 @@ class PricesCsv(base.PricesBase):
 
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            rtrn = type(self)(
+            return type(self)(
                 symbols=symbols, calendars=cals, **self._receieved_kwargs, **kwargs
             )
 
-        return rtrn
-
-    def prices_for_symbols(self, symbols: mptypes.Symbols) -> "PricesCsv":
+    def prices_for_symbols(self, symbols: mptypes.Symbols) -> PricesCsv:
         """Return instance of prices class for one or more symbols.
 
         Creates new instance for `symbols` with freshly retrieved price data.
@@ -1297,7 +1298,6 @@ class PricesCsv(base.PricesBase):
             Symbols to include to the new instance. Passed as class'
             'symbols' parameter.
         """
-        # pylint: disable=protected-access
         symbols = helpers.symbols_to_list(symbols)
         difference = set(symbols).difference(set(self.symbols))
         if difference:

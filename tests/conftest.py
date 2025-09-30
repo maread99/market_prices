@@ -1,25 +1,22 @@
 """Common pytest fixtures."""
 
-from collections import abc
 import os
+from collections import abc
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
-from hypothesis import settings, HealthCheck
 import exchange_calendars as xcals
 import pandas as pd
 import pytest
+from hypothesis import HealthCheck, settings
 
 from market_prices.intervals import TDInterval
-from .utils import Answers, clean_temp_test_dir, TEMP_DIR
 
-# pylint: disable=missing-any-param-doc,redefined-outer-name,
-# pylint: disable=unused-argument  # `mock_now` has effect in background
+from .utils import TEMP_DIR, Answers, clean_temp_test_dir
 
 settings.register_profile("ci", suppress_health_check=[HealthCheck.too_slow])
 settings.load_profile(os.getenv("HYPOTHESIS_PROFILE", "default"))
 
-# pylint: disable=no-member
 base_intervals_sample = [
     TDInterval.T1,
     TDInterval.T2,
@@ -27,7 +24,8 @@ base_intervals_sample = [
     TDInterval.T15,
     TDInterval.H1,
 ]
-# pylint: enable=no-member
+
+# ruff: noqa: ARG001  # unused-function-argument. fixtures take mock_now fixture
 
 UTC = ZoneInfo("UTC")
 
@@ -71,7 +69,7 @@ def _get_ds_intervals(interval: TDInterval) -> list[TDInterval | None]:
     all_ds_intervals = all_intervals[start:stop:step]
 
     factors = [3, 7, 13, 27, 50, 77]
-    if interval is TDInterval.T1:  # pylint: disable=no-member
+    if interval is TDInterval.T1:
         factors.extend([120, 360])
     indices = [factor - 1 for factor in factors]
 

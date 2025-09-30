@@ -9,8 +9,8 @@ from zoneinfo import ZoneInfo
 import exchange_calendars as xcals
 import numpy as np
 import pandas as pd
-from pandas.testing import assert_frame_equal, assert_index_equal, assert_series_equal
 import pytest
+from pandas.testing import assert_frame_equal, assert_index_equal, assert_series_equal
 
 import market_prices.pt as m
 from market_prices import errors, helpers
@@ -19,24 +19,6 @@ from market_prices.intervals import TDInterval
 from market_prices.utils import calendar_utils as calutils
 
 from .utils import get_resource, multiple_sessions_freq
-
-# pylint: disable=missing-function-docstring, missing-type-doc
-# pylint: disable=missing-param-doc, missing-any-param-doc, redefined-outer-name
-# pylint: disable=too-many-public-methods, too-many-arguments, too-many-locals
-# pylint: disable=too-many-statements
-# pylint: disable=protected-access, no-self-use, unused-argument, invalid-name
-#   missing-fuction-docstring: doc not required for all tests
-#   protected-access: not required for tests
-#   not compatible with use of fixtures to parameterize tests:
-#       too-many-arguments, too-many-public-methods
-#   not compatible with pytest fixtures:
-#       redefined-outer-name, no-self-use, missing-any-param-doc, missing-type-doc
-#   unused-argument: not compatible with pytest fixtures, caught by pylance anyway.
-#   invalid-name: names in tests not expected to strictly conform with snake_case.
-
-# Any flake8 disabled violations handled via per-file-ignores on .flake8
-
-# pylint: disable=too-many-lines
 
 
 @pytest.fixture
@@ -468,7 +450,7 @@ class TestPriceTables:
     ):
         # NB ES=F / CMES not included to testing as the CMES calendar does not
         # accurately follow ES=F trading days / hours.
-        for symbol, cal in zip(symbols, calendars):
+        for symbol, cal in zip(symbols, calendars, strict=True):
             # values will be missing from rows as exchange times differ.
             assert df[symbol].isna().any(axis=None)
             reindexed = df.pt.reindex_to_calendar(cal)
@@ -743,7 +725,7 @@ class TestIndicesTradingStatus:
     def assertions_no_partial_indices(self, df, symbols, calendars, reindex=True):
         # indices for which prices available for a symbol are considered trading indices
         # indices for which prices are not availbale are considered non-trading
-        for symbol, cal in zip(symbols, calendars):
+        for symbol, cal in zip(symbols, calendars, strict=True):
             bv = df[symbol].notna().all(axis=1)
             assert_series_equal(df.pt.indices_trading_status(cal), bv)
             sessions = df[bv].index
@@ -857,7 +839,7 @@ class TestIndicesTradingStatus:
     ):
         df = multiple_sessions_alldays_pt
         symbols, calendars = symbols_alldays, calendars_alldays
-        for symbol, cal in zip(symbols, calendars):
+        for symbol, cal in zip(symbols, calendars, strict=True):
             indices_trading_status = pd.Series(np.nan, index=df.index, dtype="object")
             bv = df[symbol].notna().all(axis=1)
             indices_non_trading = df.index[~bv]
@@ -966,7 +948,6 @@ class TestGetSubsetFromIndices:
                 f(*args)
 
     def test_intraday_pt(self, intraday_pt, one_sec, one_min):
-        # pylint: disable=too-complex
         df = intraday_pt
         f = df.pt.get_subset_from_indices
         assert_frame_equal(f(), df)
@@ -1036,9 +1017,9 @@ class TestGetSubsetFromIndices:
 
         # for start only, values within indice interval
         start = df.index[-i].left
-        for ts in (start - one_min, start + one_min):
-            if ts not in df.index.left:
-                invalid_starts.append(ts)
+        invalid_starts.extend(
+            ts for ts in (start - one_min, start + one_min) if ts not in df.index.left
+        )
 
         for start in invalid_starts:
             match = re.escape(f"`start` ({start}) is not the left side of an indice.")
@@ -1098,9 +1079,9 @@ class TestGetSubsetFromIndices:
 
         # for start only, values within indice interval
         start = df.index[-i].left
-        for ts in (start - one_day, start + one_day):
-            if ts not in df.index.left:
-                invalid_starts.append(ts)
+        invalid_starts.extend(
+            ts for ts in (start - one_day, start + one_day) if ts not in df.index.left
+        )
 
         for start in invalid_starts:
             match = re.escape(f"`start` ({start}) is not the left side of an indice.")
@@ -1112,7 +1093,8 @@ class TestGetSubsetFromIndices:
         f = df.pt.get_subset_from_indices
         assert_frame_equal(f(), df)
 
-        # Test basing tests on two intervals on either side of split between composite parts.
+        # Test basing tests on two intervals on either side of split between
+        # composite parts.
         last_5T_indice = df[df.index.length == TDInterval.T5].index[-1]
         i = df.index.get_loc(last_5T_indice)
         i_ = i + 1  # first 1T index
@@ -1169,7 +1151,8 @@ class TestGetSubsetFromIndices:
         f = df.pt.get_subset_from_indices
         assert_frame_equal(f(), df)
 
-        # Test basing tests on two intervals on either side of split between composite parts.
+        # Test basing tests on two intervals on either side of split between
+        # composite parts.
         last_d_indice = df[df.index.length == pd.Timedelta(0)].index[-1]
         i = df.index.get_loc(last_d_indice)
         i_ = i + 1  # first intraday index
@@ -1244,7 +1227,6 @@ class TestPriceAt:
         return expected
 
     def test_intraday_pt(self, intraday_pt, tz_default, one_sec, one_min):
-        # pylint: disable=too-complex
         # NB composite_intraday_pt not tested as implementation independent of
         # composite behavious.
 
@@ -1443,7 +1425,7 @@ class TestCloseAt:
         row = df.iloc[[i]]
         cols = [col for col in df.columns if col[1] == "close"]
         expected = row[cols].droplevel(1, axis=1)
-        return expected
+        return expected  # noqa: RET504
 
     def test_daily_pt_close_at(
         self, daily_pt, session, non_session, tz_default, one_day, one_min
@@ -1609,7 +1591,7 @@ class TestFillNa:
             subset = rtrn_ff[bv][s]
             for col in subset:
                 if col == "volume":
-                    assert (subset[col] == 0).all()  # pylint: disable=compare-to-zero
+                    assert (subset[col] == 0).all()
                 else:
                     assert_series_equal(subset[col], subset["close"], check_names=False)
                 i_nas = rtrn_ff.index.get_indexer(subset.index)
@@ -1625,7 +1607,7 @@ class TestFillNa:
             subset = rtrn_bf[bv][s]
             for col in subset:
                 if col == "volume":
-                    assert (subset[col] == 0).all()  # pylint: disable=compare-to-zero
+                    assert (subset[col] == 0).all()
                 else:
                     assert_series_equal(subset[col], subset["close"], check_names=False)
                 i_nas = rtrn_bf.index.get_indexer(subset.index)
@@ -1913,8 +1895,7 @@ def test_stacked(price_tables, symbols):
 
     # verify raises error if price table has more than one row
     match = re.escape(
-        "Only price tables with a single row can be stacked (price table has"
-        " 2 rows)."
+        "Only price tables with a single row can be stacked (price table has 2 rows)."
     )
     with pytest.raises(ValueError, match=match):
         _ = table.iloc[0:2].pt.stacked
@@ -2140,7 +2121,7 @@ class TestDownsampleDaily:
             df.pt.downsample("3d", xnys),
         )
 
-    # TODO Remove xfail when pandas >3 or fix otherwise released
+    # TODO: Remove xfail when pandas >3 or fix otherwise released
     # NB pd bug manifests in test, not package (manifests where takes a slice to
     # evaluate 'subset').
     # pandas issue ref is https://github.com/pandas-dev/pandas/issues/58604
@@ -2208,11 +2189,11 @@ class TestDownsampleDaily:
                 pdfreq, xnys
             )  # as if all indices complete
             # assert drops last incomplete indice
-            rtrn = f(pdfreq, xnys, True)
+            rtrn = f(pdfreq, xnys, drop_incomplete_last_indice=True)
             assert_frame_equal(rtrn, expected[:-1])
 
             # verify includes incomplete last indice
-            rtrn = f(pdfreq, xnys, False)
+            rtrn = f(pdfreq, xnys, drop_incomplete_last_indice=False)
             # assert all the same up to the last indice
             assert_frame_equal(rtrn[:-1], expected[:-1])
             # and that index the same throughout
@@ -2232,7 +2213,7 @@ class TestDownsampleDaily:
         # aggregated into the date for the prior calendar session.
         df = daily_pt
 
-        for s, cal in zip(symbols, calendars):
+        for s, cal in zip(symbols, calendars, strict=True):
             rtrn = df[s].pt.downsample(cal.day, cal)
             rtrn.index = rtrn.index.left
             df_reindex = df[s].pt.reindex_to_calendar(cal)
@@ -2674,7 +2655,7 @@ class TestDownsampleIntraday:
         ds_interval = pd.Timedelta(ds_minutes, "min")
 
         def f(cal, comp_cal=None) -> pd.DataFrame:
-            return df_test.pt.downsample(ds_freq, "open", cal, False, comp_cal)
+            return df_test.pt.downsample(ds_freq, "open", cal, False, comp_cal)  # noqa: FBT003
 
         # When `calendar=xlon` the indices that fall after the xlon close should be
         # attributed to the xlon session of the close, with no na rows introduced.
@@ -2728,7 +2709,6 @@ class TestDownsampleIntraday:
         Also, takes advantage of knowledge of irregular indice lengths to
         verify methods `indices_length` and `by_indice_length`.
         """
-        # pylint: disable=too-complex
         symbols = ["MSFT", "ES=F"]
         df = intraday_pt[symbols]
         cc = calutils.CompositeCalendar([cmes, xnys])
@@ -2809,13 +2789,13 @@ class TestDownsampleIntraday:
 
         # indices will overlap when the right side of the last indice of a session
         # is later than the left side of the first indice of the next session.
-        # This is resovled in the first instance by curtailing the left side of the first
-        # dowsampled indice of each session. These indices are curtailed to reflect only
-        # the period for which the indice includes aggregated data (as opposed to the
-        # full downsample interval which may have included a period at the left for
-        # which no data was aggregated). If the overlapping persists then the right of
-        # the last downsampled indice of each session is curtailed to the left of the
-        # first downsampled indice of the next session.
+        # This is resovled in the first instance by curtailing the left side of the
+        # first dowsampled indice of each session. These indices are curtailed to
+        # reflect only the period for which the indice includes aggregated data (as
+        # opposed to the full downsample interval which may have included a period at
+        # the left for which no data was aggregated). If the overlapping persists then
+        # the right of the last downsampled indice of each session is curtailed to the
+        # left of the first downsampled indice of the next session.
 
         # Verify for case where curtails only left side of first session indice.
         # Set interval to ensure no excess rows at the end of session. Let there be
@@ -2959,7 +2939,7 @@ class TestDownsampleIntraday:
         df = intraday_pt
         freq = df.pt.interval.as_pdfreq
 
-        for s, cal in zip(symbols, calendars):
+        for s, cal in zip(symbols, calendars, strict=True):
             rtrn = df.pt.downsample(freq, anchor="open", calendar=cal)
             bv = rtrn[s].notna().all(axis=1)
             rtrn_reindex = df.pt.reindex_to_calendar(cal)
@@ -2967,7 +2947,7 @@ class TestDownsampleIntraday:
 
         # Also serves to test single symbol tables
         for anchor in ["open", "workback"]:
-            for s, cal in zip(symbols, calendars):
+            for s, cal in zip(symbols, calendars, strict=True):
                 rtrn = df[s].pt.downsample(freq, anchor=anchor, calendar=cal)
                 rtrn_reindex = df[s].pt.reindex_to_calendar(cal)
                 assert_frame_equal(rtrn.dropna(how="all"), rtrn_reindex)
@@ -3027,7 +3007,7 @@ class TestPTIntraday:
         # more complex.
         df = intraday_pt
         f = df.pt.sessions
-        calendars = list(calendars) + [cc]
+        calendars = [*list(calendars), cc]
         for cal in calendars:
             opens_ = pd.DatetimeIndex(cal.opens.values, tz=UTC)
             opens_arr = opens_.get_indexer(df.pt.utc.index.left, "ffill")
@@ -3062,7 +3042,7 @@ class TestPTIntraday:
             assert_series_equal(rtrn_none, srs)
 
         # verify `session_column` for last iteration of loop
-        calendar = cal  # pylint: disable=undefined-loop-variable
+        calendar = cal
         rtrn = df.pt.session_column(calendar, direction="previous")
         expected.name = (expected.name, expected.name)
         assert_frame_equal(rtrn, pd.concat([expected, df], axis=1))

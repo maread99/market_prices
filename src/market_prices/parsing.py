@@ -9,15 +9,15 @@ Functions to parse/validate via a `valimp.Parser` are defined under a
 dedicated sections.
 """
 
-from pathlib import Path
 import typing
+from pathlib import Path
 from typing import Any
 from zoneinfo import ZoneInfo
 
 import exchange_calendars as xcals
 import pandas as pd
 
-from market_prices import errors, helpers, mptypes, intervals
+from market_prices import errors, helpers, intervals, mptypes
 from market_prices.helpers import UTC
 from market_prices.intervals import TDInterval
 
@@ -48,18 +48,13 @@ def verify_period_parameters(pp: mptypes.PP):
         msg = "If pass start and end then cannot pass a duration component."
         raise ValueError(msg)
 
-    if sum([minutes, hours]) > 0:
-        if sum([days, weeks, months, years]):
-            msg = (
-                "`hours` and `minutes` cannot be combined with other duration"
-                " components."
-            )
-            raise ValueError(msg)
+    if sum([minutes, hours]) > 0 and sum([days, weeks, months, years]):
+        msg = "`hours` and `minutes` cannot be combined with other duration components."
+        raise ValueError(msg)
 
-    if days > 0:
-        if sum([weeks, months, years]):
-            msg = "`days` cannot be combined with other duration components."
-            raise ValueError(msg)
+    if days > 0 and sum([weeks, months, years]):
+        msg = "`days` cannot be combined with other duration components."
+        raise ValueError(msg)
 
 
 def parse_timestamp(ts: pd.Timestamp, tzin: ZoneInfo) -> pd.Timestamp:
@@ -92,13 +87,12 @@ def _parse_start(
         if as_time:
             return cal.session_first_minute(session)
         return session
-    elif as_time:
+    if as_time:
         return cal.minute_to_trading_minute(start, "next")
     # is time required as date
-    elif start.value in cal.first_minutes_nanos:
+    if start.value in cal.first_minutes_nanos:
         return cal.minute_to_session(start)
-    else:
-        return cal.minute_to_future_session(start)
+    return cal.minute_to_future_session(start)
 
 
 def _now_mr_minute_left(
@@ -108,8 +102,7 @@ def _now_mr_minute_left(
     now = helpers.now() - delay
     if cal.is_open_on_minute(now, ignore_breaks=True):
         return now
-    else:
-        return cal.previous_minute(now)
+    return cal.previous_minute(now)
 
 
 def _now_mr_minute_right(
@@ -124,7 +117,7 @@ def _now_mr_session(cal: xcals.ExchangeCalendar, delay: pd.Timedelta) -> pd.Time
     return cal.minute_to_session(_now_mr_minute_left(cal, delay), "none")
 
 
-def _parse_end(
+def _parse_end(  # noqa: PLR0911
     end: pd.Timestamp,
     is_date: bool,
     as_time: bool,
@@ -133,8 +126,6 @@ def _parse_end(
     curtail: bool,
 ) -> pd.Timestamp:
     """Parse `end` to a time if `as_time` or date otherwise."""
-    # pylint: disable=too-many-return-statements
-
     if is_date:
         if curtail:
             end = min(end, _now_mr_session(cal, delay))
@@ -154,16 +145,15 @@ def _parse_end(
         # advance to close/break_start if end was not a trading minute
         return minute if minute == end else minute + helpers.ONE_MIN
     # is_time required as_date
-    if end.value in cal.closes_nanos:  # pylint: disable=else-if-used
+    if end.value in cal.closes_nanos:
         return cal.minute_to_session(end - helpers.ONE_MIN)
-    elif end > _now_mr_minute_left(cal, delay) - helpers.ONE_SEC:
+    if end > _now_mr_minute_left(cal, delay) - helpers.ONE_SEC:
         # return live session if market open, otherwise prior session
         return cal.minute_to_session(end, "previous")
-    else:
-        return cal.minute_to_past_session(end)
+    return cal.minute_to_past_session(end)
 
 
-def _parse_start_end(
+def _parse_start_end(  # noqa: C901, PLR0912
     start: pd.Timestamp | None,
     end: pd.Timestamp | None,
     as_times: bool,
@@ -189,8 +179,7 @@ def _parse_start_end(
         will be None.
     """
     assert bool(mr_session is None) + bool(mr_minute is None) != 1
-    # pylint: disable=too-complex, too-many-arguments, too-many-locals,
-    # pylint: disable=too-many-branches, too-many-statements
+
     if start is None and end is None:
         return None, None
 
@@ -244,11 +233,10 @@ def _parse_start_end(
     if end is not None:
         if end_is_date:
             left_bound = cal.first_session
+        elif as_times:
+            left_bound = cal.first_minute
         else:
-            if as_times:  # pylint: disable=else-if-used
-                left_bound = cal.first_minute
-            else:
-                left_bound = cal.closes[cal.first_session]
+            left_bound = cal.closes[cal.first_session]
         if end < left_bound:
             raise errors.EndOutOfBoundsError(cal, end)
 
@@ -257,11 +245,10 @@ def _parse_start_end(
             # check right bound
             if end_is_date:
                 right_bound = cal.last_session
+            elif as_times:
+                right_bound = cal.last_minute
             else:
-                if as_times:  # pylint: disable=else-if-used
-                    right_bound = cal.last_minute
-                else:
-                    right_bound = cal.closes[cal.last_session] - helpers.ONE_MIN
+                right_bound = cal.closes[cal.last_session] - helpers.ONE_MIN
             if end > right_bound:
                 raise errors.EndOutOfBoundsRightError(cal, end)
 
@@ -277,8 +264,7 @@ def _parse_start_end(
         if start < bound:
             if strict:
                 raise errors.StartOutOfBoundsError(cal, start)
-            else:
-                start = bound
+            start = bound
         start_parsed = _parse_start(start, start_is_date, as_times, cal)
     else:
         start_parsed = None
@@ -302,7 +288,7 @@ def _parse_start_end(
         if start > end or (start == end and not start_is_date):
             raise errors.StartNotEarlierThanEnd(start, end)
 
-    elif start_is_date:  # pylint: disable=confusing-consecutive-elif
+    elif start_is_date:
         # start is date, end is time
         if not as_times:  # as_dates
             session_start = cal.session_first_minute(start_parsed)
@@ -317,20 +303,19 @@ def _parse_start_end(
             if _start_ >= end:
                 raise errors.StartNotEarlierThanEnd(start, end)
 
-    else:  # pylint: disable=else-if-used
-        # start is time, end is date
-        if as_times:
-            if cal.is_session(end):
-                _end_ = cal.session_close(end)
-            else:
-                next_session = cal.date_to_session(end, "next")
-                _end_ = cal.session_first_minute(next_session) - helpers.ONE_MIN
-            if start >= _end_:
-                raise errors.StartNotEarlierThanEnd(start, end)
-        else:  # as_dates
-            session_end = cal.session_close(end_parsed)
-            if start >= session_end:
-                raise errors.StartNotEarlierThanEnd(start, end)
+    # start is time, end is date
+    elif as_times:
+        if cal.is_session(end):
+            _end_ = cal.session_close(end)
+        else:
+            next_session = cal.date_to_session(end, "next")
+            _end_ = cal.session_first_minute(next_session) - helpers.ONE_MIN
+        if start >= _end_:
+            raise errors.StartNotEarlierThanEnd(start, end)
+    else:  # as_dates
+        session_end = cal.session_close(end_parsed)
+        if start >= session_end:
+            raise errors.StartNotEarlierThanEnd(start, end)
 
     # Check calendar open between start and end.
     # Note: verified after start > end check as this check would otherwise
@@ -359,7 +344,7 @@ def _parse_start_end(
             num_mins == 1
             and (s.value not in cal.minutes_nanos or s.value in cal.closes_nanos)
         ):
-            raise errors.PricesDateRangeEmpty(start, end, True, cal)
+            raise errors.PricesDateRangeEmpty(start, end, intraday=True, calendar=cal)
 
     else:
         if not start_is_date:
@@ -374,7 +359,7 @@ def _parse_start_end(
             if end.value not in cal.closes_nanos:
                 e -= helpers.ONE_DAY
         if cal.sessions_in_range(s, e).empty:
-            raise errors.PricesDateRangeEmpty(start, end, False, cal)
+            raise errors.PricesDateRangeEmpty(start, end, intraday=False, calendar=cal)
 
     return start_parsed, end_parsed
 
@@ -451,7 +436,6 @@ def parse_start_end(
         otherwise. If `end` is later than 'now' (adjusted for `delay`) then
         range end will be None.
     """
-    # pylint: disable=too-many-arguments
     start_, end_ = _parse_start_end(
         start, end, as_times, calendar, delay, strict, mr_session, mr_minute
     )
@@ -545,11 +529,11 @@ def verify_time_not_oob(
 # ):
 
 
-def lead_symbol(name, obj: str | None, params: dict[str, Any]) -> str:
+def lead_symbol(_name, obj: str | None, params: dict[str, Any]) -> str:
     """Parse `lead_symbol` parameter of `PricesBase.get`."""
     if obj is None:
         obj = params["self"].lead_symbol_default
-    params["self"]._verify_lead_symbol(obj)  # pylint: disable=protected-access
+    params["self"]._verify_lead_symbol(obj)  # noqa: SLF001
     return obj
 
 
@@ -591,7 +575,7 @@ def verify_timetimestamp(name: str, obj: pd.Timestamp, _) -> pd.Timestamp:
     return obj
 
 
-def to_timezone(name: str, obj: ZoneInfo | str, _) -> ZoneInfo:
+def to_timezone(_name: str, obj: ZoneInfo | str, _) -> ZoneInfo:
     """Parse input to a timezone.
 
     A parameter parsed with this function can take either of:
@@ -605,7 +589,7 @@ def to_timezone(name: str, obj: ZoneInfo | str, _) -> ZoneInfo:
 
 
 def to_prices_timezone(
-    name: str, obj: str | ZoneInfo, params: dict[str, Any]
+    _name: str, obj: str | ZoneInfo, params: dict[str, Any]
 ) -> ZoneInfo:
     """Parse a tz input to a timezone.
 

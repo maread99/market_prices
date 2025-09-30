@@ -6,21 +6,21 @@ import functools
 import warnings
 from typing import TYPE_CHECKING, Any, Literal
 
-import exchange_calendars as xcals
-from exchange_calendars.exchange_calendar import ExchangeCalendar
-import pandas as pd
-
 from market_prices import helpers, intervals, mptypes
-from market_prices.utils import calendar_utils as calutils
 from market_prices.helpers import fts
-from market_prices.intervals import BI
 
 if TYPE_CHECKING:
-    from market_prices.daterange import _Getter, GetterDaily, GetterIntraday
+    import exchange_calendars as xcals
+    import pandas as pd
+    from exchange_calendars.exchange_calendar import ExchangeCalendar
+
+    from market_prices.daterange import GetterDaily, GetterIntraday, _Getter
+    from market_prices.intervals import BI
     from market_prices.prices.base import PricesBase
     from market_prices.pt import PTIntraday
+    from market_prices.utils import calendar_utils as calutils
 
-# pylint: disable=super-init-not-called
+# ruff: noqa: N818 error-suffix-on-exception-name
 
 
 class MarketPricesError(Exception):
@@ -148,7 +148,8 @@ class EndOutOfBoundsRightError(_OutOfBoundsError):
     left_bound = False
 
 
-# 'start'/'end' later than right limit (latest session/minute for which prices available)
+# 'start'/'end' later than right limit (latest session/minute for which prices
+# available)
 
 
 class _TooLateError(PricesUnavailableError):
@@ -175,7 +176,6 @@ class _TooLateError(PricesUnavailableError):
         delay: pd.Timedelta | None = None,
         evaluated: bool = False,
     ):
-        # pylint: disable=too-many-arguments
         self.ts = ts  # inspected by tests.
         time_date = "date" if helpers.is_date(ts) else "time"
         evaluate_be = "evaluate to" if evaluated else "be"
@@ -223,13 +223,12 @@ class _TooEarlyError(PricesUnavailableError):
         self._ts = ts
 
     def __str__(self) -> str:
-        msg = (
+        return (
             f"Prices unavailable as {self.param} evaluates to {fts(self._ts)}"
             f" which is earlier than the earliest {self._ts_type} for which price"
             f" data is available. The earliest {self._ts_type} for which prices are"
             f" available is {fts(self._limit)}."
         )
-        return msg
 
 
 class StartTooEarlyError(_TooEarlyError):
@@ -353,9 +352,9 @@ class PricesIntradayUnavailableError(PricesUnavailableError):
         self.anchor = self._prices.gpp.anchor
         self.interval = self._prices.gpp.ds_interval
 
-        bis = self._prices._bis_valid
+        bis = self._prices._bis_valid  # noqa: SLF001
         if self.anchor is mptypes.Anchor.WORKBACK:
-            bis = self._prices._bis_no_partial_indices(bis)
+            bis = self._prices._bis_no_partial_indices(bis)  # noqa: SLF001
         self.bis = bis
 
         self._drg = self._prices.gpp.drg_intraday_no_limit
@@ -392,12 +391,11 @@ class PricesIntradayUnavailableError(PricesUnavailableError):
 
     @property
     def _availability(self) -> str:
-        msg = (
+        return (
             f"\nThe period over which data is available at {self._bi} is"
             f" {self._dr_available}, although at this base interval the"
             f" requested period evaluates to {self._dr}."
         )
-        return msg
 
     def _get_strict_advices(self) -> str:
         """Advices of part of requested period for which prices are available."""
@@ -441,11 +439,10 @@ class PricesIntradayUnavailableError(PricesUnavailableError):
             insert = "an inferred interval"
         else:
             insert = f"interval {self.interval}"
-        s = (
+        return (
             "Data is unavailable at a sufficiently low base interval to"
             f" evaluate prices at {insert} anchored '{self.anchor}'."
         )
-        return s
 
     @property
     def _s0_no_data_available(self) -> str:
@@ -496,7 +493,7 @@ class LastIndiceInaccurateError(PricesIntradayUnavailableError):
 
     def __init__(
         self,
-        prices: "PricesBase",
+        prices: PricesBase,
         bis_period: list[BI],
         bis_accuracy: list[BI],
     ):
@@ -532,8 +529,7 @@ class LastIndiceInaccurateError(PricesIntradayUnavailableError):
             )
         else:
             msg = (
-                "Full period not available at any synchronised intraday"
-                " base interval. "
+                "Full period not available at any synchronised intraday base interval. "
             )
 
         msg += (
@@ -825,7 +821,6 @@ class PricesUnavailableForExport(PricesUnavailableError):
     """Prices unavailable to export."""
 
     def __init__(self, interval: intervals.PTInterval, kwargs: dict | None = None):
-
         msg = (
             "It was not possible to export prices as an error was raised"
             f" when prices were requested for interval {interval}. The"

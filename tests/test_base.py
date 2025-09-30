@@ -8,45 +8,30 @@ Tests for the base module that require price data to be requested are on
 `test_base_prices`.
 """
 
-from collections import abc
 import dataclasses
 import itertools
 import re
 import typing
 import warnings
+from collections import abc
 
 import exchange_calendars as xcals
 import numpy as np
 import pandas as pd
-from pandas.testing import assert_frame_equal, assert_index_equal, assert_series_equal
 import pytest
+from pandas.testing import assert_frame_equal, assert_index_equal, assert_series_equal
 
 import market_prices.prices.base as m
-from market_prices import helpers, intervals, errors, daterange, mptypes
+from market_prices import daterange, errors, helpers, intervals, mptypes
 from market_prices.helpers import UTC
 from market_prices.prices.yahoo import PricesYahoo
 from market_prices.utils import calendar_utils as calutils
 
 from .utils import get_resource
 
-
-# pylint: disable=missing-function-docstring, missing-type-doc
-# pylint: disable=missing-param-doc, missing-any-param-doc, redefined-outer-name
-# pylint: disable=too-many-public-methods, too-many-arguments, too-many-locals
-# pylint: disable=too-many-statements
-# pylint: disable=protected-access, unused-argument, invalid-name
-#   missing-fuction-docstring: doc not required for all tests
-#   protected-access: not required for tests
-#   not compatible with use of fixtures to parameterize tests:
-#       too-many-arguments, too-many-public-methods
-#   not compatible with pytest fixtures:
-#       redefined-outer-name, no-self-use, missing-any-param-doc, missing-type-doc
-#   unused-argument: not compatible with pytest fixtures, caught by pylance anyway.
-#   invalid-name: names in tests not expected to strictly conform with snake_case.
-
-# Any flake8 disabled violations handled via per-file-ignores on .flake8
-
-# pylint: disable=too-many-lines
+# ruff: noqa: FBT003  boolean-positional-value-in-call  # Happy to ignore here
+# ruff: noqa: B028  no-explicit-stack-level  # Happy to ignore here
+# ruff: noqa: N801  invalid-class-name  # Doesn't like _ at the end
 
 
 @pytest.fixture
@@ -638,7 +623,7 @@ def test_create_composite(t1_us_lon, t5_us_lon, one_day):
     match = "`first` table must preceed and partially overlap `second`."
     # verify raises error when 'first' does not preceed 'second'
     with pytest.raises(ValueError, match=match):
-        _ = f(second, first)  # pylint: disable=arguments-out-of-order
+        _ = f(second, first)
 
     # verify raises error when 'first' overlaps 'second'
     with pytest.raises(ValueError, match=match):
@@ -647,7 +632,6 @@ def test_create_composite(t1_us_lon, t5_us_lon, one_day):
 
 
 def test_inferred_intraday_interval(calendars_extended, one_min, monkeypatch):
-    # pylint: disable=too-complex
     cal = calendars_extended
     default_kwargs = dict(minutes=0, hours=0, days=0, start=None, end=None)
 
@@ -859,7 +843,6 @@ def x247(cal_start, side) -> abc.Iterator[xcals.ExchangeCalendar]:
     "24/7" then calendar 'created' by that class will be same object as
     returned by this fixture.
     """
-
     yield xcals.get_calendar("24/7", start=cal_start, side=side)
 
 
@@ -905,7 +888,9 @@ def left_limits() -> abc.Iterator[dict[intervals.TDInterval, pd.Timestamp]]:
 
 
 @pytest.fixture
-def prices_mock_base_intervals(daily_limit, right_limits, left_limits) -> abc.Iterator[
+def prices_mock_base_intervals(
+    daily_limit, right_limits, left_limits
+) -> abc.Iterator[
     tuple[
         type[intervals._BaseInterval],
         dict[intervals._BaseInterval, pd.Timedelta | pd.Timestamp],
@@ -955,7 +940,9 @@ def prices_mock_base_intervals(daily_limit, right_limits, left_limits) -> abc.It
 
 
 @pytest.fixture
-def prices_mock_base_intervals_intraday_only(left_limits, right_limits) -> abc.Iterator[
+def prices_mock_base_intervals_intraday_only(
+    left_limits, right_limits
+) -> abc.Iterator[
     tuple[
         type[intervals._BaseInterval],
         dict[intervals._BaseInterval, pd.Timedelta],
@@ -999,7 +986,9 @@ def prices_mock_base_intervals_intraday_only(left_limits, right_limits) -> abc.I
 
 
 @pytest.fixture
-def prices_mock_base_intervals_daily_only(daily_limit, right_limits) -> abc.Iterator[
+def prices_mock_base_intervals_daily_only(
+    daily_limit, right_limits
+) -> abc.Iterator[
     tuple[
         type[intervals._BaseInterval],
         dict[intervals._BaseInterval, pd.Timestamp],
@@ -1032,7 +1021,6 @@ def PricesMock(
     class PricesMock_(PricesMockEmpty):
         """Mock PricesBase class with both intraday and daily intervals."""
 
-        # pylint: disable=too-few-public-methods
         BaseInterval = base_interval
         BASE_LIMITS = limits
 
@@ -1049,7 +1037,6 @@ def PricesMockIntradayOnly(
     class PricesMockIntradayOnly_(PricesMockEmpty):  # type: ignore[valid-type, misc]
         """Mock PricesBase class with only intraday intervals."""
 
-        # pylint: disable=too-few-public-methods
         BaseInterval = base_interval
         BASE_LIMITS = limits
 
@@ -1066,7 +1053,6 @@ def PricesMockDailyOnly(
     class PricesMockDailyOnly_(PricesMockEmpty):  # type: ignore[valid-type, misc]
         """Mock PricesBase with only a daily interval."""
 
-        # pylint: disable=too-few-public-methods
         BaseInterval = base_interval
         BASE_LIMITS = limits
 
@@ -1078,7 +1064,6 @@ def PricesMockBreakendPmOrigin(PricesMock) -> abc.Iterator[type[m.PricesBase]]:
     class PricesMockBreakendPmOrigin_(PricesMock):  # type: ignore[valid-type, misc]
         """Mock PricesBase class with PM_SUBSESSION_ORIGIN as 'break end'."""
 
-        # pylint: disable=too-few-public-methods
         PM_SUBSESSION_ORIGIN = "break_end"
 
     yield PricesMockBreakendPmOrigin_
@@ -1094,7 +1079,6 @@ def PricesMockFixedLimits(
     class PricesMockFixedLimits_(PricesMockEmpty):
         """Mock PricesBase class with both intraday and daily intervals."""
 
-        # pylint: disable=too-few-public-methods
         BaseInterval = base_interval
         BASE_LIMITS = limits
         BASE_LIMITS_RIGHT = limits_right
@@ -1112,7 +1096,6 @@ def PricesMockIntradayOnlyFixedLimits(
     class PricesMockIntradayOnlyFixedLimits_(PricesMockEmpty):  # type: ignore[valid-type, misc]
         """Mock PricesBase class with only intraday intervals."""
 
-        # pylint: disable=too-few-public-methods
         BaseInterval = base_interval
         BASE_LIMITS = limits
         BASE_LIMITS_RIGHT = limits_right
@@ -1130,7 +1113,6 @@ def PricesMockDailyOnlyFixedLimits(
     class PricesMockDailyOnlyFixedLimits_(PricesMockEmpty):  # type: ignore[valid-type, misc]
         """Mock PricesBase with only a daily interval."""
 
-        # pylint: disable=too-few-public-methods
         BaseInterval = base_interval
         BASE_LIMITS = limits
         BASE_LIMITS_RIGHT = limits_right
@@ -1183,7 +1165,7 @@ def GetterMock(xnys, xlon) -> abc.Iterator[type[daterange.GetterIntraday]]:
             interval: intervals.BI | None = None,
             calendar: xcals.ExchangeCalendar | None = None,
             composite_calendar: calutils.CompositeCalendar | None = None,
-            delay: pd.Timedelta = pd.Timedelta(0),
+            delay: pd.Timedelta = pd.Timedelta(0),  # noqa: B008
             limit: pd.Timestamp | None = None,
             ignore_breaks: bool | dict[intervals.BI, bool] = False,
             limit_right: pd.Timestamp | None = None,
@@ -1299,7 +1281,6 @@ class TestPricesBaseSetup:
         class PricesMockDailyNoLimit_(PricesMock):  # type: ignore[valid-type, misc]
             """Mock PricesBase class with daily bi with no limit."""
 
-            # pylint: disable=too-few-public-methods
             BASE_LIMITS = BASE_LIMITS_DAILY_NO_LIMIT
 
         yield PricesMockDailyNoLimit_
@@ -1316,7 +1297,7 @@ class TestPricesBaseSetup:
 
         cal = xnys
         # if same parameters then cal will be the cached version
-        assert prices.calendars == {symbol: cal for symbol in symbols}
+        assert prices.calendars == dict.fromkeys(symbols, cal)
         assert prices.calendars_symbols == {cal: symbols}
         assert prices.calendar_default == cal
         assert prices.calendars_unique == [cal]
@@ -1325,13 +1306,13 @@ class TestPricesBaseSetup:
 
         assert prices.lead_symbol_default == symbols[0]
 
-        assert prices.delays == {symbol: zero_td for symbol in symbols}
+        assert prices.delays == dict.fromkeys(symbols, zero_td)
         assert prices.min_delay == zero_td
         assert prices.max_delay == zero_td
         assert prices.calendars_min_delay == {cal: zero_td}
         assert prices.calendars_max_delay == {cal: zero_td}
 
-        assert prices.timezones == {s: cal.tz for s in symbols}
+        assert prices.timezones == dict.fromkeys(symbols, cal.tz)
         assert prices.tz_default == cal.tz
 
         expected_cc = calutils.CompositeCalendar([cal])
@@ -1340,7 +1321,7 @@ class TestPricesBaseSetup:
 
         # Verify passing through single calendar as actual instance
         prices = PricesMock(symbols, xasx)
-        assert prices.calendars == {s: xasx for s in symbols}
+        assert prices.calendars == dict.fromkeys(symbols, xasx)
 
     def test_multiple_calendars(self, PricesMock, xlon, xasx, xnys, zero_td):
         """Verify post-setup properties when passing multiple calendars.
@@ -1379,7 +1360,7 @@ class TestPricesBaseSetup:
 
         assert prices.lead_symbol_default == "LON"
 
-        assert prices.delays == {symbol: zero_td for symbol in symbols}
+        assert prices.delays == dict.fromkeys(symbols, zero_td)
         assert prices.min_delay == zero_td
         assert prices.max_delay == zero_td
         expected_calendar_delays = {xlon: zero_td, xnys: zero_td, xasx: zero_td}
@@ -1465,8 +1446,6 @@ class TestPricesBaseSetup:
         class PricesMockInvalidBaseLimit1(PricesMock):
             """Mock PricesBase class with an invalid bi limit."""
 
-            # pylint: disable=too-few-public-methods
-
             BaseInterval = intervals._BaseInterval(
                 "BaseInterval",
                 dict(
@@ -1487,8 +1466,6 @@ class TestPricesBaseSetup:
         class PricesMockInvalidBaseLimit2(PricesMock):
             """Mock PricesBase class that fails to define limit of a bi."""
 
-            # pylint: disable=too-few-public-methods
-
             BaseInterval = intervals._BaseInterval(
                 "BaseInterval",
                 dict(
@@ -1503,7 +1480,7 @@ class TestPricesBaseSetup:
                 BaseInterval.D1: daily_limit,
             }
 
-        def match(bis, limit_keys) -> str:  # pylint: disable=function-redefined
+        def match(bis, limit_keys) -> str:
             return re.escape(
                 "Base limits do not accurately represent base intervals. Base intervals"
                 f" are {bis.__members__} although base limit keys would be"
@@ -1545,8 +1522,6 @@ class TestPricesBaseSetup:
         class PricesMockInvalidBaseLimit3A(PricesMock):
             """Mock PricesBase class with invalid daily base limit."""
 
-            # pylint: disable=too-few-public-methods
-
             BaseInterval = intervals._BaseInterval(
                 "BaseInterval",
                 dict(D1=intervals.TIMEDELTA_ARGS["D1"]),
@@ -1561,8 +1536,6 @@ class TestPricesBaseSetup:
 
         class PricesMockInvalidBaseLimit3B(PricesMock):
             """Mock PricesBase class with invalid daily base limit."""
-
-            # pylint: disable=too-few-public-methods
 
             BaseInterval = intervals._BaseInterval(
                 "BaseInterval",
@@ -1603,7 +1576,7 @@ class TestPricesBaseSetup:
         with pytest.warns(errors.CalendarTooShortWarning) as ws:
             PricesMock(symbols, [good_cal, cal, cal2])
         assert len(ws.list) == 2
-        for match in (match(cal), match(cal2)):
+        for match in (match(cal), match(cal2)):  # noqa: B020
             assert match in str(ws[0].message) or match in str(ws[1].message)
 
     def test_calendar_too_short_error(
@@ -1704,12 +1677,12 @@ class TestPricesBaseSetup:
         with pytest.raises(ValueError, match=match("calendars", cals)):
             PricesMock(symbols, [cal, cal])
 
-        cals = {s: cal for s in symbols[:-1]}
+        cals = dict.fromkeys(symbols[:-1], cal)
         cals["not_a_symbol"] = cal
         with pytest.raises(ValueError, match=match("calendars", cals)):
             PricesMock(symbols, cals)
 
-        cals = {s: cal for s in symbols}
+        cals = dict.fromkeys(symbols, cal)
         cals["extra_symbol"] = cal
         with pytest.raises(ValueError, match=match("calendars", cals)):
             PricesMock(symbols, cals)
@@ -1718,12 +1691,12 @@ class TestPricesBaseSetup:
         with pytest.raises(ValueError, match=match("delays", delays)):
             PricesMock(symbols, cal, delays=delays)
 
-        delays = {s: 5 for s in symbols[:-1]}
+        delays = dict.fromkeys(symbols[:-1], 5)
         delays["not_a_symbol"] = 5
         with pytest.raises(ValueError, match=match("delays", delays)):
             PricesMock(symbols, cal, delays=delays)
 
-        delays = {s: 5 for s in symbols}
+        delays = dict.fromkeys(symbols, 5)
         delays["extra_symbol"] = 10
         with pytest.raises(ValueError, match=match("delays", delays)):
             PricesMock(symbols, cal, delays=delays)
@@ -1847,7 +1820,7 @@ class TestPricesBaseSetup:
         assert set(prices.limits.keys()) == set(PricesMockIntradayOnly.BaseInterval)
         assert len(prices.limits) == len(PricesMockIntradayOnly.BaseInterval)
         assert pd.Timedelta(1, "min") in prices.bis
-        assert not pd.Timedelta(1, "D") in prices.bis
+        assert pd.Timedelta(1, "D") not in prices.bis
 
         assert prices.limit_daily is None
         assert prices.limit_right_daily is None  # verify None when no daily interval
@@ -1967,7 +1940,7 @@ class TestPricesBaseSetup:
         )
         assert len(prices.limits) == len(PricesMockIntradayOnlyFixedLimits.BaseInterval)
         assert pd.Timedelta(1, "min") in prices.bis
-        assert not pd.Timedelta(1, "D") in prices.bis
+        assert pd.Timedelta(1, "D") not in prices.bis
 
         assert prices.limit_daily is None
         assert prices.limit_right_daily is None  # verify None when no daily interval
@@ -1998,7 +1971,6 @@ class TestPricesBaseSetup:
         xhkg,
     ):
         """Test `live_prices` property."""
-
         calendars = [xnys, xhkg, xlon]
 
         # verifications against manual inspection of calendars' schedules.
@@ -2205,7 +2177,7 @@ class TestPricesBaseSetup:
                 "2021-05-03",  # xlon not open, xhkg and xnys do not overlap
                 "2021-05-31",  # only xhkg open
                 "2021-08-30",  # xlon not open, xhkg and xnys do not overlap
-                "2021-12-24",  # only xhkg and xlon open, no conflict as xhkg closes early
+                "2021-12-24",  # only xhkg and xlon open, no conflict as xhkg closes early  # noqa: E501
                 "2021-12-27",  # only xnys open
                 "2021-12-28",  # xlon not open, xhkg and xnys do not overlap
                 "2021-12-31",  # all open but don't conflict due to early closes
@@ -2227,10 +2199,10 @@ class TestPricesBaseSetup:
         # xnys closed, xhkg and xlon don't conflict when pm has break_end origin
         additional_expected = pd.DatetimeIndex(
             [
-                "2021-01-18",  # xhkg pm session close contiguous with start xlon session
-                "2021-07-05",  # xhkg pm session and xlon session overlap but do not conflict
-                "2021-09-06",  # xhkg pm session and xlon session overlap but do not conflict
-                "2021-11-25",  # xhkg pm session close contiguous with start xlon session
+                "2021-01-18",  # xhkg pm session close contiguous with start xlon session  # noqa: E501
+                "2021-07-05",  # xhkg pm session and xlon session overlap but do not conflict  # noqa: E501
+                "2021-09-06",  # xhkg pm session and xlon session overlap but do not conflict  # noqa: E501
+                "2021-11-25",  # xhkg pm session close contiguous with start xlon session  # noqa: E501
             ]
         )
         H1_expected = H1_expected.union(additional_expected)
@@ -2264,7 +2236,6 @@ class TestPricesBaseSetup:
         one_day,
     ):
         """Test `_indexes_status` and `_has_valid_fully_trading_indices`."""
-        # pylint: disable=too-complex, unbalanced-tuple-unpacking
         now = pd.Timestamp("2022", tz=UTC)
         monkeypatch.setattr("pandas.Timestamp.now", lambda *_, **__: now)
         symbols = ["ONE", "TWO"]
@@ -2627,7 +2598,7 @@ def test__minute_to_session(PricesMock, cal_start, side, one_min, monkeypatch):
     f = prices._minute_to_session
 
     def patch_now(monkey, ts):
-        monkey.setattr("pandas.Timestamp.now", lambda *a, **k: ts)
+        monkey.setattr("pandas.Timestamp.now", lambda *_, **__: ts)
 
     minute = xlon_session_open
     args = ("latest", "previous")
@@ -2644,7 +2615,7 @@ def test__minute_to_session(PricesMock, cal_start, side, one_min, monkeypatch):
         # now less than minute + min xlon delay (10)
         now = minute + pd.Timedelta(9, "min")
         patch_now(m, now)
-        assert not f(minute, *args) == session
+        assert f(minute, *args) != session
         assert f(minute, *args) == xlon_prev_session
 
     minute = xnys_session_close
@@ -2663,7 +2634,7 @@ def test__minute_to_session(PricesMock, cal_start, side, one_min, monkeypatch):
         # now less than minute + min xlon delay (5)
         now = minute + pd.Timedelta(4, "min")
         patch_now(m, now)
-        assert not f(minute, *args) == next_session
+        assert f(minute, *args) != next_session
         assert f(minute, *args) == session
 
 
@@ -2849,8 +2820,6 @@ class TestBis:
     ) -> abc.Iterator[type[m.PricesBase]]:
         class PricesMockBis_(PricesMock):  # type: ignore[valid-type, misc]
             """Mock PricesBase class."""
-
-            # pylint: disable=too-few-public-methods
 
             BaseInterval = intervals._BaseInterval(
                 "BaseInterval",
@@ -3068,7 +3037,7 @@ class TestBis:
         self,
         calendar: xcals.ExchangeCalendar,
         composite_calendar: calutils.CompositeCalendar | None = None,
-        delay: pd.Timedelta = pd.Timedelta(0),
+        delay: pd.Timedelta = pd.Timedelta(0),  # noqa: B008
         limit: pd.Timestamp | None = None,
         pp: mptypes.PP | None = None,
         interval: intervals.BI | None = None,
@@ -3109,9 +3078,8 @@ class TestBis:
         prices.gpp.drg_intraday = drg
         prices.gpp.drg_intraday_no_limit = drg
 
-    def test__bis_valid(self, PricesMockBis, GetterMock, symbols, xlon, xnys, one_min):
+    def test__bis_valid(self, PricesMockBis, GetterMock, symbols, xlon, xnys):
         """Test `_bis_valid`."""
-        # pylint: disable=too-complex
         prices = PricesMockBis(symbols, [xlon, xnys])
 
         # sessions through which all intervals are aligned, from manual inspection.
@@ -3421,7 +3389,6 @@ class TestBis:
             [1] Early close
               pd.Timestamp("2021-12-24 03:10", tz=zoneinfo.ZoneInfo("UTC"))
         """
-        # pylint: disable=redundant-yields-doc
         early_close_session = pd.Timestamp("2021-12-24")
         early_close = xasx.session_close(early_close_session)
         # assert assumption that early close
@@ -3434,7 +3401,6 @@ class TestBis:
         class PricesMockBisAlt(PricesMockBis):  # type: ignore[valid-type, misc]
             """Mock PricesBase class with alternative limits."""
 
-            # pylint: disable=too-few-public-methods
             BASE_LIMITS = revised_limits
 
         return PricesMockBisAlt(symbols, xasx), early_close
@@ -3630,7 +3596,6 @@ class TestBis:
         class PricesMockBisPMOrign(PricesMockBis):
             """Mock PricesBase class with PM_SUBSESSION_ORIGIN as 'break end'."""
 
-            # pylint: disable=too-few-public-methods
             PM_SUBSESSION_ORIGIN = "break_end"
 
         prices = PricesMockBisPMOrign(symbols, cal, ds_interval=ds_interval)
@@ -3674,8 +3639,8 @@ class TestBis:
                 )
             else:
                 s = (
-                    "Data is unavailable at a sufficiently low base interval to evaluate"
-                    f" prices at interval {interval} anchored '{anchor}'."
+                    "Data is unavailable at a sufficiently low base interval to"
+                    f" evaluate prices at interval {interval} anchored '{anchor}'."
                 )
             anchor_insert = " and that have no partial trading indices"
             insert1 = "" if anchor is mptypes.Anchor.OPEN else anchor_insert

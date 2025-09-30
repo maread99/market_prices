@@ -1,28 +1,15 @@
 """Tests for market_prices.utils.pandas_utils module."""
 
-from collections import abc
 import re
+from collections import abc
 from typing import Annotated
 
 import pandas as pd
 import pytest
-from valimp import parse, Parser
+from valimp import Parser, parse
 
 import market_prices.utils.pandas_utils as m
 from market_prices.helpers import UTC
-
-# pylint: disable=missing-function-docstring,redefined-outer-name,too-many-public-methods
-# pylint: disable=missing-param-doc,missing-any-param-doc,too-many-locals
-# pylint: disable=protected-access,unused-argument,no-self-use,too-many-arguments
-#   missing-fuction-docstring - doc not required for all tests
-#   protected-access not required for tests
-#   not compatible with use of fixtures to parameterize tests:
-#       too-many-arguments,too-many-public-methods
-#   not compatible with pytest fixtures:
-#       redefined-outer-name,no-self-use, missing-any-param-doc
-#   unused-argument not compatible with pytest fixtures, caught by pylance anyway
-
-# Any flake8 disabled violations handled via per-file-ignores on .flake8
 
 
 @pytest.fixture

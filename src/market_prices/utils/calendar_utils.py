@@ -10,12 +10,12 @@ from collections import abc
 from typing import TYPE_CHECKING, Literal
 
 import exchange_calendars as xcals
-from exchange_calendars.calendar_helpers import Date, Minute, Session, TradingMinute
 import numpy as np
 import pandas as pd
+from exchange_calendars.calendar_helpers import Date, Minute, Session, TradingMinute
 from valimp import parse
 
-from market_prices import helpers, intervals, errors
+from market_prices import errors, helpers, intervals
 from market_prices.helpers import UTC
 from market_prices.utils import pandas_utils as pdutils
 
@@ -80,16 +80,14 @@ class NoBreakError(ValueError):
     """
 
     def __init__(self, calendar: xcals.ExchangeCalendar, session: pd.Timestamp):
-        # pylint: disable=super-init-not-called
         self.calendar = calendar
         self.session = session
 
     def __str__(self) -> str:
-        msg = (
+        return (
             f"Session '{self.session}' of calendar '{self.calendar.name}'"
             " does not have a break."
         )
-        return msg
 
 
 @parse
@@ -130,7 +128,6 @@ def subsession_length(
         If `session` does not have a break and either `strict` or
         `to_break` is True.
     """
-    # pylint: disable=missing-param-doc
     xcals.calendar_helpers.parse_session(calendar, session)
     if calendar.session_has_break(session):
         if to_break:
@@ -170,7 +167,6 @@ def get_trading_index(
 
     All other parameters as calendar.trading_index.
     """
-    # pylint: disable=missing-param-doc, too-many-arguments
     return calendar.trading_index(
         start,
         end,
@@ -235,8 +231,6 @@ class CompositeCalendar:
     gap between the close of one underlying calendar and the open of the
     next.
     """
-
-    # pylint: disable=too-many-public-methods
 
     LEFT_SIDES = ["left", "both"]
     RIGHT_SIDES = ["right", "both"]
@@ -596,20 +590,19 @@ class CompositeCalendar:
             minute = xcals.calendar_helpers.parse_timestamp(minute, "minute", self)
         if self.is_open_on_minute(minute, _parse=False):
             return minute
-        elif direction == "next":
+        if direction == "next":
             return self.next_minute(minute, _parse=False)
-        elif direction == "previous":
+        if direction == "previous":
             return self.previous_minute(minute, _parse=False)
-        else:
-            raise ValueError(
-                f"`minute` '{minute}' is not a trading minute. Consider passing"
-                " `direction` as 'next' or 'previous'."
-            )
+        raise ValueError(
+            f"`minute` '{minute}' is not a trading minute. Consider passing"
+            " `direction` as 'next' or 'previous'."
+        )
 
     def minute_to_sessions(
         self,
         minute: Minute,
-        direction: Literal["next", "previous", None] = None,
+        direction: Literal["next", "previous"] | None = None,
         _parse: bool = True,
     ) -> pd.DatetimeIndex:
         """Get sessions of which a given minute is a trading minute.
@@ -632,7 +625,6 @@ class CompositeCalendar:
             if `minute` is a minute of each of two overlapping sessions,
             otherwise will have length 1.
         """
-        # pylint: disable=missing-param-doc
         if _parse:
             ts = xcals.calendar_helpers.parse_timestamp(minute, calendar=self)
         else:
@@ -640,9 +632,9 @@ class CompositeCalendar:
         bv = (self.first_minutes <= ts) & (ts <= self.last_minutes)
         if bv.any() or direction is None:
             return self.sessions[bv]
-        elif direction == "next":
+        if direction == "next":
             return self.sessions[ts < self.first_minutes][:1]
-        elif direction == "previous":
+        if direction == "previous":
             return self.sessions[ts >= self.last_minutes][-1:]
         raise ValueError(
             "`direction` must be in ['next', 'previous'] or None although"
@@ -651,18 +643,15 @@ class CompositeCalendar:
 
     def _parse_date(self, date: Date) -> pd.Timestamp:
         """Parse a parameter defining a date."""
-        ts = xcals.calendar_helpers.parse_date(date, "date", calendar=self)
-        return ts
+        return xcals.calendar_helpers.parse_date(date, "date", calendar=self)
 
     def _parse_start(self, start: Date) -> pd.Timestamp:
         """Parse a parameter defining start of a date range."""
-        ts = xcals.calendar_helpers.parse_date(start, "start", calendar=self)
-        return ts
+        return xcals.calendar_helpers.parse_date(start, "start", calendar=self)
 
     def _parse_end(self, end: Date) -> pd.Timestamp:
         """Parse a parameter defining end of a date range."""
-        ts = xcals.calendar_helpers.parse_date(end, "end", calendar=self)
-        return ts
+        return xcals.calendar_helpers.parse_date(end, "end", calendar=self)
 
     def _get_date_idx(self, date: pd.Timestamp) -> int:
         """Index position of a date.
@@ -718,25 +707,23 @@ class CompositeCalendar:
                 "previous" - return first session prior to `date`.
                 "none" - raise ValueError.
         """
-        # pylint: disable=missing-param-doc
         date = self._parse_date(date)
         if self.is_session(date):
             return date
-        elif direction in ["next", "previous"]:
+        if direction in ["next", "previous"]:
             idx = self._get_date_idx(date)
             if direction == "previous":
                 idx -= 1
             return self.sessions[idx]
-        elif direction == "none":
+        if direction == "none":
             raise ValueError(
                 f"`date` '{date}' does not represent a session. Consider passing"
                 " a `direction`."
             )
-        else:
-            raise ValueError(
-                f"'{direction}' is not a valid `direction`. Valid `direction`"
-                ' values are "next", "previous" and "none".'
-            )
+        raise ValueError(
+            f"'{direction}' is not a valid `direction`. Valid `direction`"
+            ' values are "next", "previous" and "none".'
+        )
 
     def sessions_in_range(
         self, start: Date | None = None, end: Date | None = None
@@ -751,7 +738,6 @@ class CompositeCalendar:
         end : default: last calendar session
             End of date range to query.
         """
-        # pylint: disable=missing-param-doc
         if start is None:
             start = self.first_session
         elif not (isinstance(start, pd.Timestamp) and helpers.is_date(start)):
@@ -789,7 +775,6 @@ class CompositeCalendar:
                 True if session's last minute is later than next session's
                 first minute.
         """
-        # pylint: disable=missing-param-doc
         start = self._parse_start(start) if start is not None else None
         end = self._parse_end(end) if end is not None else None
 
@@ -828,7 +813,6 @@ class CompositeCalendar:
             value : pd.Timedelta
                 Session length.
         """
-        # pylint: disable=missing-param-doc
         start = self.first_session if start is None else self._parse_start(start)
         end = self.last_session if end is None else self._parse_end(end)
         return self.closes[start:end] - self.opens[start:end]  # type: ignore[misc]
@@ -860,7 +844,6 @@ class CompositeCalendar:
             value : bool
                 True if `factor` is a factor of session's durations.
         """
-        # pylint: disable=missing-param-doc
         lengths = self.sessions_length(start, end)
         return (lengths % factor).eq(pd.Timedelta(0))
 
@@ -894,7 +877,6 @@ class CompositeCalendar:
             Indices represent each continuous period during which the
             composite calendar is closed.
         """
-        # pylint: disable=missing-param-doc
         start = self.first_session if start is None else self._parse_start(start)
         start = self.date_to_session(start, "next")
         end = self.last_session if end is None else self._parse_end(end)
@@ -973,7 +955,6 @@ class CompositeCalendar:
             True: return index with timezone as "UTC".
             False: return index as timezone-naive.
         """
-        # pylint: disable=too-many-arguments
         ignore_breaks_ = ignore_breaks
         curtail_overlaps = curtail_calendar_overlaps
         cal = self.calendars[0]
@@ -982,7 +963,13 @@ class CompositeCalendar:
         assert isinstance(ignore_breaks, bool)
         try:
             index = get_trading_index(
-                cal, interval, start, end, False, ignore_breaks, curtail_overlaps
+                cal,
+                interval,
+                start,
+                end,
+                False,  # noqa: FBT003
+                ignore_breaks,
+                curtail_overlaps,
             )
         except xcals.errors.IntervalsOverlapError as e:
             raise errors.CompositeIndexCalendarConflict(cal) from e
@@ -995,7 +982,13 @@ class CompositeCalendar:
             assert isinstance(ignore_breaks, bool)
             try:
                 index_ = get_trading_index(
-                    cal, interval, start, end, False, ignore_breaks, curtail_overlaps
+                    cal,
+                    interval,
+                    start,
+                    end,
+                    False,  # noqa: FBT003
+                    ignore_breaks,
+                    curtail_overlaps,
                 )
             except xcals.errors.IntervalsOverlapError as e:
                 raise errors.CompositeIndexCalendarConflict(cal) from e
@@ -1003,7 +996,7 @@ class CompositeCalendar:
             index = index.union(index_, sort=False)
         index = index.sort_values()
         if raise_overlapping and not index.is_non_overlapping_monotonic:
-            raise errors.CompositeIndexConflict()
+            raise errors.CompositeIndexConflict
         if utc:
             index = pdutils.interval_index_new_tz(index, UTC)
         return index
@@ -1102,7 +1095,7 @@ class _CompositeNonTradingIndex:
             last_day_next_session = self.cc.next_session(self._end_session)
         except IndexError:
             # last calendar session, so set next open to last close
-            last_day_next_open = self.closes.iat[-1, -1]
+            last_day_next_open = self.closes.iloc[-1, -1]
         else:
             last_day_next_open = max(
                 c.session_open(last_day_next_session)
@@ -1110,7 +1103,7 @@ class _CompositeNonTradingIndex:
                 if c.is_session(last_day_next_session)
             )
             last_day_next_open = last_day_next_open.tz_convert(None)
-        opens_df.iat[-1, -1] = last_day_next_open
+        opens_df.iloc[-1, -1] = last_day_next_open
         return opens_df
 
     @property
@@ -1188,7 +1181,7 @@ class _CompositeNonTradingIndex:
         assert self.closes is not None and self.opens is not None
         last_open = self.opens[0]
         for i in range(1, len(self.closes.columns) + 1):
-            last_close = self._get_next_close(i, last_open)  # noqa: F841
+            last_close = self._get_next_close(i, last_open)
             next_open = last_open = self._get_next_open(last_close)
             drop_bv = last_close == next_open  # drop where not gap between sessions
             if drop_bv.any():
@@ -1201,5 +1194,4 @@ class _CompositeNonTradingIndex:
             left = index.left.tz_localize(UTC)
             right = index.right.tz_localize(UTC)
             return pd.IntervalIndex.from_arrays(left, right, "left")
-        else:
-            return index
+        return index

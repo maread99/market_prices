@@ -10,11 +10,10 @@ when a parameter is, or evaluates to, a session or minute that lies outside
 of these bounds.
 """
 
+import copy
 import functools
 import typing
 from typing import TYPE_CHECKING
-import copy
-
 
 import exchange_calendars as xcals
 import pandas as pd
@@ -31,8 +30,6 @@ from . import conftest
 # object returned by the decorated function (as opposed to the undecorated return).
 # The resulting [return-value] mypy errors can be ignored so long as the "got" type
 # matches the type expected to be contained in the SearchStartegy.
-
-# pylint: disable=missing-param-doc
 
 
 def noneify(value: typing.Any) -> st.SearchStrategy:
@@ -218,7 +215,6 @@ def end_minutes(
             others: 2 years earlier than right limit, or first calendar
                 close if earlier.
     """
-    # pylint: disable=too-many-locals
     calendar = get_calendar(calendar_name, side="right")
 
     l_limit, r_limit = limit
@@ -656,8 +652,8 @@ def base_intervals() -> st.SearchStrategy[TDInterval]:
     return st.sampled_from(conftest.base_intervals_sample)
 
 
-def base_ds_intervals() -> (
-    st.SearchStrategy[tuple[TDInterval, TDInterval | None, TDInterval]]
-):
+def base_ds_intervals() -> st.SearchStrategy[
+    tuple[TDInterval, TDInterval | None, TDInterval]
+]:
     """Return strategy for a sample base interval and valid ds_intervals."""
     return st.sampled_from(conftest.base_ds_intervals_list)

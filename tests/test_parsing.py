@@ -1,20 +1,20 @@
 """Tests for market_prices.parsing module."""
 
-from collections import abc
-from collections.abc import Callable
 import dataclasses
 import datetime
 import itertools
-from pathlib import Path
 import re
 import typing
-from typing import Annotated, TYPE_CHECKING
 import zoneinfo
+from collections import abc
+from collections.abc import Callable
+from pathlib import Path
+from typing import TYPE_CHECKING, Annotated
 from zoneinfo import ZoneInfo
 
 import pandas as pd
 import pytest
-from valimp import parse, Parser, Coerce
+from valimp import Coerce, Parser, parse
 
 import market_prices.parsing as m
 from market_prices import errors, helpers, mptypes
@@ -23,25 +23,8 @@ from market_prices.intervals import TDInterval
 
 from .utils import Answers, create_temp_file
 
-# pylint: disable=missing-function-docstring, missing-type-doc
-# pylint: disable=missing-param-doc, missing-any-param-doc, redefined-outer-name
-# pylint: disable=too-many-public-methods, too-many-arguments, too-many-locals
-# pylint: disable=too-many-statements
-# pylint: disable=protected-access, no-self-use, unused-argument, invalid-name
-#   missing-fuction-docstring: doc not required for all tests
-#   protected-access: not required for tests
-#   not compatible with use of fixtures to parameterize tests:
-#       too-many-arguments, too-many-public-methods
-#   not compatible with pytest fixtures:
-#       redefined-outer-name, no-self-use, missing-any-param-doc, missing-type-doc
-#   unused-argument: not compatible with pytest fixtures, caught by pylance anyway.
-#   invalid-name: names in tests not expected to strictly conform with snake_case.
-
-# Any flake8 disabled violations handled via per-file-ignores on .flake8
-
 
 def test_verify_period_parameters():
-    # pylint: disable=too-complex
     f = m.verify_period_parameters
 
     dflt = dict(
@@ -160,7 +143,7 @@ class TestParseStartEnd:
             s,
             e,
             as_times,
-            delay=pd.Timedelta(0),
+            delay=pd.Timedelta(0),  # noqa: B008
             strict=True,
             gregorian=False,
             mr_session=None,
@@ -238,7 +221,7 @@ class TestParseStartEnd:
         next_sessions = ans.sessions[locs + 1]
 
         for first_min, last_min, session, prev_session, next_session in zip(
-            first_mins, last_mins, sessions, prev_sessions, next_sessions
+            first_mins, last_mins, sessions, prev_sessions, next_sessions, strict=True
         ):
             assert f(first_min, None, as_dates) == (session, None)
             assert f(None, first_min, as_dates) == (None, prev_session)
@@ -285,7 +268,7 @@ class TestParseStartEnd:
 
         # verify if start/end are not minute accurate then rounded up/down respectively
         start, end = first_mins.iloc[0], last_mins.iloc[0]
-        assert f(start + one_sec, end - one_sec, True) == (
+        assert f(start + one_sec, end - one_sec, True) == (  # noqa: FBT003
             start + one_min,
             end - one_min,
         )
@@ -440,7 +423,6 @@ class TestParseStartEnd:
 
         Verifies that end returns as None when end > now.
         """
-        # pylint: disable=too-complex
         f, ans = f_with_ans
 
         idx = pd.DatetimeIndex(ans.first_minutes).get_slice_bound(now_utc, "left")
@@ -700,28 +682,29 @@ class TestParseStartEnd:
         expected_as_time: pd.Timestamp
 
     @pytest.fixture
-    def f_starts_ends(self, f_with_ans, one_min, today) -> abc.Iterator[
+    def f_starts_ends(
+        self, f_with_ans, one_min, today
+    ) -> abc.Iterator[
         tuple[
             Callable,
             list[tuple[pd.Timestamp, pd.Timestamp, pd.Timestamp]],
             list[tuple[pd.Timestamp, pd.Timestamp, pd.Timestamp]],
         ]
     ]:
-        # pylint: disable=too-complex
         f, ans = f_with_ans
 
         def add(lst, *args):
-            lst.append(self.StartEnd(*args))  # pylint: disable=no-value-for-parameter
+            lst.append(self.StartEnd(*args))
 
         starts: list[tuple[pd.Timestamp, pd.Timestamp, pd.Timestamp]] = []
 
         def add_start(*args):
-            add(starts, *args)  # pylint: disable=no-value-for-parameter
+            add(starts, *args)
 
         ends: list[tuple[pd.Timestamp, pd.Timestamp, pd.Timestamp]] = []
 
         def add_end(*args):
-            add(ends, *args)  # pylint: disable=no-value-for-parameter
+            add(ends, *args)
 
         bv = ans.sessions < today
         sessions = ans.sessions[bv]
@@ -1037,22 +1020,22 @@ class TestParseStartEnd:
         # verify returns as gregorian dates, not trading calendar sessions
         start = pd.Timestamp("2020-01-01")
         end = pd.Timestamp("2021-01-01")
-        assert f(start, end, True) == (start, end)
+        assert f(start, end, gregorian=True) == (start, end)
         # check difference when evaluating against trading calendar
-        rtrn = f(start, end, False)
+        rtrn = f(start, end, gregorian=False)
         assert rtrn[0] != start
         assert rtrn[1] != end
 
         # verify end ahead of 'now' still parses to None
-        assert f(start, today + one_day, True) == (start, None)
+        assert f(start, today + one_day, gregorian=True) == (start, None)
 
         # verify times pass to gregorian dates
         start_time = (start - one_min).tz_localize(UTC)
         end_time = (end + one_min).tz_localize(UTC)
-        assert f(start_time, end_time, True) == (start, end)
+        assert f(start_time, end_time, gregorian=True) == (start, end)
 
         # verify when start/end None, evalute to None
-        assert f(None, None, True) == (None, None)
+        assert f(None, None, gregorian=True) == (None, None)
 
 
 def test_verify_date_not_oob(one_day):
@@ -1139,8 +1122,6 @@ def test_lead_symbol():
     class MockCls:
         """Mock class to test parsing.lead_symbol."""
 
-        # pylint: disable=too-few-public-methods
-
         def _verify_lead_symbol(self, symbol: str):
             if symbol != "MSFT":
                 raise ValueError(f"{symbol} not in symbols.")
@@ -1162,8 +1143,8 @@ def test_lead_symbol():
         f("RFT")
 
 
-def assert_valid_timezone(func: Callable, field: str):
-    """Assert `func` arg takes input valid for ZoneInfo.
+def assert_valid_timezone(func: Callable):
+    """Assert `func` first arg takes input valid for ZoneInfo.
 
     Asserts valid input returns as would be returned by ZoneInfo.
     Verifies that invalid input for ZoneInfo raises an error.
@@ -1181,7 +1162,7 @@ def test_to_timezone():
         assert isinstance(arg, ZoneInfo)
         return arg
 
-    assert_valid_timezone(mock_func, "Timezone")
+    assert_valid_timezone(mock_func)
 
 
 def test_to_prices_timezone():
@@ -1208,7 +1189,7 @@ def test_to_prices_timezone():
     f = MockCls().mock_func
 
     # verify valid input
-    assert_valid_timezone(f, "PricesTimezone")
+    assert_valid_timezone(f)
 
     # verify can take a symbol
     assert f("MSFT") == tz

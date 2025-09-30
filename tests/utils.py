@@ -17,8 +17,6 @@ from market_prices.helpers import UTC
 from market_prices.prices.base import PricesBase
 from market_prices.utils import pandas_utils as pdutils
 
-# pylint: disable=missing-function-docstring, missing-param-doc, too-many-lines
-
 ONE_DAY = pd.Timedelta(1, "D")
 
 TEST_ROOT = Path(__file__).parent
@@ -76,8 +74,7 @@ def is_key(key: str, store_path: Path = STORE_PATH) -> bool:
         Path to store.
     """
     with pd.HDFStore(store_path, mode="r") as store:
-        rtrn = key in store
-    return rtrn
+        return key in store
 
 
 def save_resource(
@@ -111,7 +108,7 @@ def save_resource(
 
     if isinstance(resource.index, pd.IntervalIndex):
         index = resource.index
-        df_indexes = pd.DataFrame(dict(left=index.left, right=index.right))
+        df_indexes = pd.DataFrame({"left": index.left, "right": index.right})
         df_indexes.to_hdf(store_path, key + _INDEXES_SUFFIX)
         resource = resource.reset_index(drop=True)
     resource.to_hdf(store_path, key)
@@ -184,7 +181,7 @@ def save_resource_pbt(
             )
 
         for bi in prices.bis:
-            df = prices._pdata[bi]._table  # pylint: disable=protected-access
+            df = prices._pdata[bi]._table
             if df is None:
                 # indices of different symbols unaligned
                 continue
@@ -245,7 +242,7 @@ def get_resource_pbt(key: str) -> tuple[dict[str, pd.DataFrame], pd.Timestamp]:
         now = shelf[key]
 
     d = {}
-    for BI in BI_STR:  # # pylint: disable=invalid-name
+    for BI in BI_STR:
         bi_key = get_bi_key(key, BI)
         try:
             d[BI] = get_resource(bi_key, STORE_PBT_PATH)
@@ -267,12 +264,13 @@ ENCODING = "utf-8"
 def clean_temp_test_dir():
     """Remove all files and directories from the test directory"""
     # when min version goes to py 3.12 can simplify using walk method on Path
-    for dir_, subdirs, filenames in os.walk(TEMP_DIR):
+    for dir_, subdirs, filenames in os.walk(TEMP_DIR):  # noqa: B007
+        dir_path = Path(dir_)
         for filename in filenames:
-            path = Path(dir_) / filename
-            os.remove(path)
+            path = dir_path / filename
+            path.unlink()
         if dir_ != str(TEMP_DIR):
-            os.rmdir(dir_)
+            dir_path.rmdir()
 
 
 def create_temp_subdir(name: str) -> Path:
@@ -304,8 +302,6 @@ class Answers:
     calendar
         Calendar for which require answer info.
     """
-
-    # pylint: disable=too-many-public-methods
 
     ONE_MIN = pd.Timedelta(1, "min")
     TWO_MIN = pd.Timedelta(2, "min")
@@ -447,7 +443,7 @@ class Answers:
             | (sessions > sessions[-1] - pd.DateOffset(years=2))
             | (sessions.day <= 3)
             | (sessions.day >= 28)
-            | (14 <= sessions.day) & (sessions.day <= 16)
+            | (sessions.day >= 14) & (sessions.day <= 16)
         )
         return sessions[mask]
 
@@ -479,6 +475,7 @@ class Answers:
             self.last_minutes[indexer],
             self.last_am_minutes[indexer],
             self.first_pm_minutes[indexer],
+            strict=True,
         ):
             if pd.isna(last_am):
                 dtis.append(pd.date_range(first, last, freq="min"))
@@ -519,20 +516,17 @@ class Answers:
 
         if pd.isna(last_am) or ignore_breaks:
             return (pd.date_range(first, last, freq="min"),)
-        else:
-            return (
-                pd.date_range(first, last_am, freq="min"),
-                pd.date_range(first_pm, last, freq="min"),
-            )
+        return (
+            pd.date_range(first, last_am, freq="min"),
+            pd.date_range(first_pm, last, freq="min"),
+        )
 
     def get_session_break_minutes(self, session: pd.Timestamp) -> pd.DatetimeIndex:
         """Get break minutes for single `session`."""
         if not self.session_has_break(session):
             return pd.DatetimeIndex([])
-        else:
-            minutes = self.get_session_minutes(session)
-            # pylint - `get_session_minutes` got 2 items as session had break
-            am_mins, pm_mins = minutes  # pylint: disable=unbalanced-tuple-unpacking
+        minutes = self.get_session_minutes(session)
+        am_mins, pm_mins = minutes
         first = am_mins[-1] + self.ONE_MIN
         last = pm_mins[0] - self.ONE_MIN
         return pd.date_range(first, last, freq="min")
@@ -802,34 +796,32 @@ class Answers:
         if self.side == "neither":
             # will always have gap after if neither open or close are trading
             # minutes (assuming sessions cannot overlap)
-            return pd.Series(False, index=self.sessions)
+            return pd.Series(data=False, index=self.sessions)
 
-        elif self.side == "both":
+        if self.side == "both":
             # a trading minute cannot be a minute of more than one session.
             assert not (self.closes == self.opens.shift(-1)).any()
             # there will be no gap if next open is one minute after previous close
             closes_plus_min = self.closes + pd.Timedelta(1, "min")
             return self.opens.shift(-1) == closes_plus_min
 
-        else:
-            return self.opens.shift(-1) == self.closes
+        return self.opens.shift(-1) == self.closes
 
     @property
     def _mask_sessions_without_gap_before(self) -> pd.Series:
         if self.side == "neither":
             # will always have gap before if neither open or close are trading
             # minutes (assuming sessions cannot overlap)
-            return pd.Series(False, index=self.sessions)
+            return pd.Series(data=False, index=self.sessions)
 
-        elif self.side == "both":
+        if self.side == "both":
             # a trading minute cannot be a minute of more than one session.
             assert not (self.closes == self.opens.shift(-1)).any()
             # there will be no gap if previous close is one minute before next open
             opens_minus_one = self.opens - pd.Timedelta(1, "min")
             return self.closes.shift(1) == opens_minus_one
 
-        else:
-            return self.closes.shift(1) == self.opens
+        return self.closes.shift(1) == self.opens
 
     @functools.lru_cache(maxsize=4)
     def _sessions_without_gap_after(self) -> pd.DatetimeIndex:
@@ -1133,7 +1125,6 @@ class Answers:
 
     @functools.lru_cache(maxsize=4)
     def _session_blocks(self) -> dict[str, pd.DatetimeIndex]:
-        # pylint: disable=too-many-locals
         blocks = {}
         blocks["normal"] = self._get_normal_session_block()
         blocks["first_three"] = self.sessions[:3]
@@ -1371,8 +1362,7 @@ class Answers:
         non_sessions_run = self.non_sessions_run
         if non_sessions_run.empty:
             return None
-        else:
-            return self.non_sessions_run[0], self.non_sessions_run[-1]
+        return self.non_sessions_run[0], self.non_sessions_run[-1]
 
     # --- Evaluated sets of minutes ---
 
@@ -1385,7 +1375,6 @@ class Answers:
         tuple[tuple[Minutes, pd.Timestamp], ...],
         tuple[tuple[Minutes, pd.Timestamp], ...],
     ]:
-        # pylint: disable=too-many-locals
         sessions = self.sessions_sample
         first_mins = self.first_minutes[sessions]
         first_mins_plus_one = first_mins + self.ONE_MIN
@@ -1397,7 +1386,14 @@ class Answers:
 
         for session, mins_ in zip(
             sessions,
-            zip(first_mins, first_mins_plus_one, last_mins, last_mins_less_one),
+            zip(
+                first_mins,
+                first_mins_plus_one,
+                last_mins,
+                last_mins_less_one,
+                strict=True,
+            ),
+            strict=True,
         ):
             if TYPE_CHECKING:
                 assert isinstance(mins_, tuple)
@@ -1424,7 +1420,9 @@ class Answers:
                     last_am_mins_less_one,
                     first_pm_mins,
                     first_pm_mins_plus_one,
+                    strict=True,
                 ),
+                strict=True,
             ):
                 if TYPE_CHECKING:
                     assert isinstance(mins_, tuple)
@@ -1438,7 +1436,9 @@ class Answers:
                     last_am_mins_plus_two,
                     first_pm_mins_less_one,
                     first_pm_mins_less_two,
+                    strict=True,
                 ),
+                strict=True,
             ):
                 if TYPE_CHECKING:
                     assert isinstance(mins_, tuple)
@@ -1470,8 +1470,7 @@ class Answers:
     def trading_minutes_only(self) -> abc.Iterator[pd.Timestamp]:
         """Generator of trading minutes of `self.trading_minutes`."""
         for mins, _ in self.trading_minutes:
-            for minute in mins:
-                yield minute
+            yield from mins
 
     @property
     def trading_minute(self) -> pd.Timestamp:
@@ -1498,8 +1497,7 @@ class Answers:
     def break_minutes_only(self) -> abc.Iterator[pd.Timestamp]:
         """Generator of break minutes of `self.break_minutes`."""
         for mins, _ in self.break_minutes:
-            for minute in mins:
-                yield minute
+            yield from mins
 
     @functools.lru_cache(maxsize=4)
     def _non_trading_minutes(
@@ -1518,7 +1516,10 @@ class Answers:
         first_mins_less_one = self.first_minutes[next_sessions] - self.ONE_MIN
 
         for prev_session, next_session, mins_ in zip(
-            prev_sessions, next_sessions, zip(last_mins_plus_one, first_mins_less_one)
+            prev_sessions,
+            next_sessions,
+            zip(last_mins_plus_one, first_mins_less_one, strict=True),
+            strict=True,
         ):
             non_trading_mins.append((mins_, prev_session, next_session))
 
@@ -1558,8 +1559,7 @@ class Answers:
     def non_trading_minutes_only(self) -> abc.Iterator[pd.Timestamp]:
         """Generator of non-trading minutes of `self.non_trading_minutes`."""
         for mins, _, _ in self.non_trading_minutes:
-            for minute in mins:
-                yield minute
+            yield from mins
 
     # --- Evaluated minutes of a specific circumstance ---
 
@@ -1573,10 +1573,14 @@ class Answers:
         )
 
         minutes = []
-        for session, break_session in zip(sessions[mask], break_sessions[mask]):
+        for session, break_session in zip(
+            sessions[mask],
+            break_sessions[mask],
+            strict=False,
+        ):
             break_minutes = self.get_session_break_minutes(break_session)
             trading_minutes = self.get_session_minutes(session)[0]
-            bv = np.in1d(trading_minutes.time, break_minutes.time)
+            bv = np.isin(trading_minutes.time, break_minutes.time)
             minutes.append([trading_minutes[bv][-1], session, break_session])
         return minutes
 
@@ -1605,7 +1609,12 @@ class Answers:
         # only include offset minute if verified as break minute of target
         # (it wont be if the break has shifted by more than the break duration)
         mask = offset_minutes.values > self.last_am_minutes[target_sessions].values
-        zipped = zip(minutes[mask], sessions[mask], target_sessions[mask])
+        zipped = zip(
+            minutes[mask],
+            sessions[mask],
+            target_sessions[mask],
+            strict=False,  # might warrant True?
+        )
         lst.extend(list(zipped))  # type: ignore[arg-type]  # zipped is iterable
 
         sessions = self.sessions_next_break_start_earlier
@@ -1615,7 +1624,12 @@ class Answers:
         offset_minutes = minutes - sessions + target_sessions
         # only include offset minute if verified as break minute of target
         mask = offset_minutes.values < self.first_pm_minutes[target_sessions].values
-        zipped = zip(minutes[mask], sessions[mask], target_sessions[mask])
+        zipped = zip(
+            minutes[mask],
+            sessions[mask],
+            target_sessions[mask],
+            strict=False,  # might warrant True?
+        )
         lst.extend(list(zipped))  # type: ignore[arg-type]  # zipped is iterable
 
         return lst
@@ -1645,7 +1659,12 @@ class Answers:
         # only include offset minute if verified as break minute of target
         # (it wont be if the break has shifted by more than the break duration)
         mask = offset_minutes.values > self.last_am_minutes[target_sessions].values
-        zipped = zip(minutes[mask], sessions[mask], target_sessions[mask])
+        zipped = zip(
+            minutes[mask],
+            sessions[mask],
+            target_sessions[mask],
+            strict=False,  # might warrant True?
+        )
         lst.extend(list(zipped))  # type: ignore[arg-type]  # zipped is iterable
 
         target_sessions = self.sessions_next_break_start_later
@@ -1655,7 +1674,12 @@ class Answers:
         offset_minutes = minutes - sessions + target_sessions
         # only include offset minute if verified as break minute of target
         mask = offset_minutes.values < self.first_pm_minutes[target_sessions].values
-        zipped = zip(minutes[mask], sessions[mask], target_sessions[mask])
+        zipped = zip(
+            minutes[mask],
+            sessions[mask],
+            target_sessions[mask],
+            strict=False,  # might warrant True?
+        )
         lst.extend(list(zipped))  # type: ignore[arg-type]  # zipped is iterable
 
         return lst
@@ -1701,7 +1725,6 @@ class Answers:
                 NB None indicates that corresponding method is expected to
                 raise a ValueError for this input.
         """
-        # pylint: disable=too-many-locals, too-many-statements
         close_is_next_open_bv = self.closes == self.opens.shift(-1)
         open_was_prev_close_bv = self.opens == self.closes.shift(+1)
         close_is_next_open = close_is_next_open_bv[0]
@@ -1758,6 +1781,7 @@ class Answers:
             opens_after_next,
             close_is_next_open_bv[1:-2],
             open_was_prev_close_bv[1:-2],
+            strict=False,  # might warrant True?
         ):
             if not open_was_prev_close:
                 # only include open minutes if not otherwise duplicating
@@ -1772,7 +1796,7 @@ class Answers:
                 next_open_ = open_after_next if close_is_next_open else next_open
                 yield (close, (open_, prev_close, next_open_, next_close))
 
-                open_ = next_open if close_is_next_open else open_
+                open_ = next_open if close_is_next_open else open_  # noqa: PLW2901
                 yield (close + self.ONE_MIN, (open_, close, next_open_, next_close))
 
         # close and 'close + one_min' for session -2
