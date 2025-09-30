@@ -1,7 +1,6 @@
 name: Build and test
 
 on:
-  workflow_dispatch:
   push:
     branches:
       - master
@@ -10,16 +9,16 @@ on:
       - master
 
 jobs:
-  check-black:
-      # fail it if doesn't conform to black
-      runs-on: ubuntu-latest
-      steps:
-        - uses: actions/checkout@v4
-        - uses: psf/black@stable
-          with:
-            options: "--check --verbose --diff"
+
+  pre-commit:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v5
+    - uses: actions/setup-python@v6
+    - uses: pre-commit/action@v3.0.1
 
   build-and-test:
+    needs: pre-commit
 
     runs-on: ${{ matrix.os }}
     strategy:
@@ -53,10 +52,6 @@ jobs:
             pip install -r etc/requirements_dependabot/requirements_tests.txt
           fi
           pip install -e .
-      - name: Lint with flake8
-        # fail it if doesn't pass flake8
-        run: |
-          flake8 . --statistics
       - name: Test with pytest
         # fail it if doesn't pass test suite
         run: |
