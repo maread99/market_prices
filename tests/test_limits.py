@@ -21,27 +21,12 @@ from pandas.testing import assert_index_equal
 from market_prices import errors, intervals
 from market_prices.helpers import UTC
 from market_prices.intervals import TDInterval
-from market_prices.prices.csv import PricesCsv
 from market_prices.mptypes import Priority
-
+from market_prices.prices.csv import PricesCsv
 
 from .utils import RESOURCES_PATH
 
-
-# pylint: disable=missing-function-docstring, missing-type-doc
-# pylint: disable=too-many-arguments, too-many-public-methods
-# pylint: disable=missing-param-doc, missing-any-param-doc, redefined-outer-name
-# pylint: disable=too-many-statements, too-many-lines, line-too-long
-# pylint: disable=protected-access, no-self-use, unused-argument, invalid-name
-#   missing-fuction-docstring: doc not required for all tests
-#   protected-access: not required for tests
-#   not compatible with use of fixtures to parameterize tests:
-#       too-many-arguments, too-many-public-methods
-#   not compatible with pytest fixtures:
-#       redefined-outer-name, no-self-use, missing-any-param-doc, missing-type-doc
-#   invalid-name: names in tests not expected to strictly conform with snake_case.
-
-# Any flake8 disabled violations handled via per-file-ignores on .flake8
+# ruff: noqa: E501  # line-too-long
 
 
 @pytest.fixture(scope="class")
@@ -606,8 +591,7 @@ class TestStartEnd:
             if intrvl == "1M":
                 check_monthly(prices, df, start_exp_mo)
                 continue
-            else:
-                check_daily(prices, df, start)
+            check_daily(prices, df, start)
             with pytest.raises(errors.EndTooLateError, match=match):
                 prices.get(
                     intrvl, start=start, end=end_ool_D1, priority=priority, strict=True

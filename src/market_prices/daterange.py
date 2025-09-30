@@ -67,7 +67,7 @@ class _Getter(abc.ABC):
         limit corresponding with that interval.
     """
 
-    def __init__(  # pylint: disable=too-many-arguments
+    def __init__(
         self,
         calendar: xcals.ExchangeCalendar,
         limit: pd.Timestamp | Callable[[intervals.BI], pd.Timestamp],
@@ -110,9 +110,8 @@ class _Getter(abc.ABC):
         """Higher of `interval` and `ds_interval`."""
         if self.ds_interval is not None:
             return self.ds_interval
-        else:
-            return self.interval  # type: ignore[return-value]  #...
-            # will raise error if interval is None
+        return self.interval  # type: ignore[return-value]  #...
+        # will raise error if interval is None
 
     @property
     def pp(self) -> mptypes.PP:
@@ -215,7 +214,7 @@ class _Getter(abc.ABC):
             return self.end_now
         return self._get_end(self.limit_right)
 
-    def get_end(  # pylint: disable=missing-param-doc
+    def get_end(
         self,
         ts: pd.Timestamp | None,
         limit: bool = True,
@@ -306,10 +305,9 @@ class _Getter(abc.ABC):
                 raise errors.StartOutOfBoundsError(
                     self.cal, None, self.final_interval.is_daily
                 )
-            else:
-                start = self._get_start(self.limit)
-                assert start is not None
-                return start
+            start = self._get_start(self.limit)
+            assert start is not None
+            return start
 
         limit_right = self.limit_right
         if limit_right is not None and start > limit_right:
@@ -320,7 +318,7 @@ class _Getter(abc.ABC):
         if start < self.limit:
             if self.strict:
                 raise errors.StartTooEarlyError(start, self.limit)
-            elif limit:
+            if limit:
                 start = self._get_start(self.limit)
                 assert start is not None
         return start
@@ -383,7 +381,7 @@ class GetterDaily(_Getter):
         """Time delta represented by each indice. Always one day."""
         bi = intervals.ONE_DAY
         if TYPE_CHECKING:
-            assert isinstance(bi, intervals.BI)  # pylint: disable=protected-access
+            assert isinstance(bi, intervals.BI)
         return bi
 
     def _verify_ds_interval(self, ds_interval: intervals.PTInterval | None):
@@ -459,8 +457,7 @@ class GetterDaily(_Getter):
             except xcals.errors.RequestedSessionOutOfBounds:
                 if self.strict:
                     raise errors.StartOutOfBoundsError(self.cal, is_date=True) from None
-                else:
-                    session = self.cal.first_session
+                session = self.cal.first_session
         else:
             session = self.cal.session_offset(ts, days)
         return session
@@ -473,16 +470,14 @@ class GetterDaily(_Getter):
         prior_start = self._prior_start(start)
         if prior_start is None:
             if self.strict:
-                raise errors.StartOutOfBoundsError(self.cal, None, True)
-            else:
-                # Do not set to limit, i.e. do not include 'some of a ds_interval'
-                prior_start = start_pre_add_a_row
+                raise errors.StartOutOfBoundsError(self.cal, None, is_date=True)
+            # Do not set to limit, i.e. do not include 'some of a ds_interval'
+            prior_start = start_pre_add_a_row
         if prior_start < self.limit:
             if self.strict:
                 raise errors.StartTooEarlyError(prior_start, self.limit, add_a_row=True)
-            else:
-                # Do not set to limit, i.e. do not include 'some of a ds_interval'
-                prior_start = start_pre_add_a_row
+            # Do not set to limit, i.e. do not include 'some of a ds_interval'
+            prior_start = start_pre_add_a_row
         return prior_start
 
     def _check_period_covers_one_monthly_interval(
@@ -500,10 +495,8 @@ class GetterDaily(_Getter):
                 latest_start, self, start, end
             )
 
-    def _daterange_is_monthly(self) -> tuple[mptypes.DateRangeReq, pd.Timestamp]:
+    def _daterange_is_monthly(self) -> tuple[mptypes.DateRangeReq, pd.Timestamp]:  # noqa: C901, PLR0912
         """Date range over which to request prices with monthly ds_interval."""
-        # pylint: disable=too-complex, too-many-branches
-        # pylint: disable=too-many-locals, too-many-statements
         assert isinstance(self.final_interval, intervals.DOInterval)
 
         if self._has_duration:
@@ -530,14 +523,13 @@ class GetterDaily(_Getter):
                         # "next" as want to count back from end of month
                         end_ = self.cal.date_to_session(end, "next")
                         start = self._offset_days(end_, -days)
+                elif days == 1:
+                    end = start
                 else:
-                    if days == 1:  # pylint: disable=else-if-used
-                        end = start
-                    else:
-                        start_ = start
-                        # "previous" as want to count from start of month
-                        start_ = self.cal.date_to_session(start, "previous")
-                        end = self._offset_days(start_, days)
+                    start_ = start
+                    # "previous" as want to count from start of month
+                    start_ = self.cal.date_to_session(start, "previous")
+                    end = self._offset_days(start_, days)
 
             else:
                 # days -1 as start/end both considered days of period.
@@ -631,7 +623,6 @@ class GetterDaily(_Getter):
         errors.PricesUnavailableIntervalPeriodError
             Evaluated period is shorter than `self.final_interval`.
         """
-        # pylint: disable=too-complex,too-many-branches
         if self.final_interval.is_monthly:
             return self._daterange_is_monthly()
 
@@ -643,15 +634,11 @@ class GetterDaily(_Getter):
                 days = self.pp["days"]
                 if start is None:
                     assert end is not None
-                    if days == 1:
-                        start = end
-                    else:
-                        start = self._offset_days(end, -days)
+                    start = end if days == 1 else self._offset_days(end, -days)
+                elif days == 1:
+                    end = start
                 else:
-                    if days == 1:  # pylint: disable=else-if-used
-                        end = start
-                    else:
-                        end = self._offset_days(start, days)
+                    end = self._offset_days(start, days)
 
             else:
                 # days -1 as start/end both considered days of period.
@@ -713,7 +700,7 @@ class GetterIntraday(_Getter):
             mptypes.Alignment.FINAL: `self.final_interval`
     """
 
-    def __init__(  # pylint: disable=too-many-arguments
+    def __init__(
         self,
         calendar: xcals.ExchangeCalendar,
         composite_calendar: calutils.CompositeCalendar,
@@ -906,7 +893,7 @@ class GetterIntraday(_Getter):
         i = index.get_loc(start)
         diff = self.ds_factor if self.final_interval != self.alignment_interval else 1
         prior_start = index[i - diff]
-        return prior_start
+        return prior_start  # noqa: RET504
 
     def _end_unaligned_close_adj(
         self, end: pd.Timestamp
@@ -954,7 +941,7 @@ class GetterIntraday(_Getter):
             session_open, session_close = self.cal.session_open_close(session)
             length = session_close - session_open
         else:
-            length = calutils.subsession_length(self.cal, session, False, False)
+            length = calutils.subsession_length(self.cal, session, False, False)  # noqa: FBT003
 
         modulus = length % self.end_alignment_interval
         if not modulus:  # final indice aligns
@@ -1045,9 +1032,7 @@ class GetterIntraday(_Getter):
                 )
         return start
 
-    def _offset_days(self, ts: pd.Timestamp, days: int) -> pd.Timestamp:
-        # pylint: disable=too-complex,too-many-branches
-
+    def _offset_days(self, ts: pd.Timestamp, days: int) -> pd.Timestamp:  # noqa: C901, PLR0912
         # If ts is a session open, close, break_start or break_end then offset to
         # same bound of target session.
 
@@ -1063,10 +1048,9 @@ class GetterIntraday(_Getter):
                     # resolution would need to call calendar methods on minutes to
                     # left of calendar bound.
                     return self.cal.first_minute
-                elif not self.strict:
+                if not self.strict:
                     return self.limit
-                else:
-                    raise errors.StartOutOfBoundsError(self.cal)
+                raise errors.StartOutOfBoundsError(self.cal)
 
             target_session = self.cal.sessions[target_i]
             if ts == self.cal.opens[session]:
@@ -1099,8 +1083,7 @@ class GetterIntraday(_Getter):
         except xcals.errors.RequestedMinuteOutOfBounds:
             if not self.strict:
                 return self.limit
-            else:
-                raise errors.StartOutOfBoundsError(self.cal) from None
+            raise errors.StartOutOfBoundsError(self.cal) from None
 
         if minute.value in self.cal.last_minutes_nanos and (
             minute.minute,
@@ -1131,7 +1114,7 @@ class GetterIntraday(_Getter):
         return end if self.cal.is_trading_minute(end) else end_accuracy
 
     @property
-    def daterange(self) -> tuple[mptypes.DateRange, pd.Timestamp]:
+    def daterange(self) -> tuple[mptypes.DateRange, pd.Timestamp]:  # noqa: C901, PLR0912
         """Date range over which to request prices, and end accuracy.
 
         Returns
@@ -1187,8 +1170,6 @@ class GetterIntraday(_Getter):
         interval.
         Use `daterange_tight` to request price date or query availability.
         """
-        # pylint: disable=too-complex,too-many-branches,too-many-statements
-
         if self._has_duration:
             # if end is None will be assigned now although this will in turn be
             # overwritten if start is not None
@@ -1211,8 +1192,7 @@ class GetterIntraday(_Getter):
                         if mins < intraday_duration:
                             if self.strict:
                                 raise errors.StartOutOfBoundsError(self.cal) from None
-                            else:
-                                start = self.limit
+                            start = self.limit
                         else:
                             raise
                 else:
@@ -1245,7 +1225,7 @@ class GetterIntraday(_Getter):
 
         else:
             (start, end), end_accuracy = self._get_start_end(limit=True)
-            if start is None:  # pylint: disable=confusing-consecutive-elif
+            if start is None:
                 start = self.get_start(self.limit)
 
         assert start is not None
@@ -1277,16 +1257,14 @@ class GetterIntraday(_Getter):
             start = self._prior_start(start)
             if start is None:
                 if self.strict:
-                    raise errors.StartOutOfBoundsError(self.cal, None, False)
-                else:
-                    # Do not set to limit, i.e. don't include 'some of a ds_interval'
-                    start = start_pre_add_a_row
+                    raise errors.StartOutOfBoundsError(self.cal, None, is_date=False)
+                # Do not set to limit, i.e. don't include 'some of a ds_interval'
+                start = start_pre_add_a_row
             if start < self.limit:
                 if self.strict:
                     raise errors.StartTooEarlyError(start, self.limit, add_a_row=True)
-                else:
-                    # Do not set to limit, i.e. don't include 'some of a ds_interval'
-                    start = start_pre_add_a_row
+                # Do not set to limit, i.e. don't include 'some of a ds_interval'
+                start = start_pre_add_a_row
 
         return (start, end), end_accuracy
 

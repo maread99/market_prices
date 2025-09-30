@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=43.0.0", "wheel", "setuptools_scm[toml]>=6.2"]
+requires = ["setuptools>=77.0.0", "wheel", "setuptools_scm[toml]>=6.2"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -10,7 +10,7 @@ authors = [
   {name = "Marcus Read"}
 ]
 readme = "README.md"
-license = {text = "MIT License"}
+license = "MIT"
 keywords = [
     "finance",
     "prices",
@@ -36,7 +36,6 @@ classifiers = [
     "Intended Audience :: Financial and Insurance Industry",
     "Intended Audience :: Science/Research",
 	"Natural Language :: English",
-	"License :: OSI Approved :: MIT License",
 	"Operating System :: OS Independent",
 	"Programming Language :: Python",
 	"Programming Language :: Python :: 3",
@@ -64,18 +63,14 @@ dynamic = ["version"]
 
 [project.optional-dependencies]
 tests = [
-    "black",
-    "flake8",
-    "flake8-docstrings",
+    "ruff",
     "hypothesis",
     "pytest",
     "pytest-mock",
     "tables",
 ]
 dev = [
-    "black",
-    "flake8",
-    "flake8-docstrings",
+    "ruff",
     "hypothesis",
     "pytest",
     "pytest-mock",
@@ -85,7 +80,6 @@ dev = [
     "pandas-stubs",
     "pip-tools",
     "pre-commit",
-    "pylint",
 ]
 
 [project.urls]
@@ -96,7 +90,3 @@ documentation = "https://github.com/maread99/market_prices/blob/master/docs/tuto
 
 [tool.setuptools_scm]
 write_to = "src/market_prices/_version.py"
-
-[tool.black]
-line-length = 88
-target-version = ['py310', 'py311', 'py312', 'py313']

@@ -4,21 +4,20 @@ from __future__ import annotations
 
 import re
 import sys
-from typing import Literal, TYPE_CHECKING
 import zoneinfo
+from typing import TYPE_CHECKING, Literal
 
-import pandas as pd
 import numpy as np
+import pandas as pd
 
-from market_prices import mptypes
 from market_prices.utils import general_utils as genutils
 from market_prices.utils import pandas_utils as pdutils
 
 if TYPE_CHECKING:
-    from market_prices import intervals
+    from market_prices import intervals, mptypes
 
 if "pytest" in sys.modules:
-    import pytest  # noqa: F401  # pylint: disable=unused-import  # used within doctest
+    import pytest  # noqa: F401
 
 UTC = zoneinfo.ZoneInfo("UTC")
 
@@ -149,7 +148,6 @@ def now(
         or 'tomorrow' respectively, with 'today' based on current
         UTC time.
     """
-    # pylint: disable=missing-param-doc
     now_ = pd.Timestamp.now(tz=UTC)
     if interval is not None and not interval.is_intraday:
         now_ = now_.tz_convert(None)
@@ -294,8 +292,7 @@ def agg_funcs(df: pd.DataFrame) -> dict[str | tuple[str, str], str]:
     """
     if has_symbols(df):
         return {c: AGG_FUNCS[c[1]] for c in df}
-    else:
-        return {c: AGG_FUNCS[c] for c in df}
+    return {c: AGG_FUNCS[c] for c in df}
 
 
 def volume_to_na(df: pd.DataFrame) -> pd.DataFrame:
@@ -330,7 +327,8 @@ def resample(
     rule: pd.offsets.BaseOffset | str,
     data: pd.DataFrame | None = None,
     origin: str = "start",
-    nominal_start: pd.Timestamp | None = None,
+    # TODO: INVESTIGATE AND FIX why nominal_start is not used... it's in the doc!
+    nominal_start: pd.Timestamp | None = None,  # noqa: ARG001
 ) -> pd.DataFrame:
     """Resample ohlcv data to a pandas rule.
 
@@ -371,7 +369,8 @@ def resample(
     if has_symbols(data):
         data.columns = [t[1] + "_" + t[0] for t in data.columns.to_numpy()]
         agg_f = {
-            k: AGG_FUNCS[c] for k, c in zip(data.columns, columns_.get_level_values(1))
+            k: AGG_FUNCS[c]
+            for k, c in zip(data.columns, columns_.get_level_values(1), strict=True)
         }
     else:
         agg_f = agg_funcs(data)
@@ -379,5 +378,4 @@ def resample(
     resampler = resample_me.resample(rule, closed="left", label="left", origin=origin)
     resampled = resampler.agg(agg_f)
     resampled.columns = columns_
-    resampled = volume_to_na(resampled)
-    return resampled
+    return volume_to_na(resampled)

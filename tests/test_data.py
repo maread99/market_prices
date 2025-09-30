@@ -7,26 +7,10 @@ import pandas as pd
 import pytest
 
 import market_prices.data as m
-from market_prices import helpers, intervals, errors
+from market_prices import errors, helpers, intervals
 from market_prices.helpers import UTC
 from market_prices.intervals import TDInterval
 from market_prices.utils import calendar_utils as calutils
-
-# pylint: disable=missing-function-docstring, missing-type-doc
-# pylint: disable=missing-param-doc, missing-any-param-doc, redefined-outer-name
-# pylint: disable=too-many-public-methods, too-many-arguments, too-many-locals
-# pylint: disable=too-many-statements
-# pylint: disable=protected-access, no-self-use, unused-argument, invalid-name
-#   missing-fuction-docstring: doc not required for all tests
-#   protected-access: not required for tests
-#   not compatible with use of fixtures to parameterize tests:
-#       too-many-arguments, too-many-public-methods
-#   not compatible with pytest fixtures:
-#       redefined-outer-name, no-self-use, missing-any-param-doc, missing-type-doc
-#   unused-argument: not compatible with pytest fixtures, caught by pylance anyway.
-#   invalid-name: names in tests not expected to strictly conform with snake_case.
-
-# Any flake8 disabled violations handled via per-file-ignores on .flake8
 
 
 class MockRequestAdmin:
@@ -188,10 +172,7 @@ def assert_rng_available_requested(
 ):
     """Test that data available and has beeen requested over a range."""
     delta = get_delta(start)
-    if start == end:
-        tss = [start, end]
-    else:
-        tss = [start, start + delta, end - delta, end]
+    tss = [start, end] if start == end else [start, start + delta, end - delta, end]
     for ts in tss:
         assert data.available(ts)
         assert data.available_and_requested(ts)
@@ -674,7 +655,6 @@ class TestRanges:
         thirty_mins,
         one_day,
     ):
-        # pylint: disable=too-many-statements
         cal = xlon_calendar
         cc = calutils.CompositeCalendar([cal])
         bi = bis_parameterized
@@ -705,14 +685,14 @@ class TestRanges:
                 data = m.Data(mr_admin.mock_request_data(), cc, bi, no_delay, *bounds)
                 _ = data.get_table(dr_0)
                 _ = data.get_table(dr_2)
-                if i:  # pylint: disable=cell-var-from-loop
+                if i:  # noqa: B023
                     _ = data.get_table(dr_1)
                 mr_admin.reset()
                 return data
 
             def overlap_and_assert(dr_to_overlap, requested):
                 dr = dr_to_overlap
-                data = get_data()  # pylint: disable=cell-var-from-loop
+                data = get_data()
                 table = data.get_table(dr)
                 assert mr_admin.requested_drs == requested
                 assert_table_matches(table, dr, df)
@@ -729,11 +709,11 @@ class TestRanges:
             overlap_and_assert((dr_0_start, dr_2_end), requested)
 
             # overlap beyond far edge
-            requested_ = (
-                [(of_prev_session, dr_0_start)]
-                + requested
-                + [(dr_2_end, of_next_session)]
-            )
+            requested_ = [
+                (of_prev_session, dr_0_start),
+                *requested,
+                (dr_2_end, of_next_session),
+            ]
             overlap_and_assert((of_prev_session, of_next_session), requested_)
 
             # overlap at near edge
@@ -798,8 +778,7 @@ class TestRanges:
 
         def get_data() -> m.Data:
             mr_admin.reset()
-            data = m.Data(mr_admin.mock_request_data(), cc, bi, no_delay, *bounds)
-            return data
+            return m.Data(mr_admin.mock_request_data(), cc, bi, no_delay, *bounds)
 
         left_bound, right_bound = bounds
 
@@ -889,10 +868,9 @@ class TestRanges:
 
         def get_data() -> m.Data:
             mr_admin.reset()
-            data = m.Data(
+            return m.Data(
                 mr_admin.mock_request_data(), cc, bi, no_delay, left_limit=left_limit
             )
-            return data
 
         def set_now(now: pd.Timestamp):
             monkeypatch.setattr(
@@ -970,8 +948,7 @@ class TestRanges:
 
         def get_data() -> m.Data:
             admin.reset()
-            data = m.Data(request_data, cc, bi, no_delay)
-            return data
+            return m.Data(request_data, cc, bi, no_delay)
 
         delta = get_delta(dr_0_start)
 
@@ -1036,7 +1013,6 @@ class TestRanges:
         effect of 'source_live' is currently tested for only indirectly via
         test `test_csv.test_not_live`.
         """
-        # pylint: disable=too-complex, too-many-statements
         cal = xlon_calendar_extended
         bi = bis_parameterized
         bi_daily = bi.is_one_day
@@ -1093,7 +1069,6 @@ class TestRanges:
             assert not data.available(today + bi)
 
         def assertions(data, table, now, dr, admin, delay):
-            # pylint: disable=too-many-statements
             bi = data.bi
             from_, to = dr
             # discount calculation reasonable only given the bis tested (1T, 1H, 1D)
@@ -1178,7 +1153,7 @@ class TestRanges:
 
             dr = start, now + bi
             if bi_daily:
-                now = now.normalize().tz_convert(None)
+                now = now.normalize().tz_convert(None)  # noqa: PLW2901
                 dr = start, now
 
             for delay in [no_delay, pd.Timedelta(15, "min")]:

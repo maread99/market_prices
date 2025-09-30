@@ -10,8 +10,8 @@ import pandas as pd
 from pandas import DataFrame
 
 from market_prices import errors, helpers, intervals
-from market_prices.utils import calendar_utils as calutils
 from market_prices.mptypes import DateRangeReq
+from market_prices.utils import calendar_utils as calutils
 
 from .utils.pandas_utils import (
     interval_contains,
@@ -34,8 +34,6 @@ class Data:
     requested data. Data for any non-live datetime is only requested from
     source once or never.
     """
-
-    # pylint: disable=too-many-instance-attributes
 
     def __init__(
         self,
@@ -109,7 +107,6 @@ class Data:
 
             False: never request prices for the same indice more than once.
         """
-        # pylint: disable=too-many-arguments
         self._request_data_func = request
         self._source_live = source_live
         self.cc = cc
@@ -164,21 +161,19 @@ class Data:
         """
         if isinstance(self._ll, pd.Timestamp) or self._ll is None:
             return self._ll
-        elif self.bi.is_one_day:
+        if self.bi.is_one_day:
             return helpers.now(self.bi) - self._ll
-        else:
-            # one minute added to provide processing margin
-            return helpers.now(self.bi, side="right") + helpers.ONE_MIN - self._ll
+        # one minute added to provide processing margin
+        return helpers.now(self.bi, side="right") + helpers.ONE_MIN - self._ll
 
     @property
     def rl(self) -> pd.Timestamp:
         """Right limit to which data from source available."""
         if self._rl is not None:
             return self._rl
-        else:
-            now = helpers.now(self.bi)
-            # if intraday adds bi to provide for requesting 'live' interval
-            return now if self.bi.is_one_day else now + self.bi
+        now = helpers.now(self.bi)
+        # if intraday adds bi to provide for requesting 'live' interval
+        return now if self.bi.is_one_day else now + self.bi
 
     def _set_ll(self, limit: pd.Timestamp):
         self._ll = limit
@@ -193,18 +188,16 @@ class Data:
         """Query if stored data starts at the left limit."""
         if self.ll is None or not self.ranges:
             return False
-        else:
-            assert self.leftmost_requested is not None
-            return self.leftmost_requested <= self.ll
+        assert self.leftmost_requested is not None
+        return self.leftmost_requested <= self.ll
 
     @property
     def to_rl(self) -> bool:
         """Query if stored data ends at right limit."""
         if self._rl is None or not self.ranges:
             return False
-        else:
-            assert self.rightmost_requested is not None
-            return self.rightmost_requested >= self.rl
+        assert self.rightmost_requested is not None
+        return self.rightmost_requested >= self.rl
 
     @property
     def has_all_data(self) -> bool:
@@ -252,10 +245,9 @@ class Data:
             else:
                 avail = None
 
-            if avail is False:  # pylint: disable=compare-to-zero  # avail can be None
+            if avail is False:
                 return False
-            else:
-                availability.append(avail)
+            availability.append(avail)
 
         return True if all(availability) else None
 
@@ -281,7 +273,6 @@ class Data:
             None: unknown if one or both extremes available from source.
             True: known that both extremes available from source.
         """
-        # pylint: disable=missing-param-doc
         if daterange[0] is not None:
             avail = self.available((daterange[0], daterange[1]))
         else:
@@ -294,7 +285,7 @@ class Data:
 
         return avail
 
-    def available_any(self, daterange: DateRangeReq) -> bool | None:
+    def available_any(self, daterange: DateRangeReq) -> bool | None:  # noqa: PLR0911
         """Query if data is available for any timestamp within a range.
 
         Parameters
@@ -319,8 +310,7 @@ class Data:
         if self.ll is not None:
             if left is None:
                 return right >= self.ll
-            else:
-                return (left <= self.rl) and (right >= self.ll)
+            return (left <= self.rl) and (right >= self.ll)
 
         leftmost = self.leftmost_requested
         if leftmost is None:
@@ -328,7 +318,7 @@ class Data:
 
         if left is None and right >= leftmost:
             return True
-        elif (left <= self.rl) and (right >= leftmost):
+        if (left <= self.rl) and (right >= leftmost):
             return True
         return None
 
@@ -353,8 +343,7 @@ class Data:
         """
         if not self.has_data:
             return False
-        else:
-            return timestamps_in_interval_of_intervals(timestamps, self.ranges_index)
+        return timestamps_in_interval_of_intervals(timestamps, self.ranges_index)
 
     def _require_limits(self, daterange: DateRangeReq) -> tuple[bool, bool]:
         """Query if `daterange` includes the left/right limits."""
@@ -376,15 +365,14 @@ class Data:
         req_ll, req_rl = self._require_limits(daterange)
         if req_ll and req_rl:
             return self.has_all_data
-        elif req_ll:
+        if req_ll:
             return self.from_ll and daterange[1] in self.ranges[0]
-        elif req_rl:
+        if req_rl:
             return self.to_rl and daterange[0] in self.ranges[-1]
-        else:
-            assert daterange[0] is not None
-            return timestamps_in_interval_of_intervals(
-                (daterange[0], daterange[1]), self.ranges_index
-            )
+        assert daterange[0] is not None
+        return timestamps_in_interval_of_intervals(
+            (daterange[0], daterange[1]), self.ranges_index
+        )
 
     def available_and_requested(
         self, timestamps: pd.Timestamp | Sequence[pd.Timestamp]
@@ -410,8 +398,7 @@ class Data:
         available = self.available(timestamps)
         if not available:
             return False
-        else:
-            return self.requested(timestamps)
+        return self.requested(timestamps)
 
     # Get date range to request
 
@@ -424,29 +411,27 @@ class Data:
         for i, dr in enumerate(dateranges):
             if dr == dateranges[-1]:
                 break
-            if dateranges[i][1] >= dateranges[i + 1][0]:  # type: ignore[operator]
+            if dr[1] >= dateranges[i + 1][0]:  # type: ignore[operator]
                 # ignore mypy error unsupported operand type >= Timestamp and None,
                 # only first daterange of `dateranges` can have None at index 0, and
                 # this will not be compared.
-                dateranges[i] = (dateranges[i][0], dateranges[i + 1][1])
+                dateranges[i] = (dr[0], dateranges[i + 1][1])
                 del dateranges[i + 1]
                 return self._consolidate_overlapping(dateranges)
         return dateranges
 
-    def _request_dates(self, daterange: DateRangeReq) -> list[DateRangeReq]:
+    def _request_dates(self, daterange: DateRangeReq) -> list[DateRangeReq]:  # noqa: C901, PLR0912
         """Return date ranges over which to request data.
 
         Returns date range over which to request data in order to have
         requested all available data over `daterange`.
         """
-        # pylint: disable=too-many-branches,too-complex
         if not self.ranges:
             start = daterange[0]
             if start is None or (self.ll is not None and start < self.ll):
                 start = self.ll
             end = daterange[1]
-            if end > self.rl:
-                end = self.rl
+            end = min(end, self.rl)
             return [(start, end)]
 
         req_ll, req_rl = self._require_limits(daterange)
@@ -488,13 +473,13 @@ class Data:
 
         # if limit needed and not covered, add daterange to cover
         if rr[0] is None and (not rds or rds[0][0] is not None):
-            rds = [(None, self.ranges[0].left)] + rds
+            rds = [(None, self.ranges[0].left), *rds]
 
         return self._consolidate_overlapping(rds)
 
     # Update knowledge of ranges requested.
 
-    def _update(self, daterange: DateRangeReq, dates: pd.IntervalIndex):
+    def _update(self, daterange: DateRangeReq, dates: pd.IntervalIndex):  # noqa: C901, PLR0912
         """Update object to reflect having requested data over `daterange`.
 
         Parameters
@@ -505,8 +490,6 @@ class Data:
         dates
             Dates of data returned by source.
         """
-        # pylint: disable=too-many-branches,too-complex
-
         # Do not register daterange if no data was returned for a daterange
         # that required a limit (for example if difference between left
         # limit and end of daterange covered only non-trading times) and
@@ -611,7 +594,7 @@ class Data:
         s = self._table.index.to_series()
         bv = s.apply(lambda x: x in index)
         if bv.any():
-            self._table.drop(self._table.index[bv], inplace=True)
+            self._table = self._table.drop(self._table.index[bv])
 
     @staticmethod
     def _drop_duplicate_labels(dfs: list[DataFrame]) -> list[DataFrame]:
@@ -620,22 +603,20 @@ class Data:
         for df in dfs:
             bv = df.index.duplicated()
             if bv.any():
-                df.drop(df.index[bv], inplace=True)
+                df = df.drop(df.index[bv])  # noqa: PLW2901
             new_dfs.append(df)
         return new_dfs
 
     def _concat_tables(self, dfs: list[DataFrame]) -> DataFrame:
         assert self._table is not None
-        table = pd.concat([self._table] + dfs)
-        table.sort_index(inplace=True)
-        return table
+        table = pd.concat([self._table, *dfs])
+        return table.sort_index()
 
     def _index_is_clean(self, index: pd.Index) -> bool:
         """Query if index is sorted, does not overlap and has no duplicates."""
         if self.bi.is_one_day:
             return index.is_monotonic_increasing & index.is_unique
-        else:
-            return index.is_non_overlapping_monotonic
+        return index.is_non_overlapping_monotonic
 
     def _add_prices(self, dfs: list[DataFrame]):
         """Add price data to table."""
@@ -680,17 +661,16 @@ class Data:
             end -= n * self.bi
         if dr[0] is not None and end < dr[0]:
             return None
-        else:
-            return (dr[0], end)
+        return (dr[0], end)
 
     def _extend_table(self, daterange: DateRangeReq):
         """Extend table to cover `daterange`."""
         req_dates, dfs = self._request_data(daterange)
         if dfs and not all(df.empty for df in dfs):
             self._add_prices(dfs)
-        for rd, df in zip(req_dates, dfs):
+        for rd, df in zip(req_dates, dfs, strict=False):  # could warrant strict=True
             if self._source_live:
-                rd = self._requested_dates_adjust(rd)
+                rd = self._requested_dates_adjust(rd)  # noqa: PLW2901
             if rd is None:
                 continue
             self._update(rd, df.index)

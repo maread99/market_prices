@@ -12,34 +12,20 @@ import re
 import typing
 from collections import abc
 
+import exchange_calendars as xcals
 import numpy as np
 import pandas as pd
+import pytest
 from pandas import Timestamp as T
 from pandas.testing import assert_index_equal
-import pytest
-import exchange_calendars as xcals
 
-from market_prices.intervals import TDInterval
-from market_prices import errors, helpers
-from market_prices.helpers import UTC
 import market_prices.utils.calendar_utils as m
 import market_prices.utils.pandas_utils as pdutils
+from market_prices import errors, helpers
+from market_prices.helpers import UTC
+from market_prices.intervals import TDInterval
 
-
-# pylint: disable=missing-function-docstring,redefined-outer-name,too-many-public-methods
-# pylint: disable=missing-param-doc,missing-any-param-doc,too-many-locals
-# pylint: disable=missing-type-doc
-# pylint: disable=protected-access,unused-argument,no-self-use,too-many-arguments
-#   missing-fuction-docstring, missing-any-param-doc, missing-type-doc:
-#       doc not required for all tests
-#   protected-access: not required for tests
-#   not compatible with use of fixtures to parameterize tests:
-#       too-many-arguments,too-many-public-methods
-#   not compatible with pytest fixtures:
-#       redefined-outer-name,no-self-use
-#   unused-argument: not compatible with pytest fixtures, caught by pylance anyway
-
-# Any flake8 disabled violations handled via per-file-ignores on .flake8
+# ruff: noqa: FBT003  boolean-positional-value-in-call  # Happy to ignore here
 
 
 def test_get_exchange_info():
@@ -54,7 +40,6 @@ def test_minutes_in_period(calendars_with_answers, one_min):
 
     Assumes all calendars have side "left", as required by `market_prices`.
     """
-    # pylint: disable=too-complex, too-many-branches, too-many-statements
     cal, ans = calendars_with_answers
     f = m.minutes_in_period
 
@@ -132,10 +117,7 @@ def test_minutes_in_period(calendars_with_answers, one_min):
                 f(cal, start_session_close - one_min, next_session_open + one_min) == 2
             )
 
-        if (
-            ans.session_has_break(start_session)
-            and not start_session == ans.first_session
-        ):
+        if ans.session_has_break(start_session) and start_session != ans.first_session:
             minutes_session = ans.get_session_minutes(start_session)
             mins_am = minutes_session[0]
             open_, break_start = mins_am[0], mins_am[-1] + one_min
@@ -584,8 +566,7 @@ class CompositeAnswers:
                 self._get_session_first_minute(overlapped_session),
                 self._get_session_last_minute(session),
             ]
-            for minute in minutes:
-                rtrn.append((minute, sessions))
+            rtrn.extend((minute, sessions) for minute in minutes)
 
         def add_minutes_overlapping_with_previous_session(session: pd.Timestamp):
             overlapped_session = self._get_previous_session(session)
@@ -594,8 +575,7 @@ class CompositeAnswers:
                 self._get_session_first_minute(session),
                 self._get_session_last_minute(overlapped_session),
             ]
-            for minute in minutes:
-                rtrn.append((minute, sessions))
+            rtrn.extend((minute, sessions) for minute in minutes)
 
         overlapping_sessions = self.sessions_overlapping_only_next_session
         if not overlapping_sessions.empty:
@@ -711,11 +691,10 @@ class TestCompositeCalendar:
     ) -> abc.Iterator[list[list[xcals.ExchangeCalendar]]]:
         calendar_groups = []
         for i, names in enumerate(calendar_names):
-            calendars = []
-            for name in names:
-                calendars.append(
-                    xcals.get_calendar(name, *composite_daterange[i], "left")
-                )
+            calendars = [
+                xcals.get_calendar(name, *composite_daterange[i], "left")
+                for name in names
+            ]
             calendar_groups.append(calendars)
         yield calendar_groups
 
@@ -723,9 +702,7 @@ class TestCompositeCalendar:
     def composite_calendars(
         self, calendar_groups
     ) -> abc.Iterator[list[m.CompositeCalendar]]:
-        comp_cals = []
-        for calendars in calendar_groups:
-            comp_cals.append(m.CompositeCalendar(calendars))
+        comp_cals = [m.CompositeCalendar(calendars) for calendars in calendar_groups]
         yield comp_cals
 
     @pytest.fixture(scope="class", params=(1, 2))
@@ -913,7 +890,7 @@ class TestCompositeCalendar:
         for minute, _ in answers.single_session_minutes:
             try:
                 assert f(minute) is True
-            except xcals.errors.MinuteOutOfBounds:
+            except xcals.errors.MinuteOutOfBounds:  # noqa: PERF203
                 assert minute < max([cal.first_minute for cal in cc.calendars])
 
         # test non_trading_minutes
@@ -1157,7 +1134,7 @@ class TestCCTradingIndex:
         open_, close = opens[0], closes[0]
         add_interval = self._add_interval(interval, open_, close)
         index = self.index_for_session(interval, open_, close, add_interval, utc)
-        for open_, close in zip(opens[1:], closes[1:]):
+        for open_, close in zip(opens[1:], closes[1:], strict=True):
             add_interval = self._add_interval(interval, open_, close)
             index_ = self.index_for_session(interval, open_, close, add_interval, utc)
             index = index.union(index_)

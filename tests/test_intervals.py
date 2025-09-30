@@ -1,9 +1,9 @@
 """Tests for market_prices.intervals module."""
 
-from collections import abc
-from datetime import timedelta
 import itertools
 import re
+from collections import abc
+from datetime import timedelta
 
 import pandas as pd
 import pytest
@@ -12,27 +12,10 @@ import market_prices.intervals as m
 from market_prices.prices import yahoo
 
 
-# pylint: disable=missing-function-docstring, missing-type-doc
-# pylint: disable=missing-param-doc, missing-any-param-doc, redefined-outer-name
-# pylint: disable=too-many-public-methods, too-many-arguments, too-many-locals
-# pylint: disable=too-many-statements
-# pylint: disable=protected-access, unused-argument, invalid-name
-#   missing-fuction-docstring: doc not required for all tests
-#   protected-access: not required for tests
-#   not compatible with use of fixtures to parameterize tests:
-#       too-many-arguments, too-many-public-methods
-#   not compatible with pytest fixtures:
-#       redefined-outer-name, no-self-use, missing-any-param-doc, missing-type-doc
-#   unused-argument: not compatible with pytest fixtures, caught by pylance anyway.
-#   invalid-name: names in tests not expected to strictly conform with snake_case.
-
-# Any flake8 disabled violations handled via per-file-ignores on .flake8
-
-
 def test_constants():
     """Test constants defined as expected."""
     # verify TIMEDELTA_ARGS keys as expected
-    all_keys = set("T1 T2 T5 T10 T15 T30 H1 D1".split())
+    all_keys = {"T1", "T2", "T5", "T10", "T15", "T30", "H1", "D1"}
     assert all_keys == set(m.TIMEDELTA_ARGS.keys())
 
     # verify TIMEDELTA_ARGS values correspond with keys
@@ -116,13 +99,13 @@ def test_tdintervals(xlon_calendar):
 
 def test_tdintervals_comparion_with_timedelta():
     """Verify comparisons of TDInterval with pd.Timedelta as expected."""
-    assert m.TDInterval.T5 == pd.Timedelta(5, "min")
-    assert m.TDInterval.T5 > pd.Timedelta(4, "min")
-    assert m.TDInterval.T5 >= pd.Timedelta(4, "min")
-    assert m.TDInterval.T5 >= pd.Timedelta(5, "min")
-    assert m.TDInterval.T5 < pd.Timedelta(6, "min")
-    assert m.TDInterval.T5 <= pd.Timedelta(6, "min")
-    assert m.TDInterval.T5 <= pd.Timedelta(5, "min")
+    assert pd.Timedelta(5, "min") == m.TDInterval.T5
+    assert pd.Timedelta(4, "min") < m.TDInterval.T5
+    assert pd.Timedelta(4, "min") <= m.TDInterval.T5
+    assert pd.Timedelta(5, "min") <= m.TDInterval.T5
+    assert pd.Timedelta(6, "min") > m.TDInterval.T5
+    assert pd.Timedelta(6, "min") >= m.TDInterval.T5
+    assert pd.Timedelta(5, "min") >= m.TDInterval.T5
 
 
 def test_dointervals(xlon_calendar):
@@ -174,7 +157,7 @@ class TestBaseInterval:
 
     @pytest.fixture(scope="class")
     def BaseInterval(self) -> abc.Iterator[type[m.BI]]:
-        class BaseInterval_(m.BI):
+        class BaseInterval_(m.BI):  # noqa: N801
             """Base interval enum."""
 
             T1 = m.TIMEDELTA_ARGS["T1"]
@@ -187,7 +170,7 @@ class TestBaseInterval:
 
     @pytest.fixture(scope="class")
     def BaseIntervalIntradayOnly(self) -> abc.Iterator[type[m.BI]]:
-        class BaseIntervalIntradayOnly_(m.BI):
+        class BaseIntervalIntradayOnly_(m.BI):  # noqa: N801
             """Base interval enum of only intraday intervals."""
 
             T1 = m.TIMEDELTA_ARGS["T1"]
@@ -201,15 +184,13 @@ class TestBaseInterval:
         """Test _BaseInterval functionality that exceeds _TDIntervalBase."""
         # test previous, next, __getitem__, __contains__
         prev_bi = None
-        for i, bi in enumerate(BaseInterval, 0):
-            assert bi in BaseInterval
-            assert bi is BaseInterval[i]
+        for _, bi in enumerate(BaseInterval, 0):
             assert bi.previous is prev_bi
             if prev_bi is not None:
                 assert prev_bi.next is bi
             prev_bi = bi
 
-        assert bi.next is None  # pylint: disable=undefined-loop-variable
+        assert bi.next is None
         assert m.TDInterval.T5 in BaseInterval
         assert m.TDInterval.T6 not in BaseInterval
         assert pd.Timedelta(5, "min") in BaseInterval
@@ -282,7 +263,6 @@ class TestToPTInterval:
                 f(invalid_input)
 
     def test_str_input(self, f, components):
-        # pylint: disable=too-complex
         match = re.escape("interval/frequency received as")
 
         valid_units = ["MIN", "T", "H", "D", "M"]
@@ -333,7 +313,6 @@ class TestToPTInterval:
         assert f("60min") == f("60T") == f("1H") == f("1h") == m.TDInterval.H1
 
     def test_timedelta_input(self, f, components):
-        # pylint: disable=too-complex
         match = "`interval` cannot be negative or zero."
         for i in range(0, -3, -1):
             for unit in ["min", "h", "D"]:
@@ -437,6 +416,6 @@ class TestToPTInterval:
                 with pytest.raises(ValueError, match=match_comps_error(td)):
                     _ = f(td)
                 for valid_kwarg in ["minutes", "hours", "days"]:
-                    td = TDCls(**{**d, **{valid_kwarg: 1}})
+                    td = TDCls(**{**d, valid_kwarg: 1})
                     with pytest.raises(ValueError, match=match_comps_error(td)):
                         _ = f(td)

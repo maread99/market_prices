@@ -4,40 +4,24 @@ from collections.abc import Iterator
 from zoneinfo import ZoneInfo
 
 import numpy as np
-import pytest
 import pandas as pd
+import pytest
 from pandas import Timestamp as T
-from pandas.testing import assert_index_equal, assert_series_equal, assert_frame_equal
+from pandas.testing import assert_frame_equal, assert_index_equal, assert_series_equal
 
 import market_prices.helpers as m
-from market_prices.helpers import UTC
 from market_prices import intervals
+from market_prices.helpers import UTC
+
 from .utils import get_resource
-
-
-# pylint: disable=missing-function-docstring, missing-type-doc
-# pylint: disable=missing-param-doc, missing-any-param-doc, redefined-outer-name
-# pylint: disable=too-many-public-methods, too-many-arguments, too-many-locals
-# pylint: disable=too-many-statements
-# pylint: disable=protected-access, no-self-use, unused-argument, invalid-name
-#   missing-fuction-docstring: doc not required for all tests
-#   protected-access: not required for tests
-#   not compatible with use of fixtures to parameterize tests:
-#       too-many-arguments, too-many-public-methods
-#   not compatible with pytest fixtures:
-#       redefined-outer-name, no-self-use, missing-any-param-doc, missing-type-doc
-#   unused-argument: not compatible with pytest fixtures, caught by pylance anyway.
-#   invalid-name: names in tests not expected to strictly conform with snake_case.
-
-# Any flake8 disabled violations handled via per-file-ignores on .flake8
 
 
 def test_constants():
     # Just to make sure they aren't inadvertently changed
     assert m.UTC is ZoneInfo("UTC")
-    assert m.ONE_DAY == pd.Timedelta(1, "D")
-    assert m.ONE_MIN == pd.Timedelta(1, "min")
-    assert m.ONE_SEC == pd.Timedelta(1, "s")
+    assert pd.Timedelta(1, "D") == m.ONE_DAY
+    assert pd.Timedelta(1, "min") == m.ONE_MIN
+    assert pd.Timedelta(1, "s") == m.ONE_SEC
 
 
 def test_is_date(one_min):
@@ -310,7 +294,7 @@ def test_volume_to_na(intraday_pt, intraday_pt_ss):
     assert_frame_equal(rtrn, df)
 
 
-# TODO Remove xfail when pandas >3 or fix otherwise released
+# TODO: Remove xfail when pandas >3 or fix otherwise released
 # NB pd bug manifests in test, not package (manifests where evaluate
 # `expected_ooo.index = df[::12]`)
 # pandas issue ref is https://github.com/pandas-dev/pandas/issues/58604

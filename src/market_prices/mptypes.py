@@ -19,13 +19,12 @@ from typing import TypedDict
 import pandas as pd
 from exchange_calendars import ExchangeCalendar
 
-
 # ----------------------------- Type aliases ------------------------------
 
 Symbols = list[str] | str
 """For public parameters that define instrument symbol(s)."""
 
-Calendar = str | ExchangeCalendar  # pylint: disable=no-member
+Calendar = str | ExchangeCalendar
 """Acceptable types to define a single calendar."""
 
 Calendars = Calendar | list[Calendar] | dict[str, Calendar]

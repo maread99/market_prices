@@ -4,19 +4,18 @@ import datetime
 import functools
 import warnings
 
-from pandas import DataFrame
-import pandas as pd
 import exchange_calendars as xcals
-from valimp import parse
+import pandas as pd
 import yahooquery as yq
+from pandas import DataFrame
+from valimp import parse
 
 from market_prices import errors, helpers, intervals, mptypes
 from market_prices.helpers import UTC
+from market_prices.mptypes import Calendar
 from market_prices.prices import base
 
-from ..mptypes import Calendar
 from .config import config_yahoo
-
 
 ERROR404 = {"error": "HTTP 404 Not Found.  Please try again"}
 
@@ -315,15 +314,15 @@ class PricesYahoo(base.PricesBase):
     during trading times over requested period.
     """
 
-    BaseInterval = intervals._BaseInterval(  # pylint: disable=protected-access
+    BaseInterval = intervals._BaseInterval(  # noqa: SLF001
         "BaseInterval",
-        dict(
-            T1=intervals.TIMEDELTA_ARGS["T1"],
-            T2=intervals.TIMEDELTA_ARGS["T2"],
-            T5=intervals.TIMEDELTA_ARGS["T5"],
-            H1=intervals.TIMEDELTA_ARGS["H1"],
-            D1=intervals.TIMEDELTA_ARGS["D1"],
-        ),
+        {
+            "T1": intervals.TIMEDELTA_ARGS["T1"],
+            "T2": intervals.TIMEDELTA_ARGS["T2"],
+            "T5": intervals.TIMEDELTA_ARGS["T5"],
+            "H1": intervals.TIMEDELTA_ARGS["H1"],
+            "D1": intervals.TIMEDELTA_ARGS["D1"],
+        },
     )
 
     # for 2 minute interval yahooquery accepts requests up to 60 days,
@@ -449,8 +448,7 @@ class PricesYahoo(base.PricesBase):
         mkt_code = self._yahoo_symbol_mkt_code(symbol)
         if mkt_code is not None and mkt_code in self.YAHOO_DELAY_MAPPING:
             return self.YAHOO_DELAY_MAPPING[mkt_code]
-        else:
-            return None
+        return None
 
     @functools.cached_property
     def _real_time(self) -> dict[str, bool]:
@@ -466,7 +464,7 @@ class PricesYahoo(base.PricesBase):
                 d[s] = info["exchange"] == "NYQ" and info["quoteType"] == "EQUITY"
         return d
 
-    def _ascertain_delays(self, delays: dict[str, int] | None) -> dict[str, int]:
+    def _ascertain_delays(self, delays: dict[str, int] | None) -> dict[str, int]:  # noqa: C901
         """Return dict of delays for all symbols.
 
         All items of `delays` will be included to return.
@@ -589,8 +587,7 @@ class PricesYahoo(base.PricesBase):
         """Map interval to value for source's interval parameter."""
         if interval.freq_unit == "min":
             return str(interval.freq_value) + "m"
-        else:
-            return interval.as_pdfreq.lower()  # as yahooquery value
+        return interval.as_pdfreq.lower()  # as yahooquery value
 
     def _adj_start_for_vol_glitch(
         self, start: pd.Timestamp, interval: intervals.BI
@@ -642,11 +639,12 @@ class PricesYahoo(base.PricesBase):
         if volume_glitch:
             assert start is not None
             adj_start = self._adj_start_for_vol_glitch(start, interval)
-            if interval == self.BaseInterval.T1:
-                if start - adj_start >= pd.Timedelta(6, "D"):
-                    # bail on fix to avoid not getting any data.
-                    start_: pd.Timestamp | None = start
-                    volume_glitch = False
+            if interval == self.BaseInterval.T1 and (
+                start - adj_start >= pd.Timedelta(6, "D")
+            ):
+                # bail on fix to avoid not getting any data.
+                start_: pd.Timestamp | None = start
+                volume_glitch = False
             start_ = adj_start
 
         else:
@@ -694,10 +692,9 @@ class PricesYahoo(base.PricesBase):
         if df.index.has_duplicates:
             bv = df.index.duplicated(keep="first")
             duplicates = df[bv]
-            warnings.warn(errors.DuplicateIndexWarning(duplicates, symbol))
+            warnings.warn(errors.DuplicateIndexWarning(duplicates, symbol))  # noqa: B028
             return df[~bv]
-        else:
-            return df
+        return df
 
     def _resolve_current_ts_daily(self, symbol: str, df: DataFrame) -> pd.DataFrame:
         """Set current ts to its session value."""
@@ -744,10 +741,9 @@ class PricesYahoo(base.PricesBase):
     ) -> pd.DataFrame:
         if interval.is_daily:
             return self._resolve_current_ts_daily(symbol, df)
-        else:
-            return self._resolve_current_ts_intraday(symbol, df, interval)
+        return self._resolve_current_ts_intraday(symbol, df, interval)
 
-    def _tidy_yahoo(
+    def _tidy_yahoo(  # noqa: C901, PLR0912
         self,
         df: DataFrame,
         interval: intervals.BI,
@@ -755,8 +751,6 @@ class PricesYahoo(base.PricesBase):
         end: pd.Timestamp,
     ) -> pd.DataFrame:
         """Tidy DataFrame of prices returned by `_request_yahoo--`."""
-        # pylint: disable=too-complex, too-many-locals, too-many-branches
-        # pylint: disable=too-many-statements
         df = helpers.order_cols(df)
         groupby = df.groupby(level="symbol")
         sdfs, empty_sdfs = [], []
@@ -806,7 +800,7 @@ class PricesYahoo(base.PricesBase):
                     sdf, calendar, mindate, self.delays[symbol], symbol, "Yahoo"
                 )
             for warning_ in warnings_:  # raise any missing prices warnings
-                warnings.warn(warning_)
+                warnings.warn(warning_)  # noqa: B028
 
             sdf.columns = base.get_columns_multiindex(symbol, sdf.columns)
             if sdf.empty:
@@ -829,7 +823,7 @@ class PricesYahoo(base.PricesBase):
                 columns = columns.union(empty_sdf.columns)
             df = df.reindex(columns=columns)
 
-        df.sort_index(inplace=True)
+        df = df.sort_index()
         df.columns = df.columns.set_names("symbol", level=0)
         return df
 
@@ -852,7 +846,7 @@ class PricesYahoo(base.PricesBase):
 
         start_, end_ = start, end
         interval = self.BaseInterval.T1
-        MAX_DAYS_PER_REQUEST = pd.Timedelta(6, "D")  # 1 day margin
+        MAX_DAYS_PER_REQUEST = pd.Timedelta(6, "D")  # 1 day margin  # noqa: N806
 
         # evalute max days from the prior indice that the volume glitch
         # fix (to `_request_data`) will set start to.

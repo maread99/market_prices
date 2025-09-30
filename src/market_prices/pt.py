@@ -3,27 +3,27 @@
 from __future__ import annotations
 
 import abc
-import collections
-import datetime
+import datetime  # noqa: TC003
 import functools
 import warnings
-from typing import TYPE_CHECKING, Literal, Annotated
+from typing import TYPE_CHECKING, Annotated, Literal
 from zoneinfo import ZoneInfo
 
 import exchange_calendars as xcals
 import numpy as np
 import pandas as pd
-from valimp import parse, Coerce, Parser
+from valimp import Coerce, Parser, parse
 
 import market_prices.utils.calendar_utils as calutils
 from market_prices import errors, helpers, intervals, mptypes, parsing
 from market_prices.helpers import UTC
+from market_prices.mptypes import Symbols  # noqa: TC001
 from market_prices.utils import general_utils as genutils
 from market_prices.utils import pandas_utils as pdutils
-from market_prices.utils.calendar_utils import CompositeCalendar
-from market_prices.mptypes import Symbols
+from market_prices.utils.calendar_utils import CompositeCalendar  # noqa: TC001
 
-# pylint: disable=too-many-lines
+if TYPE_CHECKING:
+    import collections
 
 
 def clean_columns(df: pd.DataFrame) -> pd.DataFrame:
@@ -48,9 +48,7 @@ class PT:
     nature of the DataFrame on which the .pt accessor is called.
     """
 
-    # pylint: disable=too-few-public-methods
-
-    def __new__(cls, df: pd.DataFrame):  # pylint: disable=missing-return-type-doc
+    def __new__(cls, df: pd.DataFrame):
         """Return new instance of PT class (as subclass of _PT)."""
         new_cls: type[_PT]
 
@@ -102,18 +100,13 @@ class PT:
 class _PT(metaclass=abc.ABCMeta):
     """Base for pandas accessor for a prices table."""
 
-    # pylint: disable=too-many-public-methods
-
     def __init__(self, prices: pd.DataFrame):
         self._prices = prices
         self._validate()
 
     def _validate(self):
         """Verify DataFrame has necessary attributes to utilise extension."""
-        if self.has_symbols:
-            cols = self.columns.levels[1]
-        else:
-            cols = self.columns
+        cols = self.columns.levels[1] if self.has_symbols else self.columns
         if not all(c in helpers.AGG_FUNCS for c in cols):
             msg = (
                 "To use PricesTable accessor columns must by in"
@@ -263,7 +256,6 @@ class _PT(metaclass=abc.ABCMeta):
         tz
             Timezone to set index to.
         """
-        # pylint: disable=missing-param-doc
         # subclass to override if implemented
         _ = tz
         msg = (
@@ -283,10 +275,9 @@ class _PT(metaclass=abc.ABCMeta):
         """
         if ts.tz == self.tz:
             return ts
-        elif ts.tz is None:
+        if ts.tz is None:
             return ts.tz_localize(self.tz)
-        else:
-            return ts.tz_convert(self.tz)
+        return ts.tz_convert(self.tz)
 
     @property
     def freq(self) -> pd.offsets.BaseOffset | None:
@@ -296,8 +287,7 @@ class _PT(metaclass=abc.ABCMeta):
             r_freq = self.index.right.freq
             if l_freq != r_freq:
                 return None
-            else:
-                freq = l_freq
+            freq = l_freq
         else:
             freq = self.index.freq
         return freq
@@ -308,8 +298,7 @@ class _PT(metaclass=abc.ABCMeta):
         lengths = set(self.index.length)
         if len(lengths) != 1:
             return None
-        else:
-            return intervals.TDInterval(lengths.pop())
+        return intervals.TDInterval(lengths.pop())
 
     @property
     def _interval(self) -> intervals.PTInterval | None:
@@ -323,8 +312,7 @@ class _PT(metaclass=abc.ABCMeta):
             else:
                 unit = unit_
             return intervals.to_ptinterval(str(value) + unit)
-        else:
-            return self._index_length
+        return self._index_length
 
     @property
     def interval(self) -> intervals.PTInterval | None:
@@ -398,7 +386,6 @@ class _PT(metaclass=abc.ABCMeta):
             If True, treat all sessions as continuous, ignoring any
             breaks.
         """
-        # pylint: disable=missing-param-doc
         if not self.has_regular_interval:
             raise ValueError(
                 "`get_trading_index` requires price table to have a regular interval."
@@ -483,7 +470,6 @@ class _PT(metaclass=abc.ABCMeta):
                     filling any initial missing values that would not
                     otherwise be filled with 'ffill' alone.
         """
-        # pylint: disable=missing-param-doc
         if not self.has_regular_interval:
             raise ValueError(
                 "`reindex_to_calendar` requires price table to have a regular interval."
@@ -494,8 +480,8 @@ class _PT(metaclass=abc.ABCMeta):
         # not be regular.
         # NOTE assumes table index based on ignoring breaks.
         new_index = df.pt.get_trading_index(calendar, force=False, ignore_breaks=True)
-        # pylint: disable=protected-access
-        df.pt._check_index_compatible(new_index, calendar)
+
+        df.pt._check_index_compatible(new_index, calendar)  # noqa: SLF001
 
         if force or not ignore_breaks:
             new_index = df.pt.get_trading_index(
@@ -511,8 +497,7 @@ class _PT(metaclass=abc.ABCMeta):
         if fill is not None:
             df = df.pt.fillna(fill)
 
-        df = df.pt._set_tz(self.tz)  # pylint: disable=protected-access
-        return df
+        return df.pt._set_tz(self.tz)  # noqa: SLF001
 
     # Indices queries and subsets
 
@@ -576,7 +561,7 @@ class _PT(metaclass=abc.ABCMeta):
         """
         its = self.indices_trading_status(calendar)
         # Can't use its.all() as nan equates to True
-        return its[~(its.isna() | its.eq(False))].index
+        return its[~(its.isna() | its.eq(other=False))].index
 
     @parse
     def indices_non_trading(
@@ -608,7 +593,7 @@ class _PT(metaclass=abc.ABCMeta):
         indices_partial_trading
         """
         its = self.indices_trading_status(calendar)
-        return its[its.eq(False)].index
+        return its[its.eq(other=False)].index
 
     @parse
     def indices_partial_trading(
@@ -657,14 +642,13 @@ class _PT(metaclass=abc.ABCMeta):
         """
         its = self.indices_trading_status(calendar)
         # can't use tis.all() as nan equates to True
-        return not (its.isna().any() or its.eq(False).any())
+        return not (its.isna().any() or its.eq(other=False).any())
 
     @staticmethod
     def _partial_non_trading(
         calendar: xcals.ExchangeCalendar, partial_indice: pd.Interval
     ) -> pd.IntervalIndex:
         """Return non-trading periods of a partial trading indice."""
-        # pylint: disable=too-many-locals
         start = partial_indice.left
         end = partial_indice.right
         trading_mins = calendar.minutes_in_range(start, end)
@@ -688,15 +672,14 @@ class _PT(metaclass=abc.ABCMeta):
         if not bv_discontinuous.any():
             interval = pd.Interval(non_t[0], non_t[-1], side)
             return pd.IntervalIndex([interval])
-        else:
-            ends = non_t[:-1][bv_discontinuous]
-            starts = non_t[1:][bv_discontinuous]
-            first = [pd.Interval(non_t[0], ends[0], side)]
-            last = [pd.Interval(starts[-1], non_t[-1], side)]
-            middle = []
-            for s, e in zip(starts[:-1], ends[1:]):
-                middle.append(pd.Interval(s, e, side))
-            return pd.IntervalIndex(first + middle + last)
+        ends = non_t[:-1][bv_discontinuous]
+        starts = non_t[1:][bv_discontinuous]
+        first = [pd.Interval(non_t[0], ends[0], side)]
+        last = [pd.Interval(starts[-1], non_t[-1], side)]
+        middle = []
+        for s, e in zip(starts[:-1], ends[1:], strict=True):
+            middle.append(pd.Interval(s, e, side))
+        return pd.IntervalIndex(first + middle + last)
 
     @parse
     def indices_partial_trading_info(
@@ -726,7 +709,7 @@ class _PT(metaclass=abc.ABCMeta):
     # Query table data.
 
     @abc.abstractmethod
-    def get_subset_from_indices(  # pylint: disable=missing-param-doc
+    def get_subset_from_indices(
         self, start: pd.Timestamp | None = None, end: pd.Timestamp | None = None
     ) -> pd.DataFrame:
         """Get subset of table between given indices.
@@ -883,7 +866,7 @@ class _PT(metaclass=abc.ABCMeta):
         return df
 
     @parse
-    def operate(
+    def operate(  # noqa: C901, PLR0912
         self,
         tz: Literal[False] | str | ZoneInfo | None = False,
         fill: Literal["ffill", "bfill", "both"] | None = None,
@@ -970,8 +953,6 @@ class _PT(metaclass=abc.ABCMeta):
                 level from columns MultiIndex. Columns will be instead
                 labelled with simple pd.Index.
         """
-        # pylint: disable=missing-param-doc, too-complex, differing-type-doc
-        # pylint: disable=too-many-branches, too-many-arguments
         if exclude is not None and include is not None:
             raise ValueError(
                 "Pass only `exclude` or `include`, not both.\n`exclude`"
@@ -1004,17 +985,16 @@ class _PT(metaclass=abc.ABCMeta):
                     prices = prices.pt.naive
                 else:
                     self._verify_tz_awareness()
-                    prices = prices.pt._set_tz(tz)
-            else:  # pylint: disable=else-if-used
-                if tz not in (None, UTC):
-                    raise ValueError(
-                        f"`tz` for class {type(self)} can only be UTC or timezone naive"
-                        f" (None), not {tz}."
-                    )
-                elif tz is None:
-                    prices = prices.pt.naive
-                else:
-                    prices = prices.pt.utc
+                    prices = prices.pt._set_tz(tz)  # noqa: SLF001
+            elif tz not in (None, UTC):
+                raise ValueError(
+                    f"`tz` for class {type(self)} can only be UTC or timezone naive"
+                    f" (None), not {tz}."
+                )
+            elif tz is None:
+                prices = prices.pt.naive
+            else:
+                prices = prices.pt.utc
 
         if close_only:
             prices = prices[[c for c in prices.columns if "close" in c]]
@@ -1057,9 +1037,9 @@ class _PT(metaclass=abc.ABCMeta):
                 "Only price tables with a single row can be stacked (price table"
                 f" has {num_rows} rows)."
             )
-        df = self.prices.stack(level=0, future_stack=True)
+        df = self.prices.stack(level=0, future_stack=True)  # noqa: PD013  # use stack, not melt
         assert isinstance(df, pd.DataFrame)
-        df.sort_index(axis=0, level=0, ascending=True, inplace=True)
+        df = df.sort_index(axis=0, level=0, ascending=True)
         return helpers.order_cols(df)
 
     @abc.abstractmethod
@@ -1121,7 +1101,6 @@ class PTDaily(_PT):
         end : default: last indice
             Last subset session.
         """
-        # pylint: disable=missing-param-doc
         start = self.first_ts if start is None else start
         end = self.last_ts if end is None else end
         start = self.convert_to_table_tz(start)
@@ -1167,7 +1146,6 @@ class PTDaily(_PT):
 
     def price_at(self, *_, **__):
         """Not implemented for this PT class."""
-        # pylint: disable=missing-param-doc
         msg = (
             "price_at is not implemented for daily price interval. Use"
             " `close_at` or `session_prices`."
@@ -1320,7 +1298,7 @@ class PTDaily(_PT):
 
         drop_labels = resampled.index[(resampled.index.left < df.pt.first_ts)]
         if not drop_labels.empty:
-            resampled.drop(drop_labels, inplace=True)
+            resampled = resampled.drop(drop_labels)
 
         return resampled
 
@@ -1359,12 +1337,12 @@ class PTDaily(_PT):
             right_limit = df.pt.last_ts + helpers.ONE_DAY
             drop_labels = index[(index.right > right_limit)]
             if not drop_labels.empty:
-                resampled.drop(drop_labels, inplace=True)
+                resampled = resampled.drop(drop_labels)
 
         return resampled
 
     @parse
-    def downsample(  # pylint: disable=arguments-differ
+    def downsample(
         self,
         pdfreq: str | pd.offsets.BaseOffset,
         calendar: xcals.ExchangeCalendar | calutils.CompositeCalendar | None = None,
@@ -1475,8 +1453,7 @@ class PTDaily(_PT):
             if isinstance(self.freq, pd.offsets.CustomBusinessDay):
                 pdfreq = self.freq.base * value
                 return self._downsample_cbdays(pdfreq, calendar)
-            else:
-                return self._downsample_days(pdfreq)
+            return self._downsample_days(pdfreq)
 
         invalid_units = ["h", "min", "MIN", "s", "L", "ms", "U", "us", "N", "ns"]
         ext = ["t", "T", "H", "S"]  # for pandas pre 2.2 compatibility
@@ -1488,7 +1465,7 @@ class PTDaily(_PT):
         return self._downsample_months(freqstr, calendar, drop_incomplete_last_indice)
 
 
-class _PTIntervalIndex(_PT):  # pylint: disable=abstract-method  # imp'd in subclasses
+class _PTIntervalIndex(_PT):
     """Base extension for prices table indexed with a pd.IntervalIndex."""
 
     @property
@@ -1537,8 +1514,7 @@ class _PTIntervalIndex(_PT):  # pylint: disable=abstract-method  # imp'd in subc
     def _tz(self) -> ZoneInfo | None:
         if self.index.left.tz == self.index.right.tz:
             return self.index.left.tz
-        else:
-            return None
+        return None
 
     def get_subset_from_indices(
         self, start: pd.Timestamp | None = None, end: pd.Timestamp | None = None
@@ -1559,7 +1535,6 @@ class _PTIntervalIndex(_PT):  # pylint: disable=abstract-method  # imp'd in subc
             If `start` is not the left side of an indice or if `right` is
             not the right side of or within and indice.
         """
-        # pylint: disable=missing-param-doc
         start = self.first_ts if start is None else start
         end = self.last_ts if end is None else end
         start = self.convert_to_table_tz(start)
@@ -1579,8 +1554,7 @@ class _PTIntervalIndex(_PT):  # pylint: disable=abstract-method  # imp'd in subc
 
         if not (end in self.index.right or self.index.contains(end).any()):
             msg = (
-                f"`end` ({end}) is not the right side of or contained within"
-                " an indice."
+                f"`end` ({end}) is not the right side of or contained within an indice."
             )
             raise ValueError(msg)
         rng = pd.Interval(start, end, "left")
@@ -1665,7 +1639,7 @@ class PTIntraday(_PTIntervalIndex):
         """
 
         def _get_session(indice) -> pd.Timestamp:
-            try:  # pylint: disable=too-many-try-statements
+            try:
                 if isinstance(calendar, xcals.ExchangeCalendar):
                     direction_ = "none" if direction is None else direction
                     s = calendar.minute_to_session(indice, direction=direction_)
@@ -1684,7 +1658,7 @@ class PTIntraday(_PTIntervalIndex):
     def session_column(
         self,
         calendar: xcals.ExchangeCalendar | calutils.CompositeCalendar,
-        direction: Literal["previous", "next", None] = "previous",
+        direction: Literal["previous", "next"] | None = "previous",
     ) -> pd.DataFrame:
         """Return table with extra column mapping indices to sessions.
 
@@ -1695,7 +1669,6 @@ class PTIntraday(_PTIntervalIndex):
         ----------
         As `sessions`
         """
-        # pylint: disable=missing-param-doc
         srs = self.sessions(calendar, direction)
         if self.has_symbols:
             srs.name = (srs.name, srs.name)
@@ -1717,7 +1690,6 @@ class PTIntraday(_PTIntervalIndex):
         calendar
             Calendar against which `index` was evaluated.
         """
-        # pylint: disable=too-many-locals, too-many-statements
         start = calendar.minute_to_session(index[0].left)
         end = calendar.minute_to_session(index[-1].right - helpers.ONE_MIN, "previous")
         slc = slice(start, end)
@@ -1728,8 +1700,8 @@ class PTIntraday(_PTIntervalIndex):
         index_union = self.utc.pt.index.union(index, sort=False).sort_values()
         nano_index = index_union.left.asi8
 
-        srs = pd.Series(True, index=sessions)
-        for session, open_, close in zip(sessions, opens, closes):
+        srs = pd.Series(data=True, index=sessions)
+        for session, open_, close in zip(sessions, opens, closes, strict=True):
             bv = (nano_index >= open_) & (nano_index < close)
             srs[session] = index_union[bv].is_non_overlapping_monotonic
         return srs
@@ -1756,10 +1728,9 @@ class PTIntraday(_PTIntervalIndex):
         interval_minutes = indice.length.total_seconds() / 60
         if trading_minutes == interval_minutes:
             return True
-        elif trading_minutes > 0:
+        if trading_minutes > 0:
             return np.nan
-        else:
-            return False
+        return False
 
     @functools.cache
     @parse
@@ -1848,9 +1819,8 @@ class PTIntraday(_PTIntervalIndex):
         trading_mins = self.indices_trading_minutes_values(calendar)
         if len(trading_mins) != 1:
             return None
-        else:
-            mins = int(trading_mins[0])
-            return intervals.TDInterval(pd.Timedelta(mins, "min"))
+        mins = int(trading_mins[0])
+        return intervals.TDInterval(pd.Timedelta(mins, "min"))
 
     def indices_have_regular_trading_minutes(
         self, calendar: xcals.ExchangeCalendar
@@ -1908,17 +1878,15 @@ class PTIntraday(_PTIntervalIndex):
         indices = self.index[self.index.contains(ts)]
         if not any(indices):
             return None
-        else:
-            assert len(indices) == 1
-            return indices[0]
+        assert len(indices) == 1
+        return indices[0]
 
     def _get_indice_loc(self, ts: pd.Timestamp) -> int | None:
         """Return index of indice that includes `ts`, or None if not in any."""
         indice = self._get_indice(ts)
         if indice is None:
             return None
-        else:
-            return self.index.get_loc(indice)  # type: ignore[return-value]  # as req'd
+        return self.index.get_loc(indice)  # type: ignore[return-value]  # as req'd
 
     def _get_loc(
         self, ts: pd.Timestamp, method: Literal["ffill", "bfill"] = "ffill"
@@ -1947,7 +1915,7 @@ class PTIntraday(_PTIntervalIndex):
         return self.prices.iloc[[i]]
 
     @parse
-    def price_at(  # pylint: disable=arguments-differ
+    def price_at(
         self,
         ts: Annotated[
             pd.Timestamp | str | datetime.datetime | int | float,
@@ -1979,7 +1947,6 @@ class PTIntraday(_PTIntervalIndex):
         close_at
         session_prices
         """
-        # pylint: disable=missing-param-doc
         if TYPE_CHECKING:
             assert isinstance(ts, pd.Timestamp)
             assert tz is None or isinstance(tz, ZoneInfo)
@@ -1993,7 +1960,7 @@ class PTIntraday(_PTIntervalIndex):
             ts, self.first_ts.astimezone(UTC), self.last_ts.astimezone(UTC)
         )
         df = self.utc.pt.fillna("ffill")
-        row = df.pt._get_row(ts)  # pylint: disable=protected-access
+        row = df.pt._get_row(ts)  # noqa: SLF001
         side = "left" if row.index.contains(ts) else "right"
         column = "open" if side == "left" else "close"
         if self.has_symbols:
@@ -2017,7 +1984,6 @@ class PTIntraday(_PTIntervalIndex):
 
     def close_at(self, *_, **__):
         """Not implemented for this PT class."""
-        # pylint: disable=missing-param-doc
         msg = (
             "`close_at` is not implemented for intraday price intervals. Use"
             " `price_at`."
@@ -2026,7 +1992,6 @@ class PTIntraday(_PTIntervalIndex):
 
     def session_prices(self, *_, **__):
         """Not implemented for this PT class."""
-        # pylint: disable=missing-param-doc
         msg = (
             "`session_prices` is not implemented for intraday price"
             " intervals. Use `price_at`."
@@ -2054,13 +2019,12 @@ class PTIntraday(_PTIntervalIndex):
             new_rows.append(res)
         new_rows_df = pd.concat(new_rows)
         new_rows_df = helpers.volume_to_na(new_rows_df)
-        drop_bv = df.index.duplicated(False)
+        drop_bv = df.index.duplicated(keep=False)
         no_dups = df.drop(df.index[drop_bv])
         df = pd.concat([no_dups, new_rows_df])
-        df = df.sort_values("left")
-        return df
+        return df.sort_values("left")
 
-    def _downsample_open(
+    def _downsample_open(  # noqa: C901
         self,
         pdfreq: mptypes.PandasFrequency,
         cal: xcals.ExchangeCalendar,
@@ -2071,7 +2035,6 @@ class PTIntraday(_PTIntervalIndex):
 
         Parameters as `self.downsample`.
         """
-        # pylint: disable=too-complex, too-many-locals, too-many-statements
         offset = pdfreq.as_offset
         df = self.utc.pt.indexed_left
 
@@ -2112,10 +2075,9 @@ class PTIntraday(_PTIntervalIndex):
             sessions = cc.minute_to_sessions(indice, _parse=False)
             if len(sessions) == 1:
                 return sessions[0]
-            else:
-                # session overlap, assign to calendar session
-                session = cal.minute_to_session(indice, "previous", _parse=False)
-                return session
+            # session overlap, assign to calendar session
+            session = cal.minute_to_session(indice, "previous", _parse=False)
+            return session  # noqa: RET504
 
         f = _groupby_session if cc is None else _groupby_composite_session
         grouped = df.groupby(by=f)
@@ -2145,7 +2107,7 @@ class PTIntraday(_PTIntervalIndex):
         # index is overlapping
 
         # curtail first indice of each session to earliest session open
-        for group, r_df in zip(grouped, r_dfs):
+        for group, r_df in zip(grouped, r_dfs, strict=False):  # could warrant True
             open_ = group[1].index[0]
             idx = pdutils.get_interval_index(r_df.index, offset)
             first_indice = pd.Interval(open_, idx[0].right, "left")
@@ -2157,7 +2119,7 @@ class PTIntraday(_PTIntervalIndex):
             # indice of next session
             resampled.index = pdutils.make_non_overlapping(resampled.index)
 
-        warnings.warn(errors.IntervalIrregularWarning())
+        warnings.warn(errors.IntervalIrregularWarning())  # noqa: B028
         return resampled.pt.set_tz(self.tz)
 
     def _downsample_workback(self, interval: pd.Timedelta) -> pd.DataFrame:
@@ -2173,7 +2135,7 @@ class PTIntraday(_PTIntervalIndex):
         name_l: tuple[str, str] | str = ("l", "l") if self.has_symbols else "l"
         name_r: tuple[str, str] | str = ("r", "r") if self.has_symbols else "r"
         df[name_l], df[name_r] = df.index.left, df.index.right
-        df.reset_index(drop=True, inplace=True)
+        df = df.reset_index(drop=True)
         groups = df.groupby(df.index // num_rows)
         agg_functions[name_l], agg_functions[name_r] = "first", "last"
         res = groups.agg(agg_functions)
@@ -2181,12 +2143,10 @@ class PTIntraday(_PTIntervalIndex):
         for col in [name_l, name_r]:
             del res[col]
         res = clean_columns(res)
-        res = helpers.volume_to_na(res)
-        return res
+        return helpers.volume_to_na(res)
 
     @parse
     def downsample(
-        # pylint: disable=arguments-differ
         self,
         pdfreq: Annotated[str, Coerce(mptypes.PandasFrequency)],
         anchor: Literal["workback", "open"] = "workback",
@@ -2308,7 +2268,6 @@ class PTIntraday(_PTIntervalIndex):
         --------
         reindex_to_calendar
         """
-        # pylint: disable=too-many-arguments, missing-param-doc
         if TYPE_CHECKING:
             assert isinstance(pdfreq, mptypes.PandasFrequency)
 
@@ -2362,16 +2321,11 @@ class PTIntraday(_PTIntervalIndex):
 
         if anchor_ is mptypes.Anchor.WORKBACK:
             return self._downsample_workback(interval)
-        else:
-            return self._downsample_open(
-                pdfreq, calendar, curtail_end, composite_calendar
-            )
+        return self._downsample_open(pdfreq, calendar, curtail_end, composite_calendar)
 
 
-class _PTIntervalIndexNotIntraday(_PTIntervalIndex):  # pylint: disable=abstract-method
+class _PTIntervalIndexNotIntraday(_PTIntervalIndex):
     """Base extension for non-intraday PT indexed with pd.IntervalIndex."""
-
-    # pylint note: abstract methods implemented in subclasses
 
     @property
     def is_intraday(self) -> bool:
@@ -2386,12 +2340,10 @@ class _PTIntervalIndexNotIntraday(_PTIntervalIndex):  # pylint: disable=abstract
 
     def get_trading_index(self, *_, **__):
         """Not implemented for this PT class."""
-        # pylint: disable=missing-param-doc
         self._not_implemented(self.get_trading_index)
 
     def reindex_to_calendar(self, *_, **__):
         """Not implemented for this PT class."""
-        # pylint: disable=missing-param-doc
         self._not_implemented(self.reindex_to_calendar)
 
 
@@ -2410,10 +2362,9 @@ class PTMultipleSessions(_PTIntervalIndexNotIntraday):
         dates = pd.date_range(start, end)
         if sessions.empty:
             return False
-        elif len(dates) == len(sessions) and (dates == sessions).all():
+        if len(dates) == len(sessions) and (dates == sessions).all():
             return True
-        else:
-            return np.nan
+        return np.nan
 
     @functools.cache
     @parse
@@ -2477,7 +2428,6 @@ class PTMultipleSessions(_PTIntervalIndexNotIntraday):
 
     def close_at(self, *_, **__) -> pd.DataFrame:
         """Not implemented for this PT class."""
-        # pylint: disable=missing-param-doc
         msg = (
             f"`close_at` not implemented for {type(self)} as table"
             f" interval too high to offer close prices for a specific date."
@@ -2486,7 +2436,6 @@ class PTMultipleSessions(_PTIntervalIndexNotIntraday):
 
     def session_prices(self, *_, **__):
         """Not implemented for this PT class."""
-        # pylint: disable=missing-param-doc
         msg = (
             f"`session_prices` not implemented for {type(self)} as table"
             f" interval too high to offer prices for a specific session."
@@ -2495,7 +2444,6 @@ class PTMultipleSessions(_PTIntervalIndexNotIntraday):
 
     def price_at(self, *_, **__):
         """Not implemented for this PT class."""
-        # pylint: disable=missing-param-doc
         msg = (
             f"`price_at` is not implemented for {type(self)} as intervals"
             f" are not intraday."
@@ -2504,7 +2452,6 @@ class PTMultipleSessions(_PTIntervalIndexNotIntraday):
 
     def downsample(self, *_, **__) -> pd.DataFrame:
         """Not implemented for this PT class."""
-        # pylint: disable=missing-param-doc
         msg = (
             f"downsample is not implemented for {type(self)}."
             " Downsample from daily data."
@@ -2529,8 +2476,7 @@ class PTDailyIntradayComposite(_PTIntervalIndexNotIntraday):
     @property
     def intraday_part(self) -> pd.DataFrame:
         """Part of composite table comprising intraday intervals."""
-        df = self.prices[self.index.left != self.index.right]
-        return df
+        return self.prices[self.index.left != self.index.right]
 
     def indices_trading_status(self, calendar: xcals.ExchangeCalendar) -> pd.Series:
         """Query indices trading/non-trading status.
@@ -2650,5 +2596,4 @@ class PTDailyIntradayComposite(_PTIntervalIndexNotIntraday):
 
     def downsample(self, *_, **__):
         """Not implemented for this PT class."""
-        # pylint: disable=missing-param-doc
         self._not_implemented(self.downsample)

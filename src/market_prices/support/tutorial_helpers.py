@@ -3,12 +3,12 @@
 import exchange_calendars as xcals
 import pandas as pd
 
-from market_prices import intervals, errors
+from market_prices import errors, intervals
 from market_prices.prices.base import PricesBase
 from market_prices.utils import calendar_utils as calutils
 
 
-def get_sessions_range_for_bi(
+def get_sessions_range_for_bi(  # noqa: C901, PLR0912
     prices: PricesBase,
     bi: intervals.BI,
     calendar: xcals.ExchangeCalendar | None = None,
@@ -31,7 +31,6 @@ def get_sessions_range_for_bi(
         If passed, range will be defined with sessions of `calendar`.
         Otherwise range will be defined with sessions of `prices.cc`.
     """
-    # pylint: disable=too-complex,too-many-branches
     start_limit, end_limit = prices.limits[bi]
     if not bi.is_one_minute:
         bi_previous = bi.previous
@@ -46,7 +45,7 @@ def get_sessions_range_for_bi(
         except ValueError:
             start_session = calendar.minute_to_future_session(start_limit, 1)
         else:
-            if not calendar.session_open(start_session) == start_limit:
+            if calendar.session_open(start_session) != start_limit:
                 start_session = calendar.next_session(start_session)
 
         try:
@@ -84,12 +83,12 @@ def _required_session_lengths(
     session_lengths: list[pd.Timedelta],
 ) -> bool:
     """Query if `calendars` have required `session_lengths` for `session`."""
-    for calendar, session_length in zip(calendars, session_lengths):
+    for calendar, session_length in zip(calendars, session_lengths, strict=True):
         if not session_length:
             if not calendar.is_session(session):
                 continue
             return False
-        elif not calendar.is_session(session):
+        if not calendar.is_session(session):
             return False
         open_, close = calendar.session_open_close(session)
         duration = close - open_
@@ -103,9 +102,13 @@ def _required_sessions_lengths(
     calendars: list[xcals.ExchangeCalendar],
     sessions_lengths: list[list[pd.Timedelta]],
 ) -> bool:
-    for session, session_lengths in zip(sessions, zip(*sessions_lengths)):
+    for session, session_lengths in zip(
+        sessions, zip(*sessions_lengths, strict=True), strict=True
+    ):
         if not _required_session_lengths(
-            session, calendars, session_lengths  # type: ignore[arg-type]  # as req.
+            session,
+            calendars,
+            session_lengths,  # type: ignore[arg-type]  # as req.
         ):
             return False
     return True

@@ -11,17 +11,17 @@ enumerations:
 
 from __future__ import annotations
 
-from datetime import timedelta
 import enum
 import typing
+from datetime import timedelta
 
-import exchange_calendars as xcals
 import pandas as pd
 
 from market_prices import helpers
 
-# pylint doesn't see members of enum or pd.Timedelta attrs of _TDIntervalBase
-# pylint: disable=no-member
+if typing.TYPE_CHECKING:
+    import exchange_calendars as xcals
+
 
 TIMEDELTA_ARGS = {
     "T1": (0, 0, 0, 0, 1),
@@ -70,10 +70,9 @@ class _TDIntervalBase(timedelta, enum.Enum):
         components = self.as_pdtd.components
         if self.freq_unit == "D":
             return components.days
-        elif self.freq_unit == "h":
+        if self.freq_unit == "h":
             return components.hours
-        else:
-            return components.minutes + (components.hours * 60)
+        return components.minutes + (components.hours * 60)
 
     @property
     def is_intraday(self) -> bool:
@@ -166,9 +165,8 @@ class _TDIntervalBase(timedelta, enum.Enum):
         """
         if self.is_intraday:
             return int(self.total_seconds() / 60)
-        else:
-            msg = "`as_minutes` only available for intraday intervals."
-            raise ValueError(msg)
+        msg = "`as_minutes` only available for intraday intervals."
+        raise ValueError(msg)
 
 
 class TDInterval(_TDIntervalBase):
@@ -176,8 +174,6 @@ class TDInterval(_TDIntervalBase):
 
     Intervals can be described in terms of either minutes, hours or days.
     """
-
-    # pylint: disable=exec-used, invalid-name
 
     _ignore_ = "i, i_, j,"
 
@@ -210,12 +206,11 @@ class DOInterval(enum.Enum):
     Intervals can be described in terms of months.
     """
 
-    _ignore_ = "i"  # pylint: disable=invalid-name
+    _ignore_ = "i"
 
     for i in range(1, 37):
-        exec(f"M{i} = pd.DateOffset(months={i})")  # pylint: disable=exec-used
+        exec(f"M{i} = pd.DateOffset(months={i})")
 
-    # pylint: disable=missing-return-type-doc
     def __ge__(self, other):
         if self.__class__ is other.__class__:
             return self.freq_value >= other.freq_value
@@ -245,8 +240,6 @@ class DOInterval(enum.Enum):
         if isinstance(other, pd.Timestamp):
             return other - self.value
         return NotImplemented
-
-    # pylint: enable=missing-return-type-doc
 
     @property
     def freq_unit(self) -> str:
@@ -308,7 +301,7 @@ class DOInterval(enum.Enum):
         """Return interval represented as a pandas frequency string."""
         return str(self.freq_value) + self.freq_unit
 
-    def as_offset(self, *_, **__) -> pd.DateOffset:  # pylint: disable=missing-param-doc
+    def as_offset(self, *_, **__) -> pd.DateOffset:
         """Return interval represented as an offset."""
         return self.value
 
@@ -406,14 +399,14 @@ ONE_DAY: TDInterval = TDInterval.D1
 # Constants able to mimic base intervals.
 _BI_CONSTANTS = BI(
     "BI_CONSTANTS",
-    dict(T1=TIMEDELTA_ARGS["T1"], D1=TIMEDELTA_ARGS["D1"]),
+    {"T1": TIMEDELTA_ARGS["T1"], "D1": TIMEDELTA_ARGS["D1"]},
 )
 
 BI_ONE_MIN = _BI_CONSTANTS.T1
 BI_ONE_DAY = _BI_CONSTANTS.D1
 
 
-def to_ptinterval(interval: str | timedelta | pd.Timedelta) -> PTInterval:
+def to_ptinterval(interval: str | timedelta | pd.Timedelta) -> PTInterval:  # noqa: C901, PLR0912
     """Verify and parse client `interval` input to a PTInterval.
 
     Parameters
@@ -422,7 +415,6 @@ def to_ptinterval(interval: str | timedelta | pd.Timedelta) -> PTInterval:
         As defined for the `interval` parameter of
         `market_prices.prices.base.PricesBase.get`.
     """
-    # pylint: disable=too-complex, too-many-branches
     if not isinstance(interval, (str, timedelta, pd.Timedelta)):
         raise TypeError(
             "`interval` should be of type 'str', 'timedelta' or"
@@ -455,7 +447,8 @@ def to_ptinterval(interval: str | timedelta | pd.Timedelta) -> PTInterval:
             " interval in terms of months pass as a string, for"
             ' example "1m" for one month.'
         )
-        valid_resolutions = ["min", "h", "D"] + ["T", "H"]  # + form pandas pre 2.2
+        # values in second list for pandas pre 2.2...
+        valid_resolutions = ["min", "h", "D"] + ["T", "H"]  # noqa: RUF005
         if interval.resolution_string not in valid_resolutions:
             raise ValueError(error_msg)
 
@@ -483,31 +476,29 @@ def to_ptinterval(interval: str | timedelta | pd.Timedelta) -> PTInterval:
     }
 
     if isinstance(interval, str):
-
         if value > limits[unit]:
             raise_value_oob_error(components[unit], limits[unit])
         if unit == "T" and not value % 60:
             unit, value = "H", value // 60
-        Cls = DOInterval if unit == "M" else TDInterval
+        Cls = DOInterval if unit == "M" else TDInterval  # noqa: N806
         return getattr(Cls, unit + str(value))
 
+    unit = interval.resolution_string
+    if unit in ["min", "T"]:  # "T" for compatibility pandas < 2.2
+        value = int(interval.total_seconds() // 60)
+        unit = "T"
+    elif unit in ["h", "H"]:  # "H" for compatibility pandas < 2.2
+        value = int(interval.total_seconds() // 3600)
+        unit = "H"
     else:
-        unit = interval.resolution_string
-        if unit in ["min", "T"]:  # "T" for compatibility pandas < 2.2
-            value = int(interval.total_seconds() // 60)
-            unit = "T"
-        elif unit in ["h", "H"]:  # "H" for compatibility pandas < 2.2
-            value = int(interval.total_seconds() // 3600)
-            unit = "H"
-        else:
-            value = interval.days
+        value = interval.days
 
-        if value > limits[unit]:
-            raise_value_oob_error(components[unit], limits[unit])
+    if value > limits[unit]:
+        raise_value_oob_error(components[unit], limits[unit])
 
-        return getattr(TDInterval, unit + str(value))
+    return getattr(TDInterval, unit + str(value))
 
 
-def parse_interval(name: str, obj: str | pd.Timedelta | timedelta, _) -> PTInterval:
+def parse_interval(_name: str, obj: str | pd.Timedelta | timedelta, _) -> PTInterval:
     """Parse input to an `interval` parameter."""
     return to_ptinterval(obj)
