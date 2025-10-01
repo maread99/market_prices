@@ -28,31 +28,17 @@ jobs:
         python-version: ["3.10", "3.13"]
 
     steps:
-      - uses: actions/checkout@v4
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
+      - uses: actions/checkout@v5
+      - name: Install uv and set the Python version
+        uses: astral-sh/setup-uv@v6
         with:
           python-version: ${{ matrix.python-version }}
-          cache: 'pip'
-          # When lose requirements_tests_upper also lose the following line (with the
-          # glob pattern) in favour of reinstating the commented out one after...
-          cache-dependency-path: 'etc/requirements_dependabot/requirements_tests*.txt'
-          # cache-dependency-path: 'etc/requirements_dependabot/requirements_tests.txt'
-      - name: Install dependencies
-        shell: bash
-        # when minimum python version bumps to 3.11 should be able to lose
-        # requirements_tests_upper.txt and reinstate the following single line in
-        # place of the whole if clause.
-        #   pip install -r etc/requirements_dependabot/requirements_tests.txt
-        run: |
-          python -m pip install --upgrade pip
-          if [ "${{ matrix.python-version }}" == "3.13" ]; then
-            pip install -r etc/requirements_dependabot/requirements_tests_upper.txt
-          else
-            pip install -r etc/requirements_dependabot/requirements_tests.txt
-          fi
-          pip install -e .
-      - name: Test with pytest
-        # fail it if doesn't pass test suite
-        run: |
-          pytest --hypothesis-profile ci
+      - name: Enable caching
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - name: Install the project
+        run: uv sync --locked
+      - name: Run tests
+        run: uv run pytest --hypothesis-profile ci
