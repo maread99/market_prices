@@ -7,7 +7,7 @@
 
 # market_prices
 
-[![PyPI](https://img.shields.io/pypi/v/market-prices)](https://pypi.org/project/market-prices/) ![Python Support](https://img.shields.io/pypi/pyversions/market-prices) [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+[![PyPI](https://img.shields.io/pypi/v/market-prices)](https://pypi.org/project/market-prices/) ![Python Support](https://img.shields.io/pypi/pyversions/market-prices) [![Code style: ruff](https://img.shields.io/badge/code%20style-ruff-D7FF64.svg)](https://github.com/astral-sh/ruff)
 
 A python library to create **meaningful** OHLCV datasets for financial instruments.
 
