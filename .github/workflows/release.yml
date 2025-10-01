@@ -31,4 +31,4 @@ jobs:
         run: |
           sleep 5  
       - name: Check install and import
-        run: uv run --refresh-package market-prices --no-project -- python -c 'import market_prices;print(f"{market_prices.__version__=}")'
+        run: uv run --refresh-package market-prices --with market-prices --no-project -- python -c 'import market_prices;print(f"{market_prices.__version__=}")'
