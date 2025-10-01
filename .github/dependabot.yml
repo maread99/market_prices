@@ -7,7 +7,7 @@ version: 2
 updates:
   # Configuration for pip
   - package-ecosystem: "pip" # See documentation for possible values
-    directory: "/etc/requirements_dependabot" # Location of package manifests
+    directory: "/" # Location of package manifests
     schedule:
       interval: "daily"
 # for reference:
