@@ -5,7 +5,6 @@
 
 version: 2
 updates:
-  # Configuration for pip
   - package-ecosystem: "uv" # See documentation for possible values
     directory: "/" # Location of package manifests
     schedule:

@@ -22,13 +22,33 @@ jobs:
         run: uv python install
       - name: Build
         run: uv build
+
       - name: Publish to Test PyPI
         run: uv publish --index testpypi
+      - name: Check test install and import
+        run: |
+          sleep 5  # Wait for Test Pypi to publish
+          # Include pypi index for deps not available from test pypi...
+          uv run \
+            --with market-prices \
+            --refresh-package market-prices \
+            --index https://test.pypi.org/simple \
+            --index https://pypi.org/simple \
+            --index-strategy unsafe-best-match \
+            --no-project \
+            --isolated \
+            -- \
+            python -c 'import market_prices; print(f"{market_prices.__version__=}")'
+
       - name: Publish to PyPI
         run: uv publish
-      - name: Wait for PyPI to publish
-        shell: bash
-        run: |
-          sleep 5  
       - name: Check install and import
-        run: uv run --refresh-package market-prices --with market-prices --no-project -- python -c 'import market_prices;print(f"{market_prices.__version__=}")'
+        run: |
+          sleep 5  # Wait for Pypi to publish
+          uv run \
+          --with market-prices \
+          --refresh-package market-prices \
+          --no-project \
+          --isolated \
+          -- \
+          python -c 'import market_prices;print(f"{market_prices.__version__=}")'

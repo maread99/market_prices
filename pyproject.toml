@@ -27,6 +27,7 @@ keywords = [
     "commodities",
     "indices",
 ]
+dynamic = ["version"]
 requires-python = ">=3.10, <4"
 
 classifiers = [
@@ -59,29 +60,27 @@ dependencies = [
     "yahooquery",
 ]
 
-dynamic = ["version"]
-
-[project.urls]
-homepage = "https://github.com/maread99/market_prices"
-documentation = "https://github.com/maread99/market_prices/blob/master/docs/tutorials_docs.md"
-"Issue Tracker" = "https://github.com/maread99/market_prices/issues"
-"Source Code" = "https://github.com/maread99/market_prices"
-
 [dependency-groups]
 test = [
     "hypothesis",
-    "pre-commit",
     "pytest",
     "pytest-mock",
     "tables",
-    "ruff",
 ]
 dev = [
     {include-group = "test"},
     "mypy",
     "mypy-extensions",
     "pandas-stubs",
+    "pre-commit",
+    # "ruff",  # use local standalone install or ruff extension for editor.
 ]
+
+[project.urls]
+homepage = "https://github.com/maread99/market_prices"
+documentation = "https://github.com/maread99/market_prices/blob/master/docs/tutorials_docs.md"
+"Issue Tracker" = "https://github.com/maread99/market_prices/issues"
+"Source Code" = "https://github.com/maread99/market_prices"
 
 [tool.setuptools_scm]
 write_to = "src/market_prices/_version.py"

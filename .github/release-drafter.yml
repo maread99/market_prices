@@ -19,7 +19,9 @@ categories:
   - title: 'Testing'
     label: 'tests'
   - title: 'Under the Bonnet'
-    label: 'code improvement'
+    labels:
+      - 'code improvement'
+      - 'code tidy'
   - title: 'Continuous Integration'
     label: 'CI'
 template: |
