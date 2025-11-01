@@ -3,13 +3,13 @@
 
 beautifulsoup4==4.14.2
     # via yahooquery
-certifi==2025.8.3
+certifi==2025.10.5
     # via
     #   curl-cffi
     #   requests
 cffi==2.0.0
     # via curl-cffi
-charset-normalizer==3.4.3
+charset-normalizer==3.4.4
     # via requests
 colorama==0.4.6 ; sys_platform == 'win32'
     # via tqdm
@@ -17,7 +17,7 @@ curl-cffi==0.13.0
     # via yahooquery
 exchange-calendars==4.11.1
     # via market-prices
-idna==3.10
+idna==3.11
     # via requests
 korean-lunar-calendar==0.3.1
     # via exchange-calendars
@@ -54,7 +54,7 @@ six==1.17.0
     # via python-dateutil
 soupsieve==2.8
     # via beautifulsoup4
-toolz==1.0.0
+toolz==1.1.0
     # via exchange-calendars
 tqdm==4.67.1
     # via yahooquery
