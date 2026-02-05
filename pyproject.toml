@@ -52,7 +52,7 @@ classifiers = [
 ]
 
 dependencies = [
-    "exchange_calendars",
+    "exchange-calendars",
     "numpy",
     "pandas",
     "tzdata",
@@ -64,6 +64,7 @@ dependencies = [
 test = [
     "attrs",
     "hypothesis",
+    "pytz",  # required as stored hdf data includes pytz objects
     "pytest",
     "pytest-mock",
     "tables",

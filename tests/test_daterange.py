@@ -13,6 +13,7 @@ import contextlib
 import itertools
 import re
 from collections import abc
+from datetime import timedelta
 
 import exchange_calendars as xcals
 import hypothesis as hyp
@@ -2207,7 +2208,7 @@ class TestGetterIntraday:
             end: pd.Timestamp,
             pp: dict,
             anchor: Anchor,
-            duration: int | None = None,
+            duration: int | timedelta | None = None,
         ) -> str:
             """Match message for errors.PricesUnavailableIntervalPeriodError.
 
@@ -2217,7 +2218,10 @@ class TestGetterIntraday:
             duration_insert = ""
             if anchor is Anchor.WORKBACK:
                 assert duration is not None
-                duration_ = pd.Timedelta(duration, "min")
+                if isinstance(duration, timedelta):
+                    duration_ = pd.Timedelta(duration)
+                else:
+                    duration_ = pd.Timedelta(duration, "min")
                 duration_insert = f"\nPeriod duration evaluated as {duration_}."
             return re.escape(
                 f"Period does not span a full indice of length {final_interval}."

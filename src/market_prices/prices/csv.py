@@ -33,8 +33,9 @@ INTRVL_UNITS = {"MIN": "minutes", "T": "minutes", "H": "hours", "D": "days"}
 
 CSV_READ_DFLT_KWARGS: dict[str, Any] = {
     "header": 0,
-    "usecols": lambda x: x.lower()
-    in ["date", "open", "high", "low", "close", "volume"],
+    "usecols": lambda x: (
+        x.lower() in ["date", "open", "high", "low", "close", "volume"]
+    ),
     "index_col": "date",
     "parse_dates": ["date"],
 }
@@ -118,7 +119,7 @@ def _get_symbol_from_filename(name: str, symbols: list[str]) -> str | None:
             # at least two different symbols in filename
             return None
         symbol = part
-    return symbol if symbol else None
+    return symbol or None
 
 
 def _get_interval_from_filename(name: str) -> TDInterval | None:
@@ -1095,7 +1096,7 @@ class PricesCsv(base.PricesBase):
         root = path
         self.PM_SUBSESSION_ORIGIN = pm_subsession_origin  # override class attr
         symbols_ = helpers.symbols_to_list(symbols)
-        delays = {symb: pd.Timedelta(0) for symb in symbols_}
+        delays = dict.fromkeys(symbols_, 0)
 
         csv_kwargs = _get_csv_read_kwargs(read_csv_kwargs)
         paths = self._csv_paths = get_csv_paths(root, symbols_)
@@ -1167,7 +1168,7 @@ class PricesCsv(base.PricesBase):
                 dfs.append(df_symb_)
             if not dfs:
                 continue
-            df = pd.concat(dfs, axis=1)
+            df = pd.concat(dfs, axis=1, sort=True)
             df = df.sort_index()
             df.columns = df.columns.set_names("symbol", level=0)
             dfs_by_intrvl[interval] = df

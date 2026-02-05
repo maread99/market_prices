@@ -814,7 +814,7 @@ class PricesYahoo(base.PricesBase):
             # for, at least, hong kong stocks include a single index after the close.
             params = dict(interval=interval, start=start, end=end)
             raise errors.PricesUnavailableFromSourceError(params, df)
-        df = pd.concat(sdfs, axis=1)
+        df = pd.concat(sdfs, axis=1, sort=True)
 
         if empty_sdfs:
             # add symbols for which prices unavailable over requested period

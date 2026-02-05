@@ -286,7 +286,7 @@ class CompositeAnswers:
         self._side = side
         self._start = start
         self._end = end
-        self._dates = pd.date_range(start, end)
+        self._dates = pd.date_range(start, end).as_unit("ns")
 
         self._session_idx = len(self.sessions) // 2
         assert self._session_idx != 0
@@ -305,8 +305,12 @@ class CompositeAnswers:
         # Necessary for csv saved prior to xcals v4.0
         if df.index.tz is not None:
             df.index = df.index.tz_convert(None)
+
+        df.index = df.index.as_unit("ns")
+
         # Necessary for csv saved prior to xcals v4.0
         for col in df:
+            df[col] = df[col].dt.as_unit("ns")
             if df[col].dt.tz is None:
                 df[col] = df[col].dt.tz_localize(UTC)
         return df
@@ -973,8 +977,8 @@ class TestCompositeCalendar:
 
         def intrvl(left: str, right: str) -> pd.Interval:
             return pd.Interval(
-                pd.Timestamp("2021-12-" + left),
-                pd.Timestamp("2021-12-" + right),
+                pd.Timestamp("2021-12-" + left).as_unit("ns"),
+                pd.Timestamp("2021-12-" + right).as_unit("ns"),
                 "left",
             )
 
@@ -1021,7 +1025,7 @@ class TestCompositeCalendar:
         cc = m.CompositeCalendar([x245])
         rtrn = cc.non_trading_index(utc=False)
 
-        dates = pd.date_range(start, end)
+        dates = pd.date_range(start, end).as_unit("ns")
         left = dates[dates.weekday == 5]
         right = dates[dates.weekday == 0]
         expected = pd.IntervalIndex.from_arrays(left, right, "left")
@@ -1040,8 +1044,8 @@ class TestCompositeCalendar:
 
         def intrvl(left: str, right: str) -> pd.Interval:
             return pd.Interval(
-                pd.Timestamp("2021-12-" + left),
-                pd.Timestamp("2021-12-" + right),
+                pd.Timestamp("2021-12-" + left).as_unit("ns"),
+                pd.Timestamp("2021-12-" + right).as_unit("ns"),
                 "left",
             )
 
@@ -1151,8 +1155,14 @@ class TestCCTradingIndex:
         f = cc.trading_index
 
         # from inspection of schedule
-        opens = [T("2021-12-24 08:00"), T("2021-12-29 08:00")]
-        closes = [T("2021-12-24 12:30"), T("2021-12-29 16:30")]
+        opens = [
+            T("2021-12-24 08:00").as_unit("ns"),
+            T("2021-12-29 08:00").as_unit("ns"),
+        ]
+        closes = [
+            T("2021-12-24 12:30").as_unit("ns"),
+            T("2021-12-29 16:30").as_unit("ns"),
+        ]
         last_session_duration = closes[-1] - opens[-1]
 
         for interval in intervals:
@@ -1206,8 +1216,16 @@ class TestCCTradingIndex:
         f = cc.trading_index
 
         # if ignoring breaks
-        opens = [T("2021-12-23 01:30"), T("2021-12-24 01:30"), T("2021-12-28 01:30")]
-        closes = [T("2021-12-23 08:00"), T("2021-12-24 04:00"), T("2021-12-28 08:00")]
+        opens = [
+            T("2021-12-23 01:30").as_unit("ns"),
+            T("2021-12-24 01:30").as_unit("ns"),
+            T("2021-12-28 01:30").as_unit("ns"),
+        ]
+        closes = [
+            T("2021-12-23 08:00").as_unit("ns"),
+            T("2021-12-24 04:00").as_unit("ns"),
+            T("2021-12-28 08:00").as_unit("ns"),
+        ]
 
         for interval in intervals:
             start, end = T("2021-12-23"), T("2021-12-28")
@@ -1217,19 +1235,19 @@ class TestCCTradingIndex:
 
         # if including breaks
         opens = [
-            T("2021-12-23 01:30"),
-            T("2021-12-23 05:00"),
-            T("2021-12-24 01:30"),
-            T("2021-12-28 01:30"),
-            T("2021-12-28 05:00"),
+            T("2021-12-23 01:30").as_unit("ns"),
+            T("2021-12-23 05:00").as_unit("ns"),
+            T("2021-12-24 01:30").as_unit("ns"),
+            T("2021-12-28 01:30").as_unit("ns"),
+            T("2021-12-28 05:00").as_unit("ns"),
         ]
 
         closes = [
-            T("2021-12-23 04:00"),
-            T("2021-12-23 08:00"),
-            T("2021-12-24 04:00"),
-            T("2021-12-28 04:00"),
-            T("2021-12-28 08:00"),
+            T("2021-12-23 04:00").as_unit("ns"),
+            T("2021-12-23 08:00").as_unit("ns"),
+            T("2021-12-24 04:00").as_unit("ns"),
+            T("2021-12-28 04:00").as_unit("ns"),
+            T("2021-12-28 08:00").as_unit("ns"),
         ]
 
         start, end = T("2021-12-23"), T("2021-12-28")
@@ -1258,8 +1276,16 @@ class TestCCTradingIndex:
         f = cc.trading_index
 
         start, end = T("2021-12-23"), T("2021-12-27")
-        opens = [T("2021-12-23 08:00"), T("2021-12-24 08:00"), T("2021-12-27 14:30")]
-        closes = [T("2021-12-23 21:00"), T("2021-12-24 12:30"), T("2021-12-27 21:00")]
+        opens = [
+            T("2021-12-23 08:00").as_unit("ns"),
+            T("2021-12-24 08:00").as_unit("ns"),
+            T("2021-12-27 14:30").as_unit("ns"),
+        ]
+        closes = [
+            T("2021-12-23 21:00").as_unit("ns"),
+            T("2021-12-24 12:30").as_unit("ns"),
+            T("2021-12-27 21:00").as_unit("ns"),
+        ]
 
         for interval in [TDInterval.T1, TDInterval.T5, TDInterval.T30]:
             rtrn = f(interval, start, end, curtail_calendar_overlaps=False)
@@ -1299,21 +1325,21 @@ class TestCCTradingIndex:
 
         # if ignoring breaks
         opens = [
-            T("2021-12-23 01:30"),
-            T("2021-12-23 13:00"),
-            T("2021-12-24 01:30"),
-            T("2021-12-27 13:00"),
-            T("2021-12-28 01:30"),
-            T("2021-12-28 13:00"),
+            T("2021-12-23 01:30").as_unit("ns"),
+            T("2021-12-23 13:00").as_unit("ns"),
+            T("2021-12-24 01:30").as_unit("ns"),
+            T("2021-12-27 13:00").as_unit("ns"),
+            T("2021-12-28 01:30").as_unit("ns"),
+            T("2021-12-28 13:00").as_unit("ns"),
         ]
 
         closes = [
-            T("2021-12-23 08:00"),
-            T("2021-12-23 21:00"),
-            T("2021-12-24 04:00"),
-            T("2021-12-27 21:00"),
-            T("2021-12-28 08:00"),
-            T("2021-12-28 21:00"),
+            T("2021-12-23 08:00").as_unit("ns"),
+            T("2021-12-23 21:00").as_unit("ns"),
+            T("2021-12-24 04:00").as_unit("ns"),
+            T("2021-12-27 21:00").as_unit("ns"),
+            T("2021-12-28 08:00").as_unit("ns"),
+            T("2021-12-28 21:00").as_unit("ns"),
         ]
 
         for interval in intervals:
@@ -1324,25 +1350,25 @@ class TestCCTradingIndex:
 
         # if including breaks
         opens = [
-            T("2021-12-23 01:30"),
-            T("2021-12-23 05:00"),
-            T("2021-12-23 13:00"),
-            T("2021-12-24 01:30"),
-            T("2021-12-27 13:00"),
-            T("2021-12-28 01:30"),
-            T("2021-12-28 05:00"),
-            T("2021-12-28 13:00"),
+            T("2021-12-23 01:30").as_unit("ns"),
+            T("2021-12-23 05:00").as_unit("ns"),
+            T("2021-12-23 13:00").as_unit("ns"),
+            T("2021-12-24 01:30").as_unit("ns"),
+            T("2021-12-27 13:00").as_unit("ns"),
+            T("2021-12-28 01:30").as_unit("ns"),
+            T("2021-12-28 05:00").as_unit("ns"),
+            T("2021-12-28 13:00").as_unit("ns"),
         ]
 
         closes = [
-            T("2021-12-23 04:00"),
-            T("2021-12-23 08:00"),
-            T("2021-12-23 21:00"),
-            T("2021-12-24 04:00"),
-            T("2021-12-27 21:00"),
-            T("2021-12-28 04:00"),
-            T("2021-12-28 08:00"),
-            T("2021-12-28 21:00"),
+            T("2021-12-23 04:00").as_unit("ns"),
+            T("2021-12-23 08:00").as_unit("ns"),
+            T("2021-12-23 21:00").as_unit("ns"),
+            T("2021-12-24 04:00").as_unit("ns"),
+            T("2021-12-27 21:00").as_unit("ns"),
+            T("2021-12-28 04:00").as_unit("ns"),
+            T("2021-12-28 08:00").as_unit("ns"),
+            T("2021-12-28 21:00").as_unit("ns"),
         ]
 
         start, end = T("2021-12-23"), T("2021-12-28")

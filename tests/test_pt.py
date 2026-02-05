@@ -27,7 +27,7 @@ def daily_pt() -> abc.Iterator[pd.DataFrame]:
 
     Recreate table with:
     > symbols = ["MSFT", "AZN.L", "ES=F"]
-    > df = prices.get("1d", start="2021", end="2021-12-31")
+    > df = prices.get("1D", start="2021", end="2021-12-31")
     """
     yield get_resource("daily_pt")
 
@@ -82,7 +82,7 @@ def multiple_sessions_pt() -> abc.Iterator[pd.DataFrame]:
 
     Recreate table with:
     > symbols = ["MSFT", "AZN.L", "ES=F"]
-    > df = prices.get("3d", start="2021", end="2021-12-31")
+    > df = prices.get("3D", start="2021", end="2021-12-31")
     """
     yield get_resource("multiple_sessions_pt")
 
@@ -93,7 +93,7 @@ def multiple_sessions_alldays_pt() -> abc.Iterator[pd.DataFrame]:
 
     Recreate table with:
     > symbols = ["MSFT", "AZN.L", "BTC-USD"]
-    > df = prices.get("3d", start="2021", end="2021-12-31", lead_symbol="BTC-USD")
+    > df = prices.get("3D", start="2021", end="2021-12-31", lead_symbol="BTC-USD")
     """
     yield get_resource("multiple_sessions_alldays_pt")
 
@@ -300,17 +300,20 @@ class TestConstructorErrors:
         match = (
             "To use PT accessor index must be of type pd.DatetimeIndex or"
             " pd.IntervalIndex with left and right sides as pd.DatetimeIndex,"
-            " although index is of type <class 'pandas.core.indexes."
+            " although index is of type <class 'pandas."
         )
         daily_df = daily_pt.reset_index(drop=True)
-        with pytest.raises(TypeError, match=match + "range.RangeIndex'>."):
+
+        with pytest.raises(TypeError, match=match) as excinfo:
             _ = daily_df.pt
+        assert str(excinfo.value).endswith("RangeIndex'>.")
 
         intraday_df = intraday_pt.copy()
         intraday_df.index = pd.interval_range(start=0, periods=len(intraday_pt), freq=1)
 
-        with pytest.raises(TypeError, match=match + "base.Index'>."):
+        with pytest.raises(TypeError, match=match) as excinfo:
             _ = intraday_df.pt
+        assert str(excinfo.value).endswith(".Index'>.")
 
         daily_df = daily_pt.copy()
         daily_df.index = daily_df.index + pd.Timedelta(1, "min")
@@ -1946,7 +1949,7 @@ class TestDownsampleDaily:
         f = df.pt.downsample
 
         # test raises expected errors
-        match = "Cannot downsample to a `pdfreq` with a unit more precise than 'd'."
+        match = "Cannot downsample to a `pdfreq` with a unit more precise than 'D'."
         invalid_freqs = ("5min", "1ms", "3h", "120s", "1000ns", "26h")
         for freq in invalid_freqs:
             with pytest.raises(ValueError, match=match):
@@ -1957,7 +1960,7 @@ class TestDownsampleDaily:
                 f"Received `pdfreq` as {freq} although must be either of type"
                 " pd.offsets.CustomBusinessDay or acceptable input to"
                 " pd.tseries.frequencies.to_offset that describes a frequency greater"
-                ' than one day. For example "2d", "5d" "QS" etc.'
+                ' than one day. For example "2D", "5D" "QS" etc.'
             )
 
         invalid_freqs = ("D2", "astring", "3E", "3")
@@ -1971,7 +1974,7 @@ class TestDownsampleDaily:
             "\nNB. Downsampling will downsample to a frequency defined in"
             " CustomBusinessDay when either `pdfreq` is passed as a CustomBusinessDay"
             " (or multiple of) or when the table has a CustomBusinessDay frequency and"
-            ' `pdfreq` is passed with unit "d".'
+            ' `pdfreq` is passed with unit "D".'
         )
 
         # Verify raises error when calendar not passed although required
@@ -1989,7 +1992,7 @@ class TestDownsampleDaily:
         assert isinstance(df_cbday_freq.pt.freq, pd.offsets.CustomBusinessDay)
 
         with pytest.raises(TypeError, match=match):
-            df_cbday_freq.pt.downsample("3d", None)
+            df_cbday_freq.pt.downsample("3D", None)
 
         # Verify raises error when calendar.day does not match frequency (passed or
         # imferred) base.
@@ -2004,7 +2007,7 @@ class TestDownsampleDaily:
             daily_pt.pt.downsample(xnys.day * 3, xlon)
 
         with pytest.raises(ValueError, match=match):
-            df_cbday_freq.pt.downsample("3d", xlon)
+            df_cbday_freq.pt.downsample("3D", xlon)
 
     def test_cbdays_freq(self, daily_pt, calendars, symbols, one_day):
         """Verify daily price table with frequency as multiple of CustomBusinessDay."""
@@ -2078,10 +2081,10 @@ class TestDownsampleDaily:
         table_start = df.pt.first_ts
 
         for days in range(1, 31):
-            freq = str(days) + "d"
+            freq = str(days) + "D"
             offset = pd.tseries.frequencies.to_offset(freq)
             rtrn = f(freq, xnys)
-            assert rtrn.pt.last_ts == expected_end
+            assert rtrn.pt.last_ts == expected_end, f"{days=}, {freq=}"
 
             # Assert every indice of rtrn has length i.
             values = rtrn.index.length.value_counts().index
@@ -2118,15 +2121,9 @@ class TestDownsampleDaily:
 
         assert_frame_equal(
             df.pt.downsample(xnys.day * 3, xnys),
-            df.pt.downsample("3d", xnys),
+            df.pt.downsample("3D", xnys),
         )
 
-    # TODO: Remove xfail when pandas >3 or fix otherwise released
-    # NB pd bug manifests in test, not package (manifests where takes a slice to
-    # evaluate 'subset').
-    # pandas issue ref is https://github.com/pandas-dev/pandas/issues/58604
-    # https://github.com/pandas-dev/pandas/pull/58043, related PR, ya merged to dev
-    @pytest.mark.xfail(reason="Known pd issue with py3.12, should resolve with pd>3.0")
     def test_monthly_freq(self, daily_pt, xnys, x247, one_day, symbols):
         """Verify "MS" and "QS" frequencies."""
         df = daily_pt
@@ -2313,7 +2310,7 @@ class TestDownsampleIntraday:
                 f" received `pdfreq` as {pdfreq}."
             )
 
-        invalid_pdfreqs = ["1d", "1s", "1ns", "1ms"]
+        invalid_pdfreqs = ["1D", "1s", "1ns", "1ms"]
         ext = ["1M", "1Y"] if pandas_pre_22 else ["1ME", "1YE"]
         invalid_pdfreqs += ext
         for pdfreq in invalid_pdfreqs:

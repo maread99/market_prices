@@ -94,12 +94,11 @@ def timestamps_in_interval_of_intervals(
     ...         pd.Timestamp('2021-03-16 13:00'),
     ...     ]
     ... )
-    >>> start, end = pd.Timestamp('2021-03-02'), pd.Timestamp('2021-03-31')
+    >>> start, end = pd.Timestamp('2021-03-02').as_unit("ns"), pd.Timestamp('2021-03-31').as_unit("ns")
     >>> closed = "both"
     >>> intervals = pd.interval_range(start, end, freq="3D", closed=closed)
     >>> timestamps_in_interval_of_intervals(timestamps, intervals)
     False
-
     >>> intervals = pd.interval_range(start, end, freq="10D", closed=closed)
     >>> intervals
     IntervalIndex([[2021-03-02 00:00:00, 2021-03-12 00:00:00], [2021-03-12 00:00:00, 2021-03-22 00:00:00]], dtype='interval[datetime64[ns], both]')
@@ -594,9 +593,11 @@ def indexes_union(indexes: list[pd.Index]) -> pd.Index:
 
     Examples
     --------
-    >>> index1 = pd.date_range('2021-05-01 12:20', periods=2, freq='1h')
-    >>> index2 = pd.date_range('2021-05-02 17:10', periods=2, freq='22min')
-    >>> index3 = pd.date_range('2021-05-03', periods=2, freq='1D')
+    >>> index1 = pd.date_range('2021-05-01 12:20', periods=2, freq='1h').as_unit("ns")
+    >>> index2 = pd.date_range(
+    ...     '2021-05-02 17:10', periods=2, freq='22min'
+    ... ).as_unit("ns")
+    >>> index3 = pd.date_range('2021-05-03', periods=2, freq='1D').as_unit("ns")
     >>> indexes_union([index1, index2, index3])
     DatetimeIndex(['2021-05-01 12:20:00', '2021-05-01 13:20:00',
                    '2021-05-02 17:10:00', '2021-05-02 17:32:00',
@@ -621,9 +622,11 @@ def index_union(indexes: list[pd.Index | pd.Series | pd.DataFrame]) -> pd.Index:
 
     Examples
     --------
-    >>> index1 = pd.date_range('2021-05-01 12:20', periods=2, freq='1h')
-    >>> index2 = pd.date_range('2021-05-02 17:10', periods=2, freq='22min')
-    >>> index3 = pd.date_range('2021-05-03', periods=2, freq='1D')
+    >>> index1 = pd.date_range('2021-05-01 12:20', periods=2, freq='1h').as_unit("ns")
+    >>> index2 = pd.date_range(
+    ...     '2021-05-02 17:10', periods=2, freq='22min'
+    ... ).as_unit("ns")
+    >>> index3 = pd.date_range('2021-05-03', periods=2, freq='1D').as_unit("ns")
     >>> ser = pd.Series(range(2), index=index2)
     >>> df = pd.DataFrame({'col_int': range(2)}, index=index3)
     >>> index_union([index1, ser, df])

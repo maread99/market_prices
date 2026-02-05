@@ -211,7 +211,7 @@ def extract_freq_parts(freq: str) -> tuple[int, str]:
         return (
             f'interval/frequency received as "{freq}", although must be defined'
             " as one or more consecutive digits followed by one or more"
-            ' consecutive letters. Valid examples: "30min", "3h", "1d", "3m".'
+            ' consecutive letters. Valid examples: "30min", "3h", "1D", "3m".'
         )
 
     unit = genutils.remove_digits(freq)
@@ -374,6 +374,14 @@ def resample(
         }
     else:
         agg_f = agg_funcs(data)
+
+    # convert days to hours as Day is not considered a Tick frequency since pandas 3.0
+    if isinstance(rule, str):
+        n, unit = extract_freq_parts(rule)
+        if unit.upper() == "D":
+            rule = f"{24 * n}h"
+    if isinstance(rule, pd.offsets.Day):
+        rule = f"{24 * rule.n}h"
 
     resampler = resample_me.resample(rule, closed="left", label="left", origin=origin)
     resampled = resampler.agg(agg_f)

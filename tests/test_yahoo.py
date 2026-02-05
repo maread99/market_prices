@@ -29,6 +29,11 @@ from .test_base_prices import (
 # ...sessions that yahoo temporarily fails to return prices for if (seemingly)
 # send a high frequency of requests for prices from the same IP address.
 _flakylist = (
+    pd.Timestamp("2025-12-07"),
+    pd.Timestamp("2025-11-30"),
+    pd.Timestamp("2025-11-20"),
+    pd.Timestamp("2025-11-19"),
+    pd.Timestamp("2025-11-18"),
     pd.Timestamp("2024-11-01"),
     pd.Timestamp("2024-08-26"),
     pd.Timestamp("2024-08-25"),
@@ -1431,6 +1436,7 @@ class TestRequestDataIntraday:
                 )
                 assert isinstance(hist, pd.DataFrame)
                 hist_s = hist.loc[symbol].copy()
+                hist_s.index = hist_s.index.as_unit("ns")
                 if hist_s.iloc[0].isna().any() and hist_s.index[0] < start:
                     # because v rare bug can introduce an initial row with missing
                     # values and indice < start
@@ -1460,6 +1466,7 @@ class TestRequestDataIntraday:
                 )
                 assert isinstance(hist_alt, pd.DataFrame)
                 hist_alt_s = hist_alt.loc[symbol].copy()
+                hist_alt_s.index = hist_alt_s.index.as_unit("ns")
 
                 if hist_alt_s.index[-2] + interval != hist_alt_s.index[-1]:
                     # yahoo can return live indice at end of table

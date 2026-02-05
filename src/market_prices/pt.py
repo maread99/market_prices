@@ -1244,7 +1244,7 @@ class PTDaily(_PT):
             "\nNB. Downsampling will downsample to a frequency defined in"
             " CustomBusinessDay when either `pdfreq` is passed as a"
             " CustomBusinessDay (or multiple of) or when the table has a"
-            ' CustomBusinessDay frequency and `pdfreq` is passed with unit "d".'
+            ' CustomBusinessDay frequency and `pdfreq` is passed with unit "D".'
         )
 
         if not isinstance(calendar, xcals.ExchangeCalendar):
@@ -1261,7 +1261,7 @@ class PTDaily(_PT):
 
         # Passing 'end' to the origin argument of DataFrame.resample has no
         # effect when passing rule as a CustomBusinessDay.
-        origin = "start"
+        origin = "start_day"
 
         # To ensure every indice, INCLUDING the last indice, comprises x
         # CustomBusinessDays it's necessary to curtail the start of the dataframe
@@ -1286,8 +1286,8 @@ class PTDaily(_PT):
         resampled.index.right.freq = pdfreq
         return resampled
 
-    def _downsample_days(self, pdfreq: str | pd.offsets.BaseOffset) -> pd.DataFrame:
-        """Downsample to a frequency with unit "d"."""
+    def _downsample_days(self, pdfreq: str | pd.offsets.Day) -> pd.DataFrame:
+        """Downsample to a frequency with unit "D"."""
         df = self.prices
         pd_offset = pd.tseries.frequencies.to_offset(pdfreq)
 
@@ -1329,7 +1329,9 @@ class PTDaily(_PT):
                 if not pre_table_sessions.empty:
                     start_ds = pd_offset.rollforward(start_table)
                     df = df[start_ds:]
-        resampled = helpers.resample(df, pdfreq, origin="start", nominal_start=start_ds)
+        resampled = helpers.resample(
+            df, pdfreq, origin="start_day", nominal_start=start_ds
+        )
         resampled.index = pdutils.get_interval_index(resampled.index, pdfreq)
 
         if drop_incomplete_last_indice:
@@ -1359,13 +1361,13 @@ class PTDaily(_PT):
         pdfreq
             Downsample frequency as CustomBusinessDay or any valid input to
             pd.tseries.frequencies.to_offset. Examples:
-                '2d', '3d', '5d', '10d', 'MS', 'QS'
+                '2D', '3D', '5D', '10D', 'MS', 'QS'
                 pd.offsets.Day(5), pd.offsets.Day(15)
                 3 * calendar.day (where calendar is an instance of
                     xcals.ExchangeCalendar and hence calendar.day is an
                     instance of CustomBusinessDay).
 
-            If `pdfreq` has unit 'd', for example "5d", and table has a
+            If `pdfreq` has unit 'D', for example "5D", and table has a
             frequency in CustomBusinessDay then will assume required
             frequency is the table's CustomBusinessDay frequency.
 
@@ -1440,7 +1442,7 @@ class PTDaily(_PT):
                 f"Received `pdfreq` as {pdfreq} although must be either of"
                 " type pd.offsets.CustomBusinessDay or acceptable input to"
                 " pd.tseries.frequencies.to_offset that describes a"
-                ' frequency greater than one day. For example "2d", "5d"'
+                ' frequency greater than one day. For example "2D", "5D"'
                 ' "QS" etc.'
             )
             raise ValueError(msg) from None
@@ -1449,7 +1451,7 @@ class PTDaily(_PT):
             freqstr: str = offset.freqstr
 
         value, unit = helpers.extract_freq_parts(freqstr)
-        if unit.lower() == "d":
+        if unit.upper() == "D":
             if isinstance(self.freq, pd.offsets.CustomBusinessDay):
                 pdfreq = self.freq.base * value
                 return self._downsample_cbdays(pdfreq, calendar)
@@ -1459,7 +1461,7 @@ class PTDaily(_PT):
         ext = ["t", "T", "H", "S"]  # for pandas pre 2.2 compatibility
         if unit in invalid_units + ext:
             raise ValueError(
-                "Cannot downsample to a `pdfreq` with a unit more precise than 'd'."
+                "Cannot downsample to a `pdfreq` with a unit more precise than 'D'."
             )
 
         return self._downsample_months(freqstr, calendar, drop_incomplete_last_indice)
