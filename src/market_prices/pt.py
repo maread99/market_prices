@@ -1289,17 +1289,6 @@ class PTDaily(_PT):
     def _downsample_days(self, pdfreq: str | pd.offsets.Day) -> pd.DataFrame:
         """Downsample to a frequency with unit "D"."""
         df = self.prices
-
-        if isinstance(pdfreq, str):
-            n, _ = helpers.extract_freq_parts(pdfreq)
-        elif isinstance(pdfreq, pd.offsets.Day):
-            n = pdfreq.n
-        else:
-            raise TypeError(
-                "'pdfreq' should be passed as a `str` or `pd.offsets.Day` although"
-                f" received {pdfreq} of type {type(pdfreq)}."
-            )
-
         pd_offset = pd.tseries.frequencies.to_offset(pdfreq)
 
         # `origin` should reflect left side of last indice
