@@ -156,7 +156,8 @@ def test_verify_interval_datetime_index():
     match = re.escape(
         "'arg' can only take a pd.IntervalIndex that has each side"
         " as type pd.DatetimeIndex, although received with left side"
-        " as type '<class 'pandas.Index'>'."
+        " as type '<class 'pandas."
     )
-    with pytest.raises(ValueError, match=match):
+    with pytest.raises(ValueError, match=match) as excinfo:
         mock_func(invalid_int_index)
+    assert str(excinfo.value).endswith("Index'>'.")

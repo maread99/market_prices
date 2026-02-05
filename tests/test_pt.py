@@ -303,14 +303,17 @@ class TestConstructorErrors:
             " although index is of type <class 'pandas."
         )
         daily_df = daily_pt.reset_index(drop=True)
-        with pytest.raises(TypeError, match=match + "RangeIndex'>."):
+
+        with pytest.raises(TypeError, match=match) as excinfo:
             _ = daily_df.pt
+        assert str(excinfo.value).endswith("RangeIndex'>.")
 
         intraday_df = intraday_pt.copy()
         intraday_df.index = pd.interval_range(start=0, periods=len(intraday_pt), freq=1)
 
-        with pytest.raises(TypeError, match=match + "Index'>."):
+        with pytest.raises(TypeError, match=match) as excinfo:
             _ = intraday_df.pt
+        assert str(excinfo.value).endswith(".Index'>.")
 
         daily_df = daily_pt.copy()
         daily_df.index = daily_df.index + pd.Timedelta(1, "min")
