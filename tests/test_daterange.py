@@ -10,10 +10,10 @@ and 'end' values will have been parsed initially with
 """
 
 import contextlib
-from datetime import timedelta
 import itertools
 import re
 from collections import abc
+from datetime import timedelta
 
 import exchange_calendars as xcals
 import hypothesis as hyp

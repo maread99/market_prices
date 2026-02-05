@@ -33,8 +33,9 @@ INTRVL_UNITS = {"MIN": "minutes", "T": "minutes", "H": "hours", "D": "days"}
 
 CSV_READ_DFLT_KWARGS: dict[str, Any] = {
     "header": 0,
-    "usecols": lambda x: x.lower()
-    in ["date", "open", "high", "low", "close", "volume"],
+    "usecols": lambda x: (
+        x.lower() in ["date", "open", "high", "low", "close", "volume"]
+    ),
     "index_col": "date",
     "parse_dates": ["date"],
 }
@@ -118,7 +119,7 @@ def _get_symbol_from_filename(name: str, symbols: list[str]) -> str | None:
             # at least two different symbols in filename
             return None
         symbol = part
-    return symbol if symbol else None
+    return symbol or None
 
 
 def _get_interval_from_filename(name: str) -> TDInterval | None:
