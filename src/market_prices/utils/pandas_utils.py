@@ -102,7 +102,7 @@ def timestamps_in_interval_of_intervals(
 
     >>> intervals = pd.interval_range(start, end, freq="10D", closed=closed)
     >>> intervals
-    IntervalIndex([[2021-03-02 00:00:00, 2021-03-12 00:00:00], [2021-03-12 00:00:00, 2021-03-22 00:00:00]], dtype='interval[datetime64[ns], both]')
+    IntervalIndex([[2021-03-02 00:00:00, 2021-03-12 00:00:00], [2021-03-12 00:00:00, 2021-03-22 00:00:00]], dtype='interval[datetime64[us], both]')
     >>> timestamps_in_interval_of_intervals(timestamps, intervals)
     True
     """  # noqa: E501
@@ -601,7 +601,7 @@ def indexes_union(indexes: list[pd.Index]) -> pd.Index:
     DatetimeIndex(['2021-05-01 12:20:00', '2021-05-01 13:20:00',
                    '2021-05-02 17:10:00', '2021-05-02 17:32:00',
                    '2021-05-03 00:00:00', '2021-05-04 00:00:00'],
-                  dtype='datetime64[ns]', freq=None)
+                  dtype='datetime64[us]', freq=None)
     """
     index = indexes[0]
     for indx in indexes[1:]:
@@ -630,7 +630,7 @@ def index_union(indexes: list[pd.Index | pd.Series | pd.DataFrame]) -> pd.Index:
     DatetimeIndex(['2021-05-01 12:20:00', '2021-05-01 13:20:00',
                    '2021-05-02 17:10:00', '2021-05-02 17:32:00',
                    '2021-05-03 00:00:00', '2021-05-04 00:00:00'],
-                  dtype='datetime64[ns]', freq=None)
+                  dtype='datetime64[us]', freq=None)
     """
     indexes_ = [obj if isinstance(obj, pd.Index) else obj.index for obj in indexes]
     return indexes_union(indexes_)

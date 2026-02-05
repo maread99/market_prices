@@ -307,7 +307,7 @@ class TestToPTInterval:
                         f(str(i) + unit_)
 
         test_unit("h", 22, m.TDInterval)
-        test_unit("d", 250, m.TDInterval)
+        test_unit("D", 250, m.TDInterval)
         test_unit("m", 36, m.DOInterval)
 
         assert f("60min") == f("60T") == f("1H") == f("1h") == m.TDInterval.H1

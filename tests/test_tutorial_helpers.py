@@ -264,7 +264,7 @@ def test_get_conforming_sessions(xlon, xhkg, xnys):
     no_session = pd.Timedelta(0)
 
     length = full_session_xlon
-    expected = pd.DatetimeIndex([start])
+    expected = pd.DatetimeIndex([start]).as_unit("ns")
     num = 1
     assert_index_equal(f(cals, [length], start, end, num), expected)
     assert_index_equal(f_cc(cc, length, start, end, num), expected)
@@ -299,7 +299,7 @@ def test_get_conforming_sessions(xlon, xhkg, xnys):
     length = half_session_xlon
     lengths = [[length]]
     num = 1
-    expected = pd.DatetimeIndex([T("2021-12-24")])
+    expected = pd.DatetimeIndex([T("2021-12-24")]).as_unit("ns")
     assert_index_equal(f(cals, [length], start, end, num), expected)
     assert_index_equal(f_cc(cc, length, start, end, num), expected)
     assert_index_equal(f_var(cals, lengths, start, end), expected)
@@ -339,7 +339,7 @@ def test_get_conforming_sessions(xlon, xhkg, xnys):
     # test var for variatons
     full_expected = pd.DatetimeIndex(
         [T("2021-12-23"), T("2021-12-24"), T("2021-12-29")]
-    )
+    ).as_unit("ns")
     cc_lengths = [full_session_xlon, half_session_xlon]
     lengths = [cc_lengths]
     assert_index_equal(f_var(cals, lengths, start, end), full_expected[:2])
@@ -358,7 +358,7 @@ def test_get_conforming_sessions(xlon, xhkg, xnys):
     length_by_cal = [full_session_xlon, full_session_xnys]
     length_cc = full_session_cc
     num = 1
-    expected = pd.DatetimeIndex([start])
+    expected = pd.DatetimeIndex([start]).as_unit("ns")
     assert_index_equal(f(cals, length_by_cal, start, end, num), expected)
     assert_index_equal(f_cc(cc, length_cc, start, end, num), expected)
 
@@ -396,7 +396,7 @@ def test_get_conforming_sessions(xlon, xhkg, xnys):
     lengths = [half_session_xlon, no_session]
     length_cc = half_session_xlon
     num = 1
-    expected = pd.DatetimeIndex([T("2021-12-24")])
+    expected = pd.DatetimeIndex([T("2021-12-24")]).as_unit("ns")
     assert_index_equal(f(cals, lengths, start, end, num), expected)
     assert_index_equal(f_cc(cc, length_cc, start, end, num), expected)
     lengths_by_cal = [[half_session_xlon], [no_session]]
@@ -422,7 +422,7 @@ def test_get_conforming_sessions(xlon, xhkg, xnys):
     # test var for variatons
     full_expected = pd.DatetimeIndex(
         [T("2021-12-" + str(day)) for day in (23, 24, 27, 28, 29)]
-    )
+    ).as_unit("ns")
     lengths = [
         [full_session_xlon, half_session_xlon] + [no_session] * 2 + [full_session_xlon],
         [full_session_xnys, no_session] + [full_session_xnys] * 3,
@@ -460,7 +460,7 @@ def test_get_conforming_sessions(xlon, xhkg, xnys):
     length_by_cal = [full_session_xlon, full_session_xnys, full_session_xhkg]
     length_cc = full_session_cc
     num = 1
-    expected = pd.DatetimeIndex([start])
+    expected = pd.DatetimeIndex([start]).as_unit("ns")
     assert_index_equal(f(cals, length_by_cal, start, end, num), expected)
     assert_index_equal(f_cc(cc, length_cc, start, end, num), expected)
 

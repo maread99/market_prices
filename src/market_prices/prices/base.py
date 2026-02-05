@@ -3337,7 +3337,7 @@ class PricesBase(metaclass=abc.ABCMeta):
             p.get('10T', weeks=2) last two calendar weeks at ten minute
                 intervals.
             p.get(days=5) last five trading days at inferred interval.
-            p.get('1d', months=6) daily data for last six months.
+            p.get('1D', months=6) daily data for last six months.
             p.get('1h', months=3, end='2021-03-17 15:00') three months at
                 hourly intervals to defined datetime (timezone of 'end'
                 assumed as most common timezone of all symbols).
@@ -3514,7 +3514,7 @@ class PricesBase(metaclass=abc.ABCMeta):
                     unit:
                         "min", "MIN", "T" or "t" for minutes
                         "h" or "H" for hours
-                        "d" or "D' for days
+                        "D' for days
                         'm' or "M" for months
 
             Examples:
@@ -3529,7 +3529,7 @@ class PricesBase(metaclass=abc.ABCMeta):
                     timedelta(hours=3)
 
                 one day:
-                    "1d", "1D"
+                    "1D"
                     pd.Timedelta(1, "D"), pd.Timedelta(days=1)
                     timedelta(days=1), timedelta(1)
 
@@ -3538,8 +3538,8 @@ class PricesBase(metaclass=abc.ABCMeta):
 
                 others:
                     "90min", "90MIN" - ninety minutes
-                    "5D", "5d" - five days
-                    "40D", "40d" - forty days
+                    "5D" - five days
+                    "40D" - forty days
                     "1M", "1m" - one month
                     pd.Timedelta(hours=3, minutes=30) - three and a half
                         hours

@@ -1197,11 +1197,13 @@ def test__get_table_daily(prices_us, one_day, monkeypatch):
     ds_interval = intervals.DOInterval.M1
     prices = set_get_prices_params(prices, pp, ds_interval)
     table = f(force_ds_daily=False)
+    expected_start_left = pd.Timestamp("2021-01-01").as_unit("ns")
+    expected_start_right = pd.Timestamp("2021-02-01").as_unit("ns")
     assert_index_equal(
-        table.index.left, pd.date_range("2021-01-01", freq="MS", periods=12)
+        table.index.left, pd.date_range(expected_start_left, freq="MS", periods=12)
     )
     assert_index_equal(
-        table.index.right, pd.date_range("2021-02-01", freq="MS", periods=12)
+        table.index.right, pd.date_range(expected_start_right, freq="MS", periods=12)
     )
     # set up as a year where last indice is not complete
     start = pd.Timestamp("2021")
@@ -1211,10 +1213,10 @@ def test__get_table_daily(prices_us, one_day, monkeypatch):
     prices = set_get_prices_params(prices, pp, ds_interval)
     table = f(force_ds_daily=False)
     assert_index_equal(
-        table.index.left, pd.date_range("2021-01-01", freq="MS", periods=11)
+        table.index.left, pd.date_range(expected_start_left, freq="MS", periods=11)
     )
     assert_index_equal(
-        table.index.right, pd.date_range("2021-02-01", freq="MS", periods=11)
+        table.index.right, pd.date_range(expected_start_right, freq="MS", periods=11)
     )
 
     # verify that last 'incomplete' indice included if pp to now.
@@ -1224,10 +1226,10 @@ def test__get_table_daily(prices_us, one_day, monkeypatch):
         prices = set_get_prices_params(prices, pp, ds_interval)
         table = f(force_ds_daily=False)
         assert_index_equal(
-            table.index.left, pd.date_range("2021-01-01", freq="MS", periods=12)
+            table.index.left, pd.date_range(expected_start_left, freq="MS", periods=12)
         )
         assert_index_equal(
-            table.index.right, pd.date_range("2021-02-01", freq="MS", periods=12)
+            table.index.right, pd.date_range(expected_start_right, freq="MS", periods=12)
         )
 
     # verify force_ds_daily=True returns daily table
@@ -2653,14 +2655,14 @@ class TestGet:
             " minutes when interval is daily or higher."
         )
         with pytest.raises(errors.PricesUnvailableDurationConflict, match=match):
-            prices.get("1d", hours=3)
+            prices.get("1D", hours=3)
         with pytest.raises(errors.PricesUnvailableDurationConflict, match=match):
-            prices.get("3d", minutes=40)
+            prices.get("3D", minutes=40)
         with pytest.raises(errors.PricesUnvailableDurationConflict, match=match):
             prices.get("1m", minutes=40, hours=3)
 
         # Verify raises PricesUnavailableIntervalPeriodError
-        interval, days_limit = "3d", 3
+        interval, days_limit = "3D", 3
         f(interval, days=days_limit)
         with pytest.raises(errors.PricesUnavailableIntervalPeriodError):
             f(interval, days=days_limit - 1)
@@ -3827,8 +3829,8 @@ class TestGet:
         # Verify with `start`
         df = prices.get("3M", start="2021-03-01", months=7)
         assert len(df) == 2
-        start = pd.Timestamp("2021-03-01")
-        end = pd.Timestamp("2021-09-01")
+        start = pd.Timestamp("2021-03-01").as_unit("ns")
+        end = pd.Timestamp("2021-09-01").as_unit("ns")
         index = self.create_single_index(start, end, DOInterval.M3)
         assert_index_equal(df.index, index)
 
@@ -3841,8 +3843,8 @@ class TestGet:
         # Verify with `end`
         df = prices.get("2M", end="2021-12-31", months=7)
         assert len(df) == 3
-        start = pd.Timestamp("2021-07-01")
-        end = pd.Timestamp("2022-01-01")
+        start = pd.Timestamp("2021-07-01").as_unit("ns")
+        end = pd.Timestamp("2022-01-01").as_unit("ns")
         index = self.create_single_index(start, end, DOInterval.M2)
         assert_index_equal(df.index, index)
 
@@ -6167,7 +6169,7 @@ def test_prices_for_symbols(prices_us_lon):
         elif cal.name == "XLON":
             symb_lon = s
 
-    _ = prices.get("1d", start="2021-12-31", end="2022-01-05")
+    _ = prices.get("1D", start="2021-12-31", end="2022-01-05")
 
     # set up inraday data as period within a single session during which
     # us and lon calendars overlap (from inspection of calendar schedules).

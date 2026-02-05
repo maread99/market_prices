@@ -2182,7 +2182,7 @@ class TestPricesBaseSetup:
                 "2021-12-28",  # xlon not open, xhkg and xnys do not overlap
                 "2021-12-31",  # all open but don't conflict due to early closes
             ]
-        )
+        ).as_unit("ns")
         assertions(prices, H1_expected)
         bi = prices.bis.H1
         # limit of range over which indices aligned at 1H
@@ -2204,7 +2204,7 @@ class TestPricesBaseSetup:
                 "2021-09-06",  # xhkg pm session and xlon session overlap but do not conflict  # noqa: E501
                 "2021-11-25",  # xhkg pm session close contiguous with start xlon session  # noqa: E501
             ]
-        )
+        ).as_unit("ns")
         H1_expected = H1_expected.union(additional_expected)
         assertions(prices, H1_expected)
 
@@ -2212,7 +2212,7 @@ class TestPricesBaseSetup:
         calendars = [xnys, xnys, x247]
         prices = PricesMock(symbols, calendars)
         xnys_sessions = xnys.sessions_in_range("2021", "2021-12-31")
-        all_dates = pd.date_range("2021", "2021-12-31")
+        all_dates = pd.date_range("2021", "2021-12-31").as_unit("ns")
         H1_expected = all_dates.difference(xnys_sessions)
         assertions(prices, H1_expected)
 
