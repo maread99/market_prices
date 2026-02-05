@@ -271,6 +271,8 @@ The first beta version of `market_prices` was released May 2022.
 
 Whilst the test suite is pretty comprehensive, there will inevitably be bugs. Please do raise an [issue](https://github.com/maread99/market_prices/issues) with any that you come across. Even better, offer a PR! Contributions welcome.
 
+The package is actively maintained to work with the latest versions of its dependencies, which include `numpy` and `pandas`. **Only limited consideration is given to backwards compatibility with earlier versions of dependencies** - no guarantees are offered in this regard. Of note, whilst the latest release works with pandas v3 and v2, support for pandas v1 was dropped some time ago.
+
 Please use [discussions](https://github.com/maread99/market_prices/discussions) to make any suggestions and offer general feedback.
 
 ## Disclaimers
