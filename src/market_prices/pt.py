@@ -1340,7 +1340,9 @@ class PTDaily(_PT):
                 if not pre_table_sessions.empty:
                     start_ds = pd_offset.rollforward(start_table)
                     df = df[start_ds:]
-        resampled = helpers.resample(df, pdfreq, origin="start_day", nominal_start=start_ds)
+        resampled = helpers.resample(
+            df, pdfreq, origin="start_day", nominal_start=start_ds
+        )
         resampled.index = pdutils.get_interval_index(resampled.index, pdfreq)
 
         if drop_incomplete_last_indice:

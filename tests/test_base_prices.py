@@ -1229,7 +1229,8 @@ def test__get_table_daily(prices_us, one_day, monkeypatch):
             table.index.left, pd.date_range(expected_start_left, freq="MS", periods=12)
         )
         assert_index_equal(
-            table.index.right, pd.date_range(expected_start_right, freq="MS", periods=12)
+            table.index.right,
+            pd.date_range(expected_start_right, freq="MS", periods=12),
         )
 
     # verify force_ds_daily=True returns daily table
