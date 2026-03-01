@@ -2,7 +2,7 @@
 #    uv export --format requirements-txt --no-emit-project --no-hashes --no-dev -o requirements.txt
 beautifulsoup4==4.14.3
     # via yahooquery
-certifi==2026.1.4
+certifi==2026.2.25
     # via
     #   curl-cffi
     #   requests
