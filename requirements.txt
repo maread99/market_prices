@@ -2,19 +2,19 @@
 #    uv export --format requirements-txt --no-emit-project --no-hashes --no-dev -o requirements.txt
 beautifulsoup4==4.14.3
     # via yahooquery
-certifi==2026.1.4
+certifi==2026.2.25
     # via
     #   curl-cffi
     #   requests
 cffi==2.0.0
     # via curl-cffi
-charset-normalizer==3.4.4
+charset-normalizer==3.4.6
     # via requests
 colorama==0.4.6 ; sys_platform == 'win32'
     # via tqdm
 curl-cffi==0.14.0
     # via yahooquery
-exchange-calendars==4.13.1
+exchange-calendars==4.13.2
     # via market-prices
 idna==3.11
     # via requests
@@ -50,7 +50,7 @@ python-dateutil==2.9.0.post0
     # via pandas
 pytz==2025.2 ; python_full_version < '3.11'
     # via pandas
-requests==2.32.5
+requests==2.33.1
     # via requests-futures
 requests-futures==1.0.2
     # via yahooquery
