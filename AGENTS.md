@@ -127,7 +127,6 @@ market_prices/
 The current project version is managed by `setuptools_scm` and written to `src/market_prrices/_version.py`.
 IMPORTANT: `src/market_prices/_version.py` is auto-generated and you should not edit it.
 
-
 ## Development Workflows
 
 ### Setup
@@ -151,8 +150,11 @@ Commands to run tests:
 # All tests (including doctests in src/market_analy/)
 pytest
 
-# Specific test file
+# Tests in specific file
 pytest tests/test_base.py
+
+# Specific test
+pytest tests/test_base.py::test_fill_reindexed
 
 # With verbose output
 pytest -v
