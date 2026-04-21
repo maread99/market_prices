@@ -2,32 +2,36 @@
 #    uv export --format requirements-txt --no-emit-project --no-hashes --no-dev -o requirements.txt
 beautifulsoup4==4.14.3
     # via yahooquery
-certifi==2026.1.4
+certifi==2026.2.25
     # via
     #   curl-cffi
     #   requests
 cffi==2.0.0
     # via curl-cffi
-charset-normalizer==3.4.4
+charset-normalizer==3.4.7
     # via requests
 colorama==0.4.6 ; sys_platform == 'win32'
     # via tqdm
-curl-cffi==0.14.0
+curl-cffi==0.15.0
     # via yahooquery
-exchange-calendars==4.13.1
+exchange-calendars==4.13.2
     # via market-prices
 idna==3.11
     # via requests
 korean-lunar-calendar==0.3.1
     # via exchange-calendars
-lxml==6.0.2
+lxml==6.1.0
     # via yahooquery
+markdown-it-py==4.0.0
+    # via rich
+mdurl==0.1.2
+    # via markdown-it-py
 numpy==2.2.6 ; python_full_version < '3.11'
     # via
     #   exchange-calendars
     #   market-prices
     #   pandas
-numpy==2.4.2 ; python_full_version >= '3.11'
+numpy==2.4.4 ; python_full_version >= '3.11'
     # via
     #   exchange-calendars
     #   market-prices
@@ -37,23 +41,27 @@ pandas==2.3.3 ; python_full_version < '3.11'
     #   exchange-calendars
     #   market-prices
     #   yahooquery
-pandas==3.0.0 ; python_full_version >= '3.11'
+pandas==3.0.2 ; python_full_version >= '3.11'
     # via
     #   exchange-calendars
     #   market-prices
     #   yahooquery
 pycparser==3.0 ; implementation_name != 'PyPy'
     # via cffi
+pygments==2.20.0
+    # via rich
 pyluach==2.3.0
     # via exchange-calendars
 python-dateutil==2.9.0.post0
     # via pandas
-pytz==2025.2 ; python_full_version < '3.11'
+pytz==2026.1.post1 ; python_full_version < '3.11'
     # via pandas
-requests==2.32.5
+requests==2.33.1
     # via requests-futures
 requests-futures==1.0.2
     # via yahooquery
+rich==15.0.0
+    # via curl-cffi
 six==1.17.0
     # via python-dateutil
 soupsieve==2.8.3
@@ -64,7 +72,7 @@ tqdm==4.67.3
     # via yahooquery
 typing-extensions==4.15.0
     # via beautifulsoup4
-tzdata==2025.3
+tzdata==2026.1
     # via
     #   exchange-calendars
     #   market-prices
