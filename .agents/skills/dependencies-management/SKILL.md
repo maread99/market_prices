@@ -1,12 +1,12 @@
 ---
   name: dependencies-management
-  description: instructions for updating and managing project dependencies.
+  description: instructions for updating and managing project dependencies (including Github actions).
 ---
 # Dependencies Management
 
 ## Update Dependencies
 
-Instructions to update project dependencies:
+Instructions to update project dependencies (including Github actions used by CI workflows).
 
 ### 1. Prepare the branch
 
@@ -20,76 +20,66 @@ uv export --format requirements-txt --no-emit-project --no-hashes --no-dev -o re
 uv sync --inexact  # update environment to match @uv.lock
 ```
 
-### 3. Raise the PR
+### 3. Update GitHub Actions versions
 
-Raise the PR before running tests — the CI `build-test.yml` workflow triggers
-automatically on PRs to `master` and covers all supported OS and Python version
-combinations, providing more authoritative results than a single local run.
+For each `uses: <owner>/<repo>@<version>` entry across all files in `.github/workflows/`, use `mcp__github__get_latest_release` to retrieve the latest release for that action's repository. Update the version pin to the latest release, preserving the pinning style already used (e.g. if the current pin is a major-version tag such as `@v4`, update to the new major-version tag; if it is a specific version such as `@v3.0.1`, update to the full latest version string).
 
-- **PR title**: `Update Dependencies <Mon> (auto)` where `<Mon>` is the first
-  three capitalised letters of the current month (e.g.
-  `Update Dependencies Apr (auto)`).
-- **'dependencies' label**: Add it to the PR via
-  `mcp__github__update_pull_request`.
+### 4. Raise the PR
 
-### 4. Inspect CI results
+Commit the changed files and raise a PR.
 
-Once the workflow completes, use `mcp__github__pull_request_read` with the
-`get_check_runs` method to read check statuses for all matrix jobs.
+- **PR title**: Title the PR as `Update Dependencies <MM> <DD> (auto)` where:
+  - `<MM>` should be replaced with the first three letters of the current month, the first of which should be capitalized.
+  - `<DD>` should be replaced with the  current day of the month as represented by two digits.
+  Example title: `Update Dependencies Apr 07 (auto)`
+- **label**: Add the 'dependencies' label to the PR via `mcp__github__update_pull_request`.
+
+Do NOT run any tests prior to raising the PR - the CI `build-test.yml` workflow will automatically trigger on the PR being raised (against the `master` branch) and this will run the full test suite on all supported OS and Python version combinations.
+
+### 5. Inspect CI results
+
+Once the workflow completes, use `mcp__github__pull_request_read` with the `get_check_runs` method to read check statuses for all matrix jobs.
 
 **Interpreting results:**
-- All checks green → done.
-- Failures only in `tests/test_yahoo.py` → most probably a transient network
-  issue (see *Network tests* note below). Request a re-run of the failing jobs;
-  these do not require code changes.
-- Failures in any other test file → proceed to step 5.
+- All checks green → done, no further action is required.
+- Failures only in `tests/test_yahoo.py` → probably a transient network issue (see *Network tests* section below). Add a comment to the PR identifying the failure as a probable network issue and suggest that the owner re-run the failing jobs. No further action is required.
+- Failures in any other test file → proceed to step 6.
 
-Note: `get_check_runs` returns pass/fail status and any annotations but not the
-full log output. For detailed failure messages, run the tests locally (step 5).
+### 6. Fix failures locally
 
-### 5. Reproduce and fix failures locally
+The cause of failing tests will most likely be in changes to the dependencies. MAKE REVISIONS to the code base to get all non-network tests passing so that the project supports the latest versions of its dependencies. (See *Network tests* section below for notes on network tests.)
 
-Run the full test suite locally, excluding the network tests:
+`get_check_runs` returns pass/fail status and any annotations. Use this information to aid in the identification of the failing tests and causes. If this information in insufficient then get a full log of the failing tests by running the full test suite locally (excluding network tests):
 
 ```bash
 pytest --ignore=tests/test_yahoo.py -v
 ```
 
-Research the changelogs of any updated dependencies to understand what changed,
-then revise the codebase accordingly. Iterate until all local (non-network)
-tests pass.
+Consider researching the changelogs of any updated dependencies (to cover all changes since the previously locked version) to try and ascertain the cause of the failing tests.
 
-### 6. Commit, push, and verify CI
+Iterate on this process until all non-network tests are passing locally.
 
-Once local tests pass, commit the changes and push to the branch. Monitor CI
-again via `get_check_runs` (step 4). If all non-network checks are green the
-update is complete.
+### 7. Commit, push, and verify CI
 
-**OS- or Python-version-specific CI failures**: If a failure only appears for
-a specific matrix combination (e.g. Windows / Python 3.10), reproduce it in a
-matching environment — for example by using `uv python install 3.10` or a
-Docker container with the target OS — then fix, commit, push, and repeat
-from step 4.
+Once local tests pass, commit the changes and push to the branch. Monitor CI again via `get_check_runs` (step 5). If all non-network checks are green then the PR is complete and no further action is required.
 
-### 7. Fallback: raise an issue
+**OS- or Python-version-specific CI failures**: If a failure only appears for a specific matrix combination (e.g. Windows / Python 3.10), reproduce it locally in a matching environment — for example by using `uv python install 3.10` or a Docker container with the target OS — then fix, commit, push, and repeat from step 5.
 
-ONLY if failures cannot be resolved, raise an issue referencing the PR that
-explains the failing tests, steps already attempted, and suggested next steps.
+### 8. Fallback: raise an issue
+
+ONLY if failures cannot be resolved, raise an issue that references the PR and details:
+- the failing tests
+- any fixes already attempted
+- any suggested next steps.
 
 ---
 
 **Network tests** — `tests/test_yahoo.py`
 
-All tests in `tests/test_yahoo.py` require live network access to the Yahoo
-Finance API via `yahooquery`. No other test files have this requirement.
+All tests in `tests/test_yahoo.py` require live network access to the Yahoo Finance API via the `yahooquery` library . No other test files have this requirement.
 
-- **Local runs**: always pass `--ignore=tests/test_yahoo.py` unless you
-  specifically intend to test live Yahoo connectivity. Failures here locally
-  are expected without reliable internet access and do not indicate a code
-  problem.
-- **CI failures in `tests/test_yahoo.py`**: these are usually caused by a
-  dropped or rate-limited connection during the test run, not a code change.
-  Re-running the affected matrix jobs is sufficient — no code change is needed.
+- **Local test runs**: always pass `--ignore=tests/test_yahoo.py` unless you specifically intend to test live Yahoo connectivity. It's expected that these tests will fail whenever a local internet connection is not available.
+- **CI failures in `tests/test_yahoo.py`**: the cause of such failures is usually a dropped or rate-limited connection during the test run.
 
 ## Adding dependencies
 ```bash
