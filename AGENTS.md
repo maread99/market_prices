@@ -13,8 +13,8 @@ See @pyproject.toml for project metadata and dependencies.
 ### Repository Layout
 ```
 market_prices/
-├── .agents/                            # skill instructions for LLM coding agents
-│   └── skills/
+├── .agents/                            # instructions for LLM coding agents
+│   └── skills/                         # skills for LLM coding agents
 │       ├── dependencies-management/
 │       │   └── SKILL.md
 │       └── update-agents-md/
