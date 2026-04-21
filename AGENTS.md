@@ -13,13 +13,19 @@ See @pyproject.toml for project metadata and dependencies.
 ### Repository Layout
 ```
 market_prices/
+├── .agents/                            # skill instructions for LLM coding agents
+│   └── skills/
+│       ├── dependencies-management/
+│       │   └── SKILL.md
+│       └── update-agents-md/
+│           └── SKILL.md
 ├── .github/
+│   ├── workflows/
+│   │   ├── build-test.yml
+│   │   ├── draft-release-notes.yml
+│   │   └── release.yml
 │   ├── dependabot.yml
-│   ├── release-drafter.yml
-│   └── workflows/
-│       ├── build-test.yml
-│       ├── draft-release-notes.yml
-│       └── release.yml
+│   └── release-drafter.yml
 ├── docs/
 │   ├── developers/
 │   │   ├── other_internals.md          # notes on non-obvious internal design decisions
@@ -57,7 +63,7 @@ market_prices/
 │       │   └── yahoo.py                # `PricesYahoo`: prices via yahooquery
 │       ├── support/                    # support for tutorials and tests
 │       │   └── tutorial_helpers.py     # identify data to use in tutorials and tests
-│       ├── utils/
+│       ├── utils/                      # utility modules
 │       │   ├── calendar_utils.py       # includes `CompositeCalendar`
 │       │   ├── general_utils.py        # general utils
 │       │   └── pandas_utils.py         # pandas-specific utilities and context managers
@@ -65,7 +71,7 @@ market_prices/
 │       ├── daterange.py                # derive date ranges for price requests
 │       ├── errors.py                   # custom exception classes
 │       ├── helpers.py                  # helpers (project-specific)
-│       ├── intervals.py                # `TDInterval`, `DOInterval`, `BI` and helpers 
+│       ├── intervals.py                # `TDInterval`, `DOInterval`, `BI` and helpers
 │       ├── mptypes.py                  # custom types and aliases
 │       ├── parsing.py                  # validates and coerces public input parameters
 │       └── pt.py                       # .pt pandas accessor for custom DataFrame ops
@@ -92,6 +98,8 @@ market_prices/
 │   └── utils.py
 ├── .pre-commit-config.yaml
 ├── .python-version
+├── AGENTS.md
+├── CLAUDE.md
 ├── LICENSE.txt
 ├── MANIFEST.in
 ├── README.md
