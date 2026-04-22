@@ -22,20 +22,47 @@ uv sync --inexact  # update environment to match @uv.lock
 
 ### 3. Update GitHub Actions versions
 
-For each `uses: <owner>/<repo>@<version>` entry across all files in `.github/workflows/`, use `mcp__github__get_latest_release` to retrieve the latest release for that action's repository. Update the version pin to the latest release, preserving the pinning style already used (e.g. if the current pin is a major-version tag such as `@v4`, update to the new major-version tag; if it is a specific version such as `@v3.0.1`, update to the full latest version string).
+For each `uses: <owner>/<repo>@<version>` entry across all files in `.github/workflows/`, retrieve the latest release tag by fetching the releases page with WebFetch:
+
+```
+url:    https://github.com/<owner>/<repo>/releases/latest
+prompt: What is the latest release tag for this GitHub action? Also state
+        whether the project publishes major-version tags (e.g. @v8) in
+        addition to full semver tags (e.g. @v8.1.0).
+```
+
+Update the version pin to the latest release, **preserving the pinning style already used** (e.g. if the current pin is a major-version tag such as `@v4`, update to the new major-version tag **only if** the project still publishes that tag; if it does not, switch to the full semver tag). If the current pin is a specific version such as `@v3.0.1`, update to the full latest version string.
+
+> **Note:** some actions stop publishing major-version tags at a certain release
+> (e.g. `astral-sh/setup-uv` dropped them from v8 onwards). Always confirm
+> with WebFetch whether the major-version tag exists before using it.
 
 ### 4. Test
 
-Run the test suite in your synchronised environment in order to identify any failing tests and warnings that have resulted from the dependency upgrades. If your environment lacks access to the internet (which has historically been the case) then you should ignore tests in `@tests/test_yahoo.py` (See *Network tests* section below) by running the test suite with the following command:
+First, check whether the test environment has live access to the Yahoo Finance API by running:
 
 ```bash
-pytest --ignore=tests/test_yahoo.py -v
+python -c "
+import urllib.request, sys
+try:
+    urllib.request.urlopen('https://query1.finance.yahoo.com/v8/finance/chart/MSFT?interval=1d&range=1d', timeout=10)
+    print('yahoo: reachable')
+except Exception as e:
+    print(f'yahoo: unreachable ({e})')
+"
 ```
 
-(If your environment has internet access then you should not include the ignore option. DO NOT ASSUME internet access, rather check this before removing the ignore option.)
+- If **reachable**: run the full test suite (Yahoo network tests included):
+  ```bash
+  uv run pytest -v
+  ```
+- If **unreachable**: exclude the network tests:
+  ```bash
+  uv run pytest --ignore=tests/test_yahoo.py -v
+  ```
 
 **Interpreting the local test results:**
-- All test pass → go to step 6 to raise PR.
+- All tests pass → go to step 6 to raise PR.
 - Test failures only in `tests/test_yahoo.py` → probably due to a transient network issue (see *Network tests* section below), go to step 6 to raise PR.
 - Failure of any other test → proceed to step 5 to fix.
 
@@ -109,7 +136,7 @@ ONLY if any test failures cannot be resolved, raise an issue that references the
 
 All tests in `tests/test_yahoo.py` require live network access to the Yahoo Finance API via the `yahooquery` library . No other test files have this requirement.
 
-- **Local test runs**: always pass the pytest option `--ignore=tests/test_yahoo.py` unless you have confirmed that you have access to the internet. It's expected that these tests will fail whenever a local internet connection is not available.
+- **Local test runs**: use the Yahoo-specific reachability check in step 4 (not a generic internet check) to decide whether to include or exclude these tests. Generic connectivity (e.g. `curl https://finance.yahoo.com`) is not a reliable proxy — the Yahoo Finance API endpoints used by `yahooquery` may be unavailable or rate-limited even when general internet access appears to work.
 - **CI failures in `tests/test_yahoo.py`**: the cause of such failures is usually a dropped or rate-limited connection during the test run.
 
 ## Adding dependencies
