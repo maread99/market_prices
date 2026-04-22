@@ -87,6 +87,9 @@ documentation = "https://github.com/maread99/market_prices/blob/master/docs/tuto
 [tool.setuptools_scm]
 write_to = "src/market_prices/_version.py"
 
+[tool.uv]
+exclude-newer = "7 days"
+
 [[tool.uv.index]]
 name = "testpypi"
 url = "https://test.pypi.org/simple/"

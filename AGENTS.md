@@ -7,6 +7,12 @@ In all context files, a '@' prefixing a path indicates that the path is defined 
 
 Identify all available skills in the @.agents\skills directory
 
+## LLM context
+
+Add the 'agents' label to any PR that amends:
+- this @AGENT.md
+- any SKILL.md file
+
 ## Project Overview
 
 **exchange-calendars** is a Python package to create meaningful OHLCV datasets for financial instruments. It provides for enchanced querying and post-processing of financial price data.

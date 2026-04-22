@@ -22,34 +22,55 @@ uv sync --inexact  # update environment to match @uv.lock
 
 ### 3. Update GitHub Actions versions
 
-For each `uses: <owner>/<repo>@<version>` entry across all files in `.github/workflows/`, use `mcp__github__get_latest_release` to retrieve the latest release for that action's repository. Update the version pin to the latest release, preserving the pinning style already used (e.g. if the current pin is a major-version tag such as `@v4`, update to the new major-version tag; if it is a specific version such as `@v3.0.1`, update to the full latest version string).
+For each `uses: <owner>/<repo>@<version>` entry across all files in `.github/workflows/`, retrieve the latest release tag by fetching the releases page with WebFetch:
+
+```
+url:    https://github.com/<owner>/<repo>/releases/latest
+prompt: What is the latest release tag for this GitHub action?
+```
+
+In each case update the version pin to any more recent release. **Preserve the existing pinning style**, so if the current pin is a specific version such as `@v3.0.1`, update to the full latest version string, whilst if it's a major-version tag such as `@v4`, update to any new major-version tag (if the project no longer publishes a major-version tag then switch to the full semver).
 
 ### 4. Test
 
-Run the test suite in your synchronised environment in order to identify any failing tests and warnings that have resulted from the dependency upgrades. If your environment lacks access to the internet (which has historically been the case) then you should ignore tests in `@tests/test_yahoo.py` (See *Network tests* section below) by running the test suite with the following command:
+Before running the tests check whether the test environment has live access to the Yahoo Finance API by running:
 
 ```bash
-pytest --ignore=tests/test_yahoo.py -v
+python -c "
+import urllib.request, sys
+try:
+    urllib.request.urlopen('https://query1.finance.yahoo.com/v8/finance/chart/MSFT?interval=1d&range=1d', timeout=10)
+    print('yahoo: reachable')
+except Exception as e:
+    print(f'yahoo: unreachable ({e})')
+"
 ```
 
-(If your environment has internet access then you should not include the ignore option. DO NOT ASSUME internet access, rather check this before removing the ignore option.)
+Then, run the test suite with options as determined by whether the yahoo finance API is reachable:
+- If **reachable**: run the full test suite:
+  ```bash
+  uv run pytest -v
+  ```
+- If **unreachable**: exclude the network tests (see *Network tests* section below):
+  ```bash
+  uv run pytest --ignore=tests/test_yahoo.py -v
+  ```
 
 **Interpreting the local test results:**
-- All test pass → go to step 6 to raise PR.
-- Test failures only in `tests/test_yahoo.py` → probably due to a transient network issue (see *Network tests* section below), go to step 6 to raise PR.
-- Failure of any other test → proceed to step 5 to fix.
+- All tests pass and no raised warning is fixable (see *Fixable warnings* section below) → go to step 6 to raise PR.
+- All failing tests are in `tests/test_yahoo.py` and no raised warning is fixable → test failures probably due to a transient network issue (see *Network tests* section below), go to step 6 to raise PR.
+- Failure of any other test or a fixable warning raised → proceed to step 5 to fix.
 
 ### 5. Fix
+Any failing tests and fixable warnings will likely have their origin in changes to the dependencies. To provide support for the latest dependencies MAKE REVISIONS to the code base to fix:
+- code causing non-network tests to fail (see *Network tests* section below for notes on network tests).
+- all fixable warnings (see *Fixable warnings* section below)
 
-The cause of any failing tests will most likely have its origin in changes to the dependencies. MAKE REVISIONS to the code base to get all non-network tests passing so that the project can support the latest versions of its dependencies (see *Network tests* section below for notes on network tests). As a general RULE, **change the package code to get the tests passing, not the test code!** You may make changes to the test code only with good reason and only when this does not impair the test's efficacy.
-
-Similarly, fix warnings that were raised under the test suite except the following which you should IGNORE:
-- warnings that have their origin in a dependency's code.
-- `PricesMissingWarning`.
+As a general RULE, **change the package code to get the tests passing, not the test code!** You may make changes to the test code only with good reason and only when this does not impair the test's efficacy.
 
 To facilitate identifying the cause of test failures consider researching the changelogs of updated dependencies for versions released since the previously locked version.
 
-Iterate on this process until all non-network tests are passing and all warnings (with their origin in the package's code) have been fixed.
+Iterate on this process until all non-network tests are passing and all fixable warnings have been fixed.
 
 IMPORTANT: in this step you should not run the full test suite, rather validate fixes by re-running only the previously failing tests. Example to run a specific test:
 
@@ -65,6 +86,7 @@ Once local tests pass, commit all changes to the branch and raise a PR.
   - `<MM>` should be replaced with the first three letters of the current month, the first of which should be capitalized.
   - `<DD>` should be replaced with the current day of the month as represented by two digits.
   Example title: `Update Dependencies Apr 07 (auto)`
+- **PR comment**: Start the PR comment with a standalone line 'Generated by Claude'.
 - **label**: Add the 'dependencies' label to the PR via `mcp__github__update_pull_request`.
 
 ### 7. Inspect CI results
@@ -109,8 +131,17 @@ ONLY if any test failures cannot be resolved, raise an issue that references the
 
 All tests in `tests/test_yahoo.py` require live network access to the Yahoo Finance API via the `yahooquery` library . No other test files have this requirement.
 
-- **Local test runs**: always pass the pytest option `--ignore=tests/test_yahoo.py` unless you have confirmed that you have access to the internet. It's expected that these tests will fail whenever a local internet connection is not available.
+- **Local test runs**: use the Yahoo-specific reachability check described in step 4 to decide whether to include or exclude tests in `test_yahoo.py`.
 - **CI failures in `tests/test_yahoo.py`**: the cause of such failures is usually a dropped or rate-limited connection during the test run.
+
+---
+
+**Fixable warnings**
+The following warnings are considered UNFIXABLE and you should not attempt to fix them.
+- warnings that have their origin in a dependency's code.
+- `PricesMissingWarning`.
+
+All other warnings are considered fixable.
 
 ## Adding dependencies
 ```bash
