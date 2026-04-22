@@ -158,10 +158,10 @@ Commands to run tests:
 pytest
 
 # Tests in specific file
-pytest tests/test_base.py
+pytest tests/test_module.py
 
 # Specific test
-pytest tests/test_base.py::test_fill_reindexed
+pytest tests/test_module.py::test_name
 
 # With verbose output
 pytest -v
