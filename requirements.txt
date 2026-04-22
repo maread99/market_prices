@@ -16,11 +16,11 @@ curl-cffi==0.15.0
     # via yahooquery
 exchange-calendars==4.13.2
     # via market-prices
-idna==3.12
+idna==3.11
     # via requests
 korean-lunar-calendar==0.3.1
     # via exchange-calendars
-lxml==6.1.0
+lxml==6.0.4
     # via yahooquery
 markdown-it-py==4.0.0
     # via rich
