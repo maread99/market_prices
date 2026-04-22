@@ -1,11 +1,8 @@
 ---
   name: update-agents-md
-  description: instructions for updating the @agent.md file which provides context to coding agents.
+  description: Instructions for updating @AGENT.md file, including: updating the 'Repository Layout' section following the adding or removal of files or folders; updating the 'Technology Stack' section on changes to the pinned python version as defined in @.python-version.
 ---
 # Update agents.md file
-
-## Pinned Python version
-Update, if necessary, the 'python' field of the 'Technology Stack' table so that it indicates the pinned python version as defined in @.python-version.
 
 ## Repository Layout
 Update the 'Repository Layout' section to reflect the current layout. Remove all files and folders that are no longer present and add all new files and folders with the following IMPORTANT EXCEPTIONS:
@@ -24,3 +21,6 @@ Include a minimalist comment offering a top-line explanation for the following f
 The comment should:
 - be placed alongside the file/directory name
 - not cause the length of the full line (including folder/directory name and all whitespace) to exceed 100 characters.
+
+## Pinned Python version
+Update, if necessary, the 'python' field of the 'Technology Stack' table so that it indicates the pinned python version as defined in @.python-version.

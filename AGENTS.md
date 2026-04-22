@@ -3,23 +3,33 @@ This file provides context for LLM assistants (Claude Code and similar tools) wo
 
 In all context files, a '@' prefixing a path indicates that the path is defined relative to the project root in which this `AGENTS.md` file is located.
 
-REVIEW @.agents\skills directory for all available skills.
+## Skills
+
+Identify all available skills in the @.agents\skills directory
 
 ## Project Overview
+
 **exchange-calendars** is a Python package to create meaningful OHLCV datasets for financial instruments. It provides for enchanced querying and post-processing of financial price data.
 
 See @pyproject.toml for project metadata and dependencies.
 
 ### Repository Layout
+
 ```
 market_prices/
+├── .agents/                            # instructions for LLM coding agents
+│   └── skills/                         # skills for LLM coding agents
+│       ├── dependencies-management/
+│       │   └── SKILL.md
+│       └── update-agents-md/
+│           └── SKILL.md
 ├── .github/
+│   ├── workflows/
+│   │   ├── build-test.yml
+│   │   ├── draft-release-notes.yml
+│   │   └── release.yml
 │   ├── dependabot.yml
-│   ├── release-drafter.yml
-│   └── workflows/
-│       ├── build-test.yml
-│       ├── draft-release-notes.yml
-│       └── release.yml
+│   └── release-drafter.yml
 ├── docs/
 │   ├── developers/
 │   │   ├── other_internals.md          # notes on non-obvious internal design decisions
@@ -57,7 +67,7 @@ market_prices/
 │       │   └── yahoo.py                # `PricesYahoo`: prices via yahooquery
 │       ├── support/                    # support for tutorials and tests
 │       │   └── tutorial_helpers.py     # identify data to use in tutorials and tests
-│       ├── utils/
+│       ├── utils/                      # utility modules
 │       │   ├── calendar_utils.py       # includes `CompositeCalendar`
 │       │   ├── general_utils.py        # general utils
 │       │   └── pandas_utils.py         # pandas-specific utilities and context managers
@@ -65,7 +75,7 @@ market_prices/
 │       ├── daterange.py                # derive date ranges for price requests
 │       ├── errors.py                   # custom exception classes
 │       ├── helpers.py                  # helpers (project-specific)
-│       ├── intervals.py                # `TDInterval`, `DOInterval`, `BI` and helpers 
+│       ├── intervals.py                # `TDInterval`, `DOInterval`, `BI` and helpers
 │       ├── mptypes.py                  # custom types and aliases
 │       ├── parsing.py                  # validates and coerces public input parameters
 │       └── pt.py                       # .pt pandas accessor for custom DataFrame ops
@@ -92,6 +102,8 @@ market_prices/
 │   └── utils.py
 ├── .pre-commit-config.yaml
 ├── .python-version
+├── AGENTS.md
+├── CLAUDE.md
 ├── LICENSE.txt
 ├── MANIFEST.in
 ├── README.md
@@ -104,6 +116,7 @@ market_prices/
 ```
 
 ## Technology Stack
+
 | Category | Tools |
 |---|---|
 | Python | 3.10–3.13 (`.python-version` pins 3.13) |
@@ -119,10 +132,10 @@ market_prices/
 The current project version is managed by `setuptools_scm` and written to `src/market_prrices/_version.py`.
 IMPORTANT: `src/market_prices/_version.py` is auto-generated and you should not edit it.
 
-
 ## Development Workflows
 
 ### Setup
+
 ```bash
 # Install dependencies using uv
 uv sync
@@ -132,6 +145,7 @@ pre-commit install
 ```
 
 ### Testing
+
 - test with `pytest`
 - see @pytest.ini for configuration; options are applied automatically via `addopts`.
 - shared fixtures are in `tests/conftest.py`
@@ -143,14 +157,18 @@ Commands to run tests:
 # All tests (including doctests in src/market_analy/)
 pytest
 
-# Specific test file
-pytest tests/test_base.py
+# Tests in specific file
+pytest tests/test_module.py
+
+# Specific test
+pytest tests/test_module.py::test_name
 
 # With verbose output
 pytest -v
 ```
 
 ### Pre-commit Hooks
+
 See @.pre-commit-config.yaml for pre-commit implementation.
 
 Pre-commit runs automatically on `git commit`.
@@ -163,6 +181,7 @@ pre-commit run --all-files
 ---
 
 ### CI
+
 GitHub Actions is used for continuous integration. Defined workflows include:
 - @.github/workflows/build-test.yml - runs full test suite on matrix of platforms and python versions
 - @.github/workflows/release.yml - releases a new version to PyPI
@@ -170,9 +189,11 @@ GitHub Actions is used for continuous integration. Defined workflows include:
 ## Code Conventions
 
 ### Architecture
+
 The project employs both hierarchal and compositional structure depending on context.
 
 ### Formatting
+
 - format to `ruff` (Black compatible).  
 - see @ruff.toml for configuration.
 
@@ -182,6 +203,7 @@ ruff format .
 ```
 
 ### Linting
+
 - lint with `ruff`.
 - See lint sections of @ruff.toml for configuration (includes excluded files).
 - type check with `mypy`.
@@ -195,9 +217,11 @@ uv run mypy src/market_prices/
 ```
 
 ### Imports
+
 - No wildcard imports (i.e. no `from x import *`).
 
 ### Type Annotations
+
 - Type annotations are required on all public functions and methods.
 - See @mypy.ini for configuration
     - `ignore_missing_imports = True` is set globally (many dependencies lack stubs).
@@ -206,6 +230,7 @@ uv run mypy src/market_prices/
     - use`@parse_cls` for dataclasses.
 
 ### Docstrings
+
 Public modules, classes, and functions MUST all have docstrings.
 
 Docstrings should follow **NumPy convention**. Familiarise yourself with this as described at https://numpydoc.readthedocs.io/en/latest/format.html. That said, the following should always be adhered to and allowed to override any NumPy convention:
@@ -248,6 +273,7 @@ def my_func(param1: int, param2: str = "default", param3: None | str = None) -> 
 ```
 
 ### Comments
+
 - pay particular attention to comments starting with...: 
     - 'NOTE'
     - 'TODO'
@@ -258,6 +284,7 @@ def my_func(param1: int, param2: str = "default", param3: None | str = None) -> 
 ---
 
 ## Important Notes for AI Agents
+
 1. **NEVER DO RULES**:
 	- Never edit the file `src/market_prices/_version.py` - this is auto-generated by the build process.
 
