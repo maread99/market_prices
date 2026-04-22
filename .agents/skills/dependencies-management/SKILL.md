@@ -43,7 +43,9 @@ pytest --ignore=tests/test_yahoo.py -v
 
 The cause of any failing tests will most likely have its origin in changes to the dependencies. MAKE REVISIONS to the code base to get all non-network tests passing so that the project can support the latest versions of its dependencies (see *Network tests* section below for notes on network tests). As a general RULE, **change the package code to get the tests passing, not the test code!** You may make changes to the test code only with good reason and only when this does not impair the test's efficacy.
 
-Similarly, fix warnings that were raised under the test suite. Only fix warnings that have their origin in the package's code (IGNORE any warning that has its origin in a dependency's code).
+Similarly, fix warnings that were raised under the test suite except the following which you should IGNORE:
+- warnings that have their origin in a dependency's code.
+- `PricesMissingWarning`.
 
 To facilitate identifying the cause of test failures consider researching the changelogs of updated dependencies for versions released since the previously locked version.
 
