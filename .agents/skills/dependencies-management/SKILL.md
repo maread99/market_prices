@@ -98,19 +98,36 @@ Once local tests pass, commit all changes to the branch and raise a PR.
   - `<MM>` should be replaced with the first three letters of the current month, the first of which should be capitalized.
   - `<DD>` should be replaced with the current day of the month as represented by two digits.
   Example title: `Update Dependencies Apr 07 (auto)`
-- **label**: Add the 'dependencies' label to the PR via `mcp__github__update_pull_request`.
+- **label**: Add the 'dependencies' label to the PR via `mcp__github__issue_write`,
+  passing the PR number as `issue_number`, `method: "update"`, and
+  `labels: ["dependencies"]`.
 - otherwise comply with the package's 'create-pr' skill.
 
-### 7. Inspect CI results
+### 7. Subscribe to PR activity
 
-The CI `build-test.yml` workflow will automatically trigger on the PR being raised (against the `master` branch). Under this workflow the full test suite will be run on combinations of supported OS and Python versions. Once the workflow completes, use `mcp__github__pull_request_read` with the `get_check_runs` method to read check statuses for all matrix jobs.
+Immediately after raising the PR, subscribe to PR activity events:
+
+```
+mcp__github__subscribe_pr_activity(owner="maread99", repo="market_prices", pullNumber=<PR number>)
+```
+
+CI completion events will arrive as `<github-webhook-activity>` tags. Wait for an
+event indicating that the `build-test.yml` workflow has finished before
+proceeding to step 8.
+
+### 8. Inspect CI results
+
+The CI `build-test.yml` workflow will automatically trigger on the PR being raised
+(against the `master` branch). When a `<github-webhook-activity>` event arrives
+indicating the workflow has finished, use `mcp__github__pull_request_read` with the
+`get_check_runs` method to read check statuses for all matrix jobs.
 
 **Interpreting CI results:**
-- All checks green → done, no further action is required.
+- All checks green → call `mcp__github__unsubscribe_pr_activity` then mark the task complete.
 - Failures only in `tests/test_yahoo.py` and/or `tests/test_calendar_utils.py` → add a comment to the PR identifying the failure as a possible network issue (see *Network tests* section below) and ask the owner to investigate the test logs and then EITHER re-run the failed jobs if the failure was due to a transient network error OR provide you with a copy of the log for the failing tests in order that you can work on a fix. In this case suspend the session as pending further prompting.
-- Failures in any other test file → proceed to step 8.
+- Failures in any other test file → proceed to step 9.
 
-### 8. Fix tests for specific OS/Python configuration
+### 9. Fix tests for specific OS/Python configuration
 
 Use the information read from `get_check_runs` to identify any OS/python version configurations for which the test suite has failed.
 
@@ -129,14 +146,16 @@ uv run --isolated --python 3.11 python pytest --ignore=tests/test_yahoo.py -v
 
 Then find fixes for the failing tests by following step 5.
 
-Finally commit the necessary changes to your *original* branch (to which previous commits were made). This will trigger the CI on the PR re-run. Return to step 7 (inspect CI results).
+Finally commit the necessary changes to your *original* branch (to which previous commits were made). This will trigger the CI on the PR re-run. Return to step 8 (inspect CI results).
 
-### 9. Fallback: raise an issue
+### 10. Fallback: raise an issue
 
 ONLY if any test failures cannot be resolved, raise an issue that references the PR and details:
 - the failing tests
 - any fixes already attempted
 - any suggested next steps.
+
+Call `mcp__github__unsubscribe_pr_activity` before closing the session.
 
 ---
 
