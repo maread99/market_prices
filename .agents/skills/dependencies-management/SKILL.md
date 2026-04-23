@@ -14,6 +14,24 @@ Create a new branch (following the naming convention in @AGENTS.md).
 
 ### 2. Update the lock file and environment
 
+First, update `uv` itself to ensure it can correctly parse all configuration (an outdated
+`uv` may silently ignore relative durations such as `"2 days"` in `exclude-newer`,
+resolving without any timestamp cutoff):
+
+```bash
+uv self update
+```
+
+If `uv self update` fails due to a network or authentication error (e.g. GitHub API rate
+limit), fall back to updating via `pip` and copying the new binary over the old one:
+
+```bash
+pip install -U uv
+cp /usr/local/bin/uv ~/.local/bin/uv
+```
+
+Then update the lock file and environment:
+
 ```bash
 uv lock --upgrade  # update the lock file
 uv export --format requirements-txt --no-emit-project --no-hashes --no-dev -o requirements.txt  # sync @requirements.txt with @uv.lock
@@ -33,32 +51,48 @@ In each case update the version pin to any more recent release. **Preserve the e
 
 ### 4. Test
 
-Before running the tests check whether the test environment has live access to the Yahoo Finance API by running:
+Before running the tests check whether the test environment has live access to the
+required network endpoints by running:
 
 ```bash
 python -c "
 import urllib.request, sys
-try:
-    urllib.request.urlopen('https://query1.finance.yahoo.com/v8/finance/chart/MSFT?interval=1d&range=1d', timeout=10)
-    print('yahoo: reachable')
-except Exception as e:
-    print(f'yahoo: unreachable ({e})')
+
+for label, url in [
+    ('yahoo', 'https://query1.finance.yahoo.com/v8/finance/chart/MSFT?interval=1d&range=1d'),
+    ('raw.github.com', 'https://raw.githubusercontent.com/'),
+]:
+    try:
+        urllib.request.urlopen(url, timeout=10)
+        print(f'{label}: reachable')
+    except Exception as e:
+        print(f'{label}: unreachable ({e})')
 "
 ```
 
-Then, run the test suite with options as determined by whether the yahoo finance API is reachable:
-- If **reachable**: run the full test suite:
+Then, run the test suite with options as determined by the reachability results:
+- If **both reachable**: run the full test suite:
   ```bash
   uv run pytest -v
   ```
-- If **unreachable**: exclude the network tests (see *Network tests* section below):
+- If **yahoo unreachable** (regardless of raw.github.com): exclude `tests/test_yahoo.py`
+  and, if raw.github.com is also unreachable, also exclude `tests/test_calendar_utils.py`
+  (see *Network tests* section below):
   ```bash
+  # yahoo unreachable, raw.github.com reachable
   uv run pytest --ignore=tests/test_yahoo.py -v
+
+  # both unreachable
+  uv run pytest --ignore=tests/test_yahoo.py --ignore=tests/test_calendar_utils.py -v
+  ```
+- If **only raw.github.com unreachable**: exclude `tests/test_calendar_utils.py`:
+  ```bash
+  uv run pytest --ignore=tests/test_calendar_utils.py -v
   ```
 
 **Interpreting the local test results:**
 - All tests pass and no raised warning is fixable (see *Fixable warnings* section below) → go to step 6 to raise PR.
-- All failing tests are in `tests/test_yahoo.py` and no raised warning is fixable → test failures probably due to a transient network issue (see *Network tests* section below), go to step 6 to raise PR.
+- All failing tests are in `tests/test_yahoo.py` and/or `tests/test_calendar_utils.py` and no raised warning is fixable → test failures probably due to a transient network issue (see *Network tests* section below), go to step 6 to raise PR.
 - Failure of any other test or a fixable warning raised → proceed to step 5 to fix.
 
 ### 5. Fix
@@ -95,7 +129,15 @@ The CI `build-test.yml` workflow will automatically trigger on the PR being rais
 
 **Interpreting CI results:**
 - All checks green → done, no further action is required.
-- Failures only in `tests/test_yahoo.py` → probably due to a transient network issue (see *Network tests* section below). Add a comment to the PR identifying the failure as a probable network issue and suggest that the owner re-run the failing jobs. No further action is required.
+- Failures only in `tests/test_yahoo.py` and/or `tests/test_calendar_utils.py` → possibly
+  due to a transient network issue (see *Network tests* section below), **but first check
+  the actual error type**:
+  - Connection errors, HTTP 403/timeout errors → network issue. Add a comment to the PR
+    identifying the failure as a probable network issue and suggest that the owner re-run
+    the failing jobs. No further action is required.
+  - Assertion errors, import errors, or `AttributeError` → may indicate a
+    dependency-caused regression. Investigate before dismissing as a network issue and
+    proceed to step 8 if warranted.
 - Failures in any other test file → proceed to step 8.
 
 ### 8. Fix tests for specific OS/Python configuration
@@ -127,12 +169,21 @@ ONLY if any test failures cannot be resolved, raise an issue that references the
 
 ---
 
-**Network tests** — `tests/test_yahoo.py`
+**Network tests** — `tests/test_yahoo.py` and `tests/test_calendar_utils.py`
 
-All tests in `tests/test_yahoo.py` require live network access to the Yahoo Finance API via the `yahooquery` library . No other test files have this requirement.
+Tests in `tests/test_yahoo.py` require live network access to the Yahoo Finance API via
+the `yahooquery` library.
 
-- **Local test runs**: use the Yahoo-specific reachability check described in step 4 to decide whether to include or exclude tests in `test_yahoo.py`.
-- **CI failures in `tests/test_yahoo.py`**: the cause of such failures is usually a dropped or rate-limited connection during the test run.
+Tests in `tests/test_calendar_utils.py` fetch CSV fixture files from
+`raw.githubusercontent.com`, which can return HTTP 403 Forbidden when network access is
+restricted.
+
+- **Local test runs**: use the reachability check described in step 4 to decide whether to
+  include or exclude tests in `test_yahoo.py` and/or `test_calendar_utils.py`.
+- **CI failures in `tests/test_yahoo.py` or `tests/test_calendar_utils.py`**: the cause of
+  such failures is usually a dropped, rate-limited, or blocked network connection. However,
+  always verify the error type (see step 7) before concluding the failure is purely a
+  network issue.
 
 ---
 
