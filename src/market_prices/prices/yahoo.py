@@ -720,8 +720,18 @@ class PricesYahoo(base.PricesBase):
         if not cal.is_trading_minute(last_indice):  # covers live indice as close
             return True
         if len(index) > 1:
+            minute_to_offset = index[-2]
+            # if clause is a fix to accommodate symbols that include a post close
+            # timestamp in the data (for example symbols using XASX calendar,
+            # including 'QAN.AX' used in testing).
+            if not cal.is_trading_minute(minute_to_offset):
+                minute_to_offset = cal.minute_to_trading_minute(
+                    minute_to_offset, direction="previous"
+                )
             # resolve here one way or the other
-            return cal.minute_offset(index[-2], interval.as_minutes) != last_indice
+            return (
+                cal.minute_offset(minute_to_offset, interval.as_minutes) != last_indice
+            )
         # longer alternative resolution
         session = cal.minute_to_session(last_indice)
         open_ = cal.session_open(session)
