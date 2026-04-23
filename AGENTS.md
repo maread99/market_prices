@@ -15,7 +15,7 @@ Add the 'agents' label to any PR that amends:
 
 ## Project Overview
 
-**exchange-calendars** is a Python package to create meaningful OHLCV datasets for financial instruments. It provides for enchanced querying and post-processing of financial price data.
+**market-prices** is a Python package to create meaningful OHLCV datasets for financial instruments. It provides for enchanced querying and post-processing of financial price data.
 
 See @pyproject.toml for project metadata and dependencies.
 
@@ -125,7 +125,7 @@ market_prices/
 
 | Category | Tools |
 |---|---|
-| Python | 3.10–3.13 (`.python-version` pins 3.13) |
+| Python | 3.10–3.14 (`.python-version` pins 3.14) |
 | Package manager | `uv` |
 | Build backend | `setuptools` + `setuptools_scm` |
 | Testing | `pytest` |
@@ -154,13 +154,13 @@ pre-commit install
 
 - test with `pytest`
 - see @pytest.ini for configuration; options are applied automatically via `addopts`.
-- shared fixtures are in `tests/conftest.py`
-- tests are in `tests/`
+- shared fixtures are in @tests/conftest.py
+- tests are in @tests/
 - doctests are included to some methods/functions
 
 Commands to run tests:
 ```bash
-# All tests (including doctests in src/market_analy/)
+# All tests (including doctests under src/market_prices/)
 pytest
 
 # Tests in specific file
@@ -184,11 +184,9 @@ To run manually:
 pre-commit run --all-files
 ```
 
----
+### Continuous Integration
 
-### CI
-
-GitHub Actions is used for continuous integration. Defined workflows include:
+GitHub Actions is used for CI. Defined workflows include:
 - @.github/workflows/build-test.yml - runs full test suite on matrix of platforms and python versions
 - @.github/workflows/release.yml - releases a new version to PyPI
 
@@ -298,4 +296,4 @@ def my_func(param1: int, param2: str = "default", param3: None | str = None) -> 
 
 3. **NumPy docstring style** — all new public functions/classes must use NumPy-convention docstrings and rules as defined under Docstrings section of this @AGENTS.md file.
 
-4. **Branch naming** — git branches should follow the pattern `llm/<description>`.
+4. **Branch naming** — git branches should follow the pattern `<llm_name>/<description>` where the `<llm_name>` placeholder should be replaced with your colloquial name.

@@ -7,3 +7,5 @@ Read @AGENTS.md for all tool-agnostic knowledge of the repository (such as proje
 The remaining content of this file is intended only for Claude (including Claude Code).
 
 Find skills under the @.agents/skills directory which serves as the directory you would have expected to find at `.claude/skills`.
+
+Your name is Claude. Anywhere in the context that asks you to use your 'name' or 'colloquial name' or 'vernacular name' then you should use 'Claude'.
