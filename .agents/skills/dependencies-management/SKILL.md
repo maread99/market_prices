@@ -15,6 +15,7 @@ Create a new branch (following the naming convention in @AGENTS.md).
 ### 2. Update the lock file and environment
 
 ```bash
+uv self update
 uv lock --upgrade  # update the lock file
 uv export --format requirements-txt --no-emit-project --no-hashes --no-dev -o requirements.txt  # sync @requirements.txt with @uv.lock
 uv sync --inexact  # update environment to match @uv.lock
@@ -33,44 +34,55 @@ In each case update the version pin to any more recent release. **Preserve the e
 
 ### 4. Test
 
-Before running the tests check whether the test environment has live access to the Yahoo Finance API by running:
+Before running the tests check whether the test environment has live access to the
+required network endpoints by running:
 
 ```bash
 python -c "
 import urllib.request, sys
-try:
-    urllib.request.urlopen('https://query1.finance.yahoo.com/v8/finance/chart/MSFT?interval=1d&range=1d', timeout=10)
-    print('yahoo: reachable')
-except Exception as e:
-    print(f'yahoo: unreachable ({e})')
+
+for label, url in [
+    ('yahoo', 'https://query1.finance.yahoo.com/v8/finance/chart/MSFT?interval=1d&range=1d'),
+    ('raw.github.com', 'https://raw.githubusercontent.com/'),
+]:
+    try:
+        urllib.request.urlopen(url, timeout=10)
+        print(f'{label}: reachable')
+    except Exception as e:
+        print(f'{label}: unreachable ({e})')
 "
 ```
 
-Then, run the test suite with options as determined by whether the yahoo finance API is reachable:
-- If **reachable**: run the full test suite:
+Then, run the test suite with options as determined by the reachability results:
+- If **both reachable**: run the full test suite:
   ```bash
   uv run pytest -v
   ```
-- If **unreachable**: exclude the network tests (see *Network tests* section below):
+- **otherwise** use the pytest --ignore option to exclude the test module(s) correponding with the unreachable service(s):
+  - if yahoo unreachable then '--ignore=tests/test_yahoo.py'
+  - if raw.github.com unreachable then '--ignore=tests/test_calendar_utils.py'
+  For example, if both yahoo and raw.github.com are unreachable then the command will be:
   ```bash
-  uv run pytest --ignore=tests/test_yahoo.py -v
+  uv run pytest --ignore=tests/test_yahoo.py --ignore=tests/test_calendar_utils.py -v
   ```
 
 **Interpreting the local test results:**
 - All tests pass and no raised warning is fixable (see *Fixable warnings* section below) → go to step 6 to raise PR.
-- All failing tests are in `tests/test_yahoo.py` and no raised warning is fixable → test failures probably due to a transient network issue (see *Network tests* section below), go to step 6 to raise PR.
+- All failing tests are in `tests/test_yahoo.py` and/or `tests/test_calendar_utils.py` and no raised warning is fixable → test failures probably due to a transient network issue (see *Network tests* section below), go to step 6 to raise PR.
 - Failure of any other test or a fixable warning raised → proceed to step 5 to fix.
 
 ### 5. Fix
 Any failing tests and fixable warnings will likely have their origin in changes to the dependencies. To provide support for the latest dependencies MAKE REVISIONS to the code base to fix:
-- code causing non-network tests to fail (see *Network tests* section below for notes on network tests).
-- all fixable warnings (see *Fixable warnings* section below)
+- code causing tests to fail.
+- all fixable warnings (see *Fixable warnings* section below).
 
 As a general RULE, **change the package code to get the tests passing, not the test code!** You may make changes to the test code only with good reason and only when this does not impair the test's efficacy.
 
 To facilitate identifying the cause of test failures consider researching the changelogs of updated dependencies for versions released since the previously locked version.
 
-Iterate on this process until all non-network tests are passing and all fixable warnings have been fixed.
+Iterate on this process until:
+- all tests are passing with the exception of any requiring unreachable services.
+- all fixable warnings have been fixed.
 
 IMPORTANT: in this step you should not run the full test suite, rather validate fixes by re-running only the previously failing tests. Example to run a specific test:
 
@@ -87,7 +99,7 @@ Once local tests pass, commit all changes to the branch and raise a PR.
   - `<DD>` should be replaced with the current day of the month as represented by two digits.
   Example title: `Update Dependencies Apr 07 (auto)`
 - **label**: Add the 'dependencies' label to the PR via `mcp__github__update_pull_request`.
-- otherwise comply with the /create-pr skill.
+- otherwise comply with the package's 'create-pr' skill.
 
 ### 7. Inspect CI results
 
@@ -95,7 +107,7 @@ The CI `build-test.yml` workflow will automatically trigger on the PR being rais
 
 **Interpreting CI results:**
 - All checks green → done, no further action is required.
-- Failures only in `tests/test_yahoo.py` → probably due to a transient network issue (see *Network tests* section below). Add a comment to the PR identifying the failure as a probable network issue and suggest that the owner re-run the failing jobs. No further action is required.
+- Failures only in `tests/test_yahoo.py` and/or `tests/test_calendar_utils.py` → add a comment to the PR identifying the failure as a possible network issue (see *Network tests* section below) and ask the owner to investigate the test logs and then EITHER re-run the failed jobs if the failure was due to a transient network error OR provide you with a copy of the log for the failing tests in order that you can work on a fix. In this case suspend the session as pending further prompting.
 - Failures in any other test file → proceed to step 8.
 
 ### 8. Fix tests for specific OS/Python configuration
@@ -104,8 +116,9 @@ Use the information read from `get_check_runs` to identify any OS/python version
 
 If the tests failed on specific matrix combinations (e.g. Windows / Python 3.10) then simulate a local matching environment.
 - If necessary use a Docker container with the target OS. (To specify different Python versions you will be able to run commands with `uv run` and pass the --python option.)
-- create a new branch against the repository's master branch
-- overwrite `uv.lock` with the version previously created by step 2
+- create a new branch against the repository's master branch.
+- update the `uv` package with `uv self update`.
+- overwrite `uv.lock` with the version previously created by step 2.
 - synchronise the environment by running `uv sync`.
 
 Run the test suite to identify failing tests. For example:
@@ -118,7 +131,7 @@ Then find fixes for the failing tests by following step 5.
 
 Finally commit the necessary changes to your *original* branch (to which previous commits were made). This will trigger the CI on the PR re-run. Return to step 7 (inspect CI results).
 
-### 8. Fallback: raise an issue
+### 9. Fallback: raise an issue
 
 ONLY if any test failures cannot be resolved, raise an issue that references the PR and details:
 - the failing tests
@@ -127,13 +140,14 @@ ONLY if any test failures cannot be resolved, raise an issue that references the
 
 ---
 
-**Network tests** — `tests/test_yahoo.py`
+**Network tests** — `tests/test_yahoo.py` and `tests/test_calendar_utils.py`
 
-All tests in `tests/test_yahoo.py` require live network access to the Yahoo Finance API via the `yahooquery` library . No other test files have this requirement.
+Tests in `tests/test_yahoo.py` require live network access to the Yahoo Finance API via the `yahooquery` library.
 
-- **Local test runs**: use the Yahoo-specific reachability check described in step 4 to decide whether to include or exclude tests in `test_yahoo.py`.
-- **CI failures in `tests/test_yahoo.py`**: the cause of such failures is usually a dropped or rate-limited connection during the test run.
+Tests in `tests/test_calendar_utils.py` fetch CSV fixture files from `raw.githubusercontent.com`, which can return HTTP 403 Forbidden when network access is restricted.
 
+- **Local test runs**: use the reachability check described in step 4 to decide whether to include or exclude tests in `test_yahoo.py` and/or `test_calendar_utils.py`.
+- **CI failures in `tests/test_yahoo.py` or `tests/test_calendar_utils.py`**: the cause of such failures may be a dropped, rate-limited, or blocked network connection although this cannot be assumed.
 ---
 
 **Fixable warnings**
