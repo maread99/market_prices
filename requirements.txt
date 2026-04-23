@@ -20,7 +20,7 @@ idna==3.11
     # via requests
 korean-lunar-calendar==0.3.1
     # via exchange-calendars
-lxml==6.0.4
+lxml==6.1.0
     # via yahooquery
 markdown-it-py==4.0.0
     # via rich

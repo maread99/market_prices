@@ -89,7 +89,7 @@ documentation = "https://github.com/maread99/market_prices/blob/master/docs/tuto
 write_to = "src/market_prices/_version.py"
 
 [tool.uv]
-exclude-newer = "7 days"
+exclude-newer = "2 days"
 
 [[tool.uv.index]]
 name = "testpypi"
