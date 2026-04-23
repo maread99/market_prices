@@ -913,7 +913,7 @@ class TestRequestDataIntraday:
         The Yahoo API appears to exhibit flaky behaviour when requesting
         prices from the supposed left limit (can return an an empty
         dataframe). This test serves to ensure `PricesYahoo` always returns
-        data when implicitely requesting prices from the left limit.
+        data when implicitly requesting prices from the left limit.
 
         Notes
         -----
