@@ -1044,7 +1044,17 @@ class PricesBase(metaclass=abc.ABCMeta):
         kwargs = {"start": ll - pd.Timedelta(14, "D")} if ll is not None else {}
         for k, v in d.items():
             if not isinstance(v, xcals.ExchangeCalendar):
-                cal = xcals.get_calendar(v, side="left", **kwargs)
+                try:
+                    cal = xcals.get_calendar(v, side="left", **kwargs)
+                except ValueError:
+                    # `start` predates the earliest date from which this
+                    # calendar can be evaluated (e.g. another symbol with an
+                    # earlier first-trade date dragged the daily limit back
+                    # beyond this calendar's `bound_min`). Fall back to the
+                    # calendar's earliest supported start. Any resulting
+                    # shortfall against `ll` is flagged by the
+                    # `CalendarTooShortWarning` raised below.
+                    cal = xcals.get_calendar(v, side="left")
                 d[k] = cal
             elif v.side != "left":
                 msg = (

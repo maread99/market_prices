@@ -202,8 +202,12 @@ def composite_schedule(calendars: abc.Sequence[xcals.ExchangeCalendar]) -> pd.Da
     index = pdutils.index_union(schedules)
     schedules = [sch.reindex(index) for sch in schedules]
     columns = pd.Index(["open", "close"])
-    opens = pd.DataFrame([sch[columns[0]] for sch in schedules]).min()
-    closes = pd.DataFrame([sch[columns[1]] for sch in schedules]).max()
+    # Reduce across calendars (axis=1, one column per calendar) rather than
+    # constructing a DataFrame with a column per session. The latter reduces
+    # over as many columns as there are sessions, which is orders of
+    # magnitude slower when the calendars span a long period.
+    opens = pd.concat([sch[columns[0]] for sch in schedules], axis=1).min(axis=1)
+    closes = pd.concat([sch[columns[1]] for sch in schedules], axis=1).max(axis=1)
     schedule = pd.concat([opens, closes], axis=1)
     schedule.columns = columns
     return schedule
@@ -363,12 +367,17 @@ class CompositeCalendar:
     @property
     def first_session(self) -> pd.Timestamp:
         """First composite session."""
-        return self.sessions[0]
+        # Evaluated directly from the underlying calendars rather than via
+        # `self.sessions` to avoid triggering construction of the full
+        # composite schedule, which can be costly when the calendars span a
+        # long period (and is unnecessary when only the bounds are required).
+        return max(c.first_session for c in self.calendars)
 
     @property
     def last_session(self) -> pd.Timestamp:
         """Last composite session."""
-        return self.sessions[-1]
+        # See comment to `first_session`.
+        return min(c.last_session for c in self.calendars)
 
     @property
     def first_minute(self) -> pd.Timestamp:
