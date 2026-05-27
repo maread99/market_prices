@@ -959,15 +959,22 @@ class _PT(metaclass=abc.ABCMeta):
                 f" received as {exclude}.\n`include` received as {include}."
             )
 
-        prices = self.prices.copy()
+        # Subset to the requested symbols before copying so that the copy
+        # is no larger than necessary. Copying the full table first and only
+        # then subsetting makes a single-symbol selection cost the same as
+        # copying every symbol, which turns a per-symbol loop over the table
+        # into an O(num_symbols ** 2) operation.
         if include is not None and self.has_symbols:
-            prices = prices[helpers.symbols_to_list(include)]
+            prices = self.prices[helpers.symbols_to_list(include)].copy()
         elif exclude is not None and self.has_symbols:
             assert self.symbols is not None
             if set(exclude) == set(self.symbols):
                 raise ValueError("Cannot exclude all symbols.")
             exclude = helpers.symbols_to_list(exclude)
-            prices = prices[prices.columns.levels[0].difference(exclude)]
+            cols = self.prices.columns.levels[0].difference(exclude)
+            prices = self.prices[cols].copy()
+        else:
+            prices = self.prices.copy()
 
         if data_for_all or data_for_all_start:
             prices = prices.pt.data_for_all_start
