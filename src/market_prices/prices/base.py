@@ -754,33 +754,78 @@ class PricesBase(metaclass=abc.ABCMeta):
                     value: int
                         Delay corresponding with symbol.
         """
+        last = datetime.datetime.now()
+
+        def tm() -> float:
+            now = datetime.datetime.now()
+            nonlocal last
+            diff = (now - last).total_seconds()
+            last = now
+            return diff
+
+        print(  # noqa: T201
+            "\nPricesBase: about to verify base intervals", tm()
+        )  # TODO: DEL DEBUG LINE
         self.verify_base_intervals()
         self._symbols = helpers.symbols_to_list(symbols)
         self._base_intervals: _BaseIntervalMeta
         self._base_limits: dict[BI, pd.Timedelta | pd.Timestamp | None]
+        print(  # noqa: T201
+            "PricesBase: about to verify base limits", tm()
+        )  # TODO: DEL DEBUG LINE
         self._verify_base_limits()
         self._base_limits_right: dict[BI, pd.Timestamp | None]
+        print(  # noqa: T201
+            "PricesBase: about to set and verify base_limits_right", tm()
+        )  # TODO: DEL DEBUG LINE
         self._set_base_limits_right()
         self._verify_base_limits_right()
         self._verify_lead_symbol(lead_symbol)
         self._calendars: dict[str, xcals.ExchangeCalendar]
+        print(  # noqa: T201
+            "PricesBase: about to set calendars", tm()
+        )  # TODO: DEL DEBUG LINE
         self._set_calendars(calendars)
         self._lead_calendar: xcals.ExchangeCalendar
+        print(  # noqa: T201
+            "PricesBase: about to set lead calendar", tm()
+        )  # TODO: DEL DEBUG LINE
         self._set_lead_calendar(lead_symbol)
         self._lead_symbol: str
         self._set_lead_symbol(lead_symbol)
         self._delays: dict[str, pd.Timedelta]
+        print(  # noqa: T201
+            "PricesBase: about to set delays", tm()
+        )  # TODO: DEL DEBUG LINE
         self._set_delays(delays)
+        print(  # noqa: T201
+            "PricesBase: about to create CompositeCalendar", tm()
+        )  # TODO: DEL DEBUG LINE
         self._cc = calutils.CompositeCalendar(self.calendars_unique)
         self._pdata: dict[BI, data.Data]
+        print(  # noqa: T201
+            "PricesBase: about to set pdata", tm()
+        )  # TODO: DEL DEBUG LINE
         self._set_pdata()
         self._trading_indexes_: dict[BI, pd.IntervalIndex]
+        print(  # noqa: T201
+            "PricesBase: about to set trading_indexes", tm()
+        )  # TODO: DEL DEBUG LINE
         self._set_trading_indexes()
         self._indices_aligned_: dict[BI, pd.Series]
+        print(  # noqa: T201
+            "PricesBase: about to set indices_aligned", tm()
+        )  # TODO: DEL DEBUG LINE
         self._set_indices_aligned()
         self._indexes_status_: dict[BI, pd.Series]
+        print(  # noqa: T201
+            "PricesBase: about to set indexes_status", tm()
+        )  # TODO: DEL DEBUG LINE
         self._set_indexes_status()
         self._gpp: PricesBase.GetPricesParams | None = None
+        print(  # noqa: T201
+            "PricesBase: exiting construction", tm()
+        )  # TODO: DEL DEBUG LINE
 
     @property
     def symbols(self) -> list[str]:
