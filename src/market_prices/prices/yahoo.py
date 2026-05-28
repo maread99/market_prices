@@ -380,12 +380,35 @@ class PricesYahoo(base.PricesBase):
     # Methods called via constructor
 
     @functools.cached_property
+    def _ticker_price(self) -> dict[str, str]:
+        """`Ticker.price` property.
+
+        Notes
+        -----
+        Cached as otherwise data fetched from yahoo on every call to
+        property `_ticker.price`.
+        """
+        return self._ticker.price
+
+    @functools.cached_property
+    def _ticker_quote_type(self) -> dict[str, str]:
+        """`Ticker.quote_type` property.
+
+        Notes
+        -----
+        Cached as otherwise data fetched from yahoo on every call to
+        property `_ticker.quote_type`.
+        """
+        return self._ticker.quote_type
+
+    @functools.cached_property
     def _yahoo_exchange_name(self) -> dict[str, str]:
-        if self._ticker.price == ERROR404:
+        price_data = self._ticker_price
+        if price_data == ERROR404:
             raise YahooAPIError("price")
         d = {}
         for s in self._ticker.symbols:
-            d[s] = self._ticker.price[s]["exchangeName"]
+            d[s] = price_data[s]["exchangeName"]
             # the quotes endpoint's fullExchangeName was more comprehensive
             # although endpoint went behind a cookie request on 23/04/20
             # and again on 23/05/25.
@@ -454,7 +477,7 @@ class PricesYahoo(base.PricesBase):
     def _real_time(self) -> dict[str, bool]:
         """Return dictionary indicating if symbols have real time pricing."""
         d = {}
-        price = self._ticker.price
+        price = self._ticker_price
         if price == ERROR404:
             raise YahooAPIError("price")
         for s in self._ticker.symbols:
@@ -517,7 +540,7 @@ class PricesYahoo(base.PricesBase):
 
     @functools.cached_property
     def _first_trade_dates(self) -> dict[str, pd.Timestamp | None]:
-        quote_type = self._ticker.quote_type
+        quote_type = self._ticker_quote_type
         first_trade_dates: dict[str, pd.Timestamp | None] = {}
         for s in self._ticker.symbols:
             if quote_type == ERROR404:
