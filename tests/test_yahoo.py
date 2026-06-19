@@ -416,14 +416,16 @@ class TestConstructor:
     """
 
     @pytest.fixture(scope="class")
-    def symbols(self) -> abc.Iterator[str]:
+    @staticmethod
+    def symbols() -> abc.Iterator[str]:
         yield (
             "GOOG FTSEMIB.MI ^IBEX ^FTMC 9988.HK GBPEUR=X GC=F BTC-GBP CL=F"
             " ES=F ZB=F HG=F GEN.L QAN.AX CA.PA BAS.DE FER.MC SPY QQQ ARKG"
         )
 
     @pytest.fixture(scope="class")
-    def calendars(self) -> abc.Iterator[dict[str, str]]:
+    @staticmethod
+    def calendars() -> abc.Iterator[dict[str, str]]:
         yield {
             "GOOG": "XNYS",
             "GEN.L": "XLON",
@@ -448,7 +450,8 @@ class TestConstructor:
         }
 
     @pytest.fixture(scope="class")
-    def delays(self) -> abc.Iterator[dict[str, int]]:
+    @staticmethod
+    def delays() -> abc.Iterator[dict[str, int]]:
         yield {
             "GOOG": 0,
             "GEN.L": 15,
@@ -486,9 +489,8 @@ class TestConstructor:
             _ = m.PricesYahoo(symbols_)
 
     @pytest.fixture(scope="class")
-    def prices(
-        self, symbols, calendars, delays
-    ) -> abc.Iterator[tuple[m.PricesYahoo, bool]]:
+    @staticmethod
+    def prices(symbols, calendars, delays) -> abc.Iterator[tuple[m.PricesYahoo, bool]]:
         api_working = True
         try:
             prices = m.PricesYahoo(symbols)
