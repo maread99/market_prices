@@ -156,7 +156,8 @@ class TestBaseInterval:
     """Test `m._BaseInterval`."""
 
     @pytest.fixture(scope="class")
-    def BaseInterval(self) -> abc.Iterator[type[m.BI]]:
+    @classmethod
+    def BaseInterval(cls) -> abc.Iterator[type[m.BI]]:
         class BaseInterval_(m.BI):  # noqa: N801
             """Base interval enum."""
 
@@ -169,7 +170,8 @@ class TestBaseInterval:
         yield BaseInterval_
 
     @pytest.fixture(scope="class")
-    def BaseIntervalIntradayOnly(self) -> abc.Iterator[type[m.BI]]:
+    @classmethod
+    def BaseIntervalIntradayOnly(cls) -> abc.Iterator[type[m.BI]]:
         class BaseIntervalIntradayOnly_(m.BI):  # noqa: N801
             """Base interval enum of only intraday intervals."""
 
@@ -241,11 +243,13 @@ class TestToPTInterval:
     """Test `m.to_ptinterval`."""
 
     @pytest.fixture(scope="class")
-    def f(self) -> abc.Iterator[abc.Callable]:
+    @classmethod
+    def f(cls) -> abc.Iterator[abc.Callable]:
         yield m.to_ptinterval
 
     @pytest.fixture(scope="class")
-    def components(self) -> abc.Iterator[dict]:
+    @classmethod
+    def components(cls) -> abc.Iterator[dict]:
         """Mapping frequency to timedelta kwarg."""
         yield {
             "T": "minutes",

@@ -663,7 +663,8 @@ class TestCompositeCalendar:
     """Tests for CompositeCalendar."""
 
     @pytest.fixture(scope="class")
-    def calendar_names(self) -> abc.Iterator[tuple[list[str], ...]]:
+    @classmethod
+    def calendar_names(cls) -> abc.Iterator[tuple[list[str], ...]]:
         yield (
             ["XNYS", "XLON", "XHKG"],
             ["XLON", "XHKG", "CMES"],
@@ -671,8 +672,9 @@ class TestCompositeCalendar:
         )
 
     @pytest.fixture(scope="class")
+    @classmethod
     def composite_daterange(
-        self,
+        cls,
     ) -> abc.Iterator[tuple[tuple[pd.Timestamp, pd.Timestamp], ...]]:
         yield (
             (pd.Timestamp("2021-01-04"), pd.Timestamp("2021-12-31")),
@@ -681,8 +683,9 @@ class TestCompositeCalendar:
         )
 
     @pytest.fixture(scope="class")
+    @classmethod
     def composite_answers(
-        self, composite_daterange, calendar_names
+        cls, composite_daterange, calendar_names
     ) -> abc.Iterator[list[CompositeAnswers]]:
         yield [
             CompositeAnswers(names, "left", *composite_daterange[i])
@@ -690,8 +693,9 @@ class TestCompositeCalendar:
         ]
 
     @pytest.fixture(scope="class")
+    @classmethod
     def calendar_groups(
-        self, composite_daterange, calendar_names
+        cls, composite_daterange, calendar_names
     ) -> abc.Iterator[list[list[xcals.ExchangeCalendar]]]:
         calendar_groups = []
         for i, names in enumerate(calendar_names):
@@ -703,15 +707,17 @@ class TestCompositeCalendar:
         yield calendar_groups
 
     @pytest.fixture(scope="class")
+    @classmethod
     def composite_calendars(
-        self, calendar_groups
+        cls, calendar_groups
     ) -> abc.Iterator[list[m.CompositeCalendar]]:
         comp_cals = [m.CompositeCalendar(calendars) for calendars in calendar_groups]
         yield comp_cals
 
     @pytest.fixture(scope="class", params=(1, 2))
+    @classmethod
     def composite_calendars_with_answers(
-        self,
+        cls,
         request,
         composite_calendars,
         composite_answers,
@@ -1068,31 +1074,38 @@ class TestCCTradingIndex:
     """Tests for CompositeCalendar.trading_index."""
 
     @pytest.fixture(scope="class")
-    def cal_start(self) -> abc.Iterator[pd.Timestamp]:
+    @classmethod
+    def cal_start(cls) -> abc.Iterator[pd.Timestamp]:
         yield T("2021")
 
     @pytest.fixture(scope="class")
-    def cal_end(self) -> abc.Iterator[pd.Timestamp]:
+    @classmethod
+    def cal_end(cls) -> abc.Iterator[pd.Timestamp]:
         yield T("2022")
 
     @pytest.fixture(scope="class")
-    def side(self) -> abc.Iterator[str]:
+    @classmethod
+    def side(cls) -> abc.Iterator[str]:
         yield "left"
 
     @pytest.fixture(scope="class")
-    def xlon(self, cal_start, cal_end, side) -> abc.Iterator[xcals.ExchangeCalendar]:
+    @classmethod
+    def xlon(cls, cal_start, cal_end, side) -> abc.Iterator[xcals.ExchangeCalendar]:
         yield xcals.get_calendar("XLON", cal_start, cal_end, side)
 
     @pytest.fixture(scope="class")
-    def xnys(self, cal_start, cal_end, side) -> abc.Iterator[xcals.ExchangeCalendar]:
+    @classmethod
+    def xnys(cls, cal_start, cal_end, side) -> abc.Iterator[xcals.ExchangeCalendar]:
         yield xcals.get_calendar("XNYS", cal_start, cal_end, side)
 
     @pytest.fixture(scope="class")
-    def xhkg(self, cal_start, cal_end, side) -> abc.Iterator[xcals.ExchangeCalendar]:
+    @classmethod
+    def xhkg(cls, cal_start, cal_end, side) -> abc.Iterator[xcals.ExchangeCalendar]:
         yield xcals.get_calendar("XHKG", cal_start, cal_end, side)
 
     @pytest.fixture(scope="class")
-    def bvmf(self, cal_start, cal_end, side) -> abc.Iterator[xcals.ExchangeCalendar]:
+    @classmethod
+    def bvmf(cls, cal_start, cal_end, side) -> abc.Iterator[xcals.ExchangeCalendar]:
         yield xcals.get_calendar("BVMF", cal_start, cal_end, side)
 
     @pytest.fixture
