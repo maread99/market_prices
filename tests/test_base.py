@@ -761,8 +761,8 @@ class TestSubClasses:
             PricesYahoo,
         ],
     )
-    @classmethod
-    def subclasses(cls, request) -> abc.Iterator[type[m.PricesBase]]:
+    @staticmethod
+    def subclasses(request) -> abc.Iterator[type[m.PricesBase]]:
         """Parameterized fixture of subclasses of PricesBase."""
         yield request.param
 

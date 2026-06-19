@@ -164,18 +164,18 @@ class TestParseStartEnd:
         yield f, answers
 
     @pytest.fixture(scope="class")
-    @classmethod
-    def delays(cls) -> abc.Iterator[tuple[pd.Timedelta, pd.Timedelta]]:
+    @staticmethod
+    def delays() -> abc.Iterator[tuple[pd.Timedelta, pd.Timedelta]]:
         yield pd.Timedelta(0), pd.Timedelta(15, "min")
 
     @pytest.fixture(scope="class")
-    @classmethod
-    def as_times(cls) -> abc.Iterator[typing.Literal[True]]:
+    @staticmethod
+    def as_times() -> abc.Iterator[typing.Literal[True]]:
         yield True
 
     @pytest.fixture(scope="class", autouse=True)
-    @classmethod
-    def as_dates(cls) -> abc.Iterator[typing.Literal[False]]:
+    @staticmethod
+    def as_dates() -> abc.Iterator[typing.Literal[False]]:
         yield False
 
     def test_start_end_as_session(self, f_with_ans, today, as_times, as_dates):

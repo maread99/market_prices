@@ -345,10 +345,8 @@ class TestRanges:
     """Tests requested ranges are updated as expected."""
 
     @pytest.fixture(scope="class")
-    @classmethod
-    def session_ends(
-        cls, xlon_calendar
-    ) -> abc.Iterator[tuple[pd.Timestamp, pd.Timestamp]]:
+    @staticmethod
+    def session_ends(xlon_calendar) -> abc.Iterator[tuple[pd.Timestamp, pd.Timestamp]]:
         cal = xlon_calendar
         end_session = cal.session_offset(cal.last_session, -5)
         start_date = end_session - pd.DateOffset(weeks=4)
@@ -356,9 +354,9 @@ class TestRanges:
         yield start_session, end_session
 
     @pytest.fixture(scope="class")
-    @classmethod
+    @staticmethod
     def limits(
-        cls, xlon_calendar, session_ends
+        xlon_calendar, session_ends
     ) -> abc.Iterator[tuple[pd.Timestamp, pd.Timestamp]]:
         cal = xlon_calendar
         left_limit = cal.session_open(session_ends[0])
@@ -366,9 +364,9 @@ class TestRanges:
         yield left_limit, right_limit
 
     @pytest.fixture(scope="class")
-    @classmethod
+    @staticmethod
     def rngs(
-        cls, xlon_calendar, session_ends
+        xlon_calendar, session_ends
     ) -> abc.Iterator[
         list[
             tuple[tuple[pd.Timestamp, pd.Timestamp], tuple[pd.Timestamp, pd.Timestamp]]
@@ -402,45 +400,43 @@ class TestRanges:
         yield rngs
 
     @pytest.fixture(scope="class", params=range(3))
-    @classmethod
+    @staticmethod
     def rngs_parameterized(
-        cls, request, rngs
+        request, rngs
     ) -> abc.Iterator[
         tuple[tuple[pd.Timestamp, pd.Timestamp], tuple[pd.Timestamp, pd.Timestamp]]
     ]:
         yield rngs[request.param]
 
     @pytest.fixture(scope="class")
-    @classmethod
-    def cc(cls, xlon_calendar) -> abc.Iterator[calutils.CompositeCalendar]:
+    @staticmethod
+    def cc(xlon_calendar) -> abc.Iterator[calutils.CompositeCalendar]:
         yield calutils.CompositeCalendar([xlon_calendar])
 
     @pytest.fixture(scope="class")
-    @classmethod
-    def bis(cls) -> abc.Iterator[list[TDInterval]]:
+    @staticmethod
+    def bis() -> abc.Iterator[list[TDInterval]]:
         yield [TDInterval.T1, TDInterval.H1, TDInterval.D1]
 
     @pytest.fixture(scope="class", params=range(3))
-    @classmethod
-    def bis_parameterized(cls, request, bis) -> abc.Iterator[TDInterval]:
+    @staticmethod
+    def bis_parameterized(request, bis) -> abc.Iterator[TDInterval]:
         yield bis[request.param]
 
     @pytest.fixture(scope="class")
-    @classmethod
-    def bis_intraday(cls) -> abc.Iterator[list[TDInterval]]:
+    @staticmethod
+    def bis_intraday() -> abc.Iterator[list[TDInterval]]:
         yield [TDInterval.T1, TDInterval.H1]
 
     @pytest.fixture(scope="class", params=range(2))
-    @classmethod
-    def bis_intraday_parameterized(
-        cls, request, bis_intraday
-    ) -> abc.Iterator[TDInterval]:
+    @staticmethod
+    def bis_intraday_parameterized(request, bis_intraday) -> abc.Iterator[TDInterval]:
         yield bis_intraday[request.param]
 
     @pytest.fixture(scope="class")
-    @classmethod
+    @staticmethod
     def dfs(
-        cls, mr_admin, limits, session_ends, bis
+        mr_admin, limits, session_ends, bis
     ) -> abc.Iterator[dict[TDInterval, pd.DataFrame]]:
         """DataFrames representing all data that could be requeseted, by bi."""
         mock_request = mr_admin.mock_request_data()
@@ -475,8 +471,8 @@ class TestRanges:
         assert_single_daterange(data, dr, *bounds, mr_admin, df)
 
     @pytest.fixture(scope="class")
-    @classmethod
-    def thirty_mins(cls) -> abc.Iterator[pd.Timedelta]:
+    @staticmethod
+    def thirty_mins() -> abc.Iterator[pd.Timedelta]:
         yield pd.Timedelta(30, "min")
 
     def test_extending_requested_range(

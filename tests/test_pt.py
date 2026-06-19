@@ -391,28 +391,28 @@ class TestPriceTables:
     """
 
     @pytest.fixture(scope="class")
-    @classmethod
-    def session_utc(cls) -> abc.Iterator[pd.Timestamp]:
+    @staticmethod
+    def session_utc() -> abc.Iterator[pd.Timestamp]:
         yield pd.Timestamp("2021-11-02", tz=UTC)
 
     @pytest.fixture(scope="class")
-    @classmethod
-    def session_naive(cls, session_utc) -> abc.Iterator[pd.Timestamp]:
+    @staticmethod
+    def session_naive(session_utc) -> abc.Iterator[pd.Timestamp]:
         yield session_utc.tz_convert(None)
 
     @pytest.fixture(scope="class", autouse=True)
-    @classmethod
-    def minute_utc(cls) -> abc.Iterator[pd.Timestamp]:
+    @staticmethod
+    def minute_utc() -> abc.Iterator[pd.Timestamp]:
         yield pd.Timestamp("2021-12-21 15:31", tz=UTC)
 
     @pytest.fixture(scope="class", autouse=True)
-    @classmethod
-    def minute_naive(cls, minute_utc) -> abc.Iterator[pd.Timestamp]:
+    @staticmethod
+    def minute_naive(minute_utc) -> abc.Iterator[pd.Timestamp]:
         yield minute_utc.tz_convert(None)
 
     @pytest.fixture(scope="class", autouse=True)
-    @classmethod
-    def minute_default_tz(cls, minute_utc, tz_default) -> abc.Iterator[pd.Timestamp]:
+    @staticmethod
+    def minute_default_tz(minute_utc, tz_default) -> abc.Iterator[pd.Timestamp]:
         yield minute_utc.tz_convert(tz_default)
 
     def assert_interval_index_tz(self, df: pd.DataFrame, tz: ZoneInfo | None):
@@ -1417,8 +1417,8 @@ class TestCloseAt:
     """Tests for `close_at` and `session_prices`."""
 
     @pytest.fixture(scope="class")
-    @classmethod
-    def session(cls) -> abc.Iterator[pd.Timestamp]:
+    @staticmethod
+    def session() -> abc.Iterator[pd.Timestamp]:
         yield pd.Timestamp("2021-12-21 00:00")
 
     @pytest.fixture
@@ -2233,37 +2233,37 @@ class TestDownsampleIntraday:
     """Dedicated tests for `PTIntraday.downsample`."""
 
     @pytest.fixture(scope="class")
-    @classmethod
-    def cc(cls, xlon, xnys) -> abc.Iterator[calutils.CompositeCalendar]:
+    @staticmethod
+    def cc(xlon, xnys) -> abc.Iterator[calutils.CompositeCalendar]:
         yield calutils.CompositeCalendar([xlon, xnys])
 
     @pytest.fixture(scope="class")
-    @classmethod
-    def session(cls, calendars) -> abc.Iterator[pd.Timestamp]:
+    @staticmethod
+    def session(calendars) -> abc.Iterator[pd.Timestamp]:
         session_ = pd.Timestamp("2021-12-21")
         for cal in calendars:
             assert cal.is_session(session_)
         yield session_
 
     @pytest.fixture(scope="class")
-    @classmethod
-    def prev_session(cls, calendars) -> abc.Iterator[pd.Timestamp]:
+    @staticmethod
+    def prev_session(calendars) -> abc.Iterator[pd.Timestamp]:
         session = pd.Timestamp("2021-12-20")
         for cal in calendars:
             assert cal.is_session(session)
         yield session
 
     @pytest.fixture(scope="class")
-    @classmethod
-    def next_session(cls, calendars) -> abc.Iterator[pd.Timestamp]:
+    @staticmethod
+    def next_session(calendars) -> abc.Iterator[pd.Timestamp]:
         session = pd.Timestamp("2021-12-22")
         for cal in calendars:
             assert cal.is_session(session)
         yield session
 
     @pytest.fixture(scope="class")
-    @classmethod
-    def df_test_base_symbols(cls) -> abc.Iterator[list[str]]:
+    @staticmethod
+    def df_test_base_symbols() -> abc.Iterator[list[str]]:
         yield ["MSFT", "AZN.L"]
 
     @pytest.fixture
@@ -2271,18 +2271,18 @@ class TestDownsampleIntraday:
         yield intraday_pt[df_test_base_symbols].dropna(how="all")
 
     @pytest.fixture(scope="class")
-    @classmethod
-    def xlon_open(cls, xlon, session) -> abc.Iterator[pd.Timestamp]:
+    @staticmethod
+    def xlon_open(xlon, session) -> abc.Iterator[pd.Timestamp]:
         yield xlon.session_open(session)
 
     @pytest.fixture(scope="class")
-    @classmethod
-    def xnys_open(cls, xnys, session) -> abc.Iterator[pd.Timestamp]:
+    @staticmethod
+    def xnys_open(xnys, session) -> abc.Iterator[pd.Timestamp]:
         yield xnys.session_open(session)
 
     @pytest.fixture(scope="class")
-    @classmethod
-    def xnys_close(cls, xnys, session) -> abc.Iterator[pd.Timestamp]:
+    @staticmethod
+    def xnys_close(xnys, session) -> abc.Iterator[pd.Timestamp]:
         yield xnys.session_close(session)
 
     def test_errors(self, intraday_pt, composite_intraday_pt, one_min, pandas_pre_22):
@@ -2974,8 +2974,8 @@ class TestPTIntraday:
     """Verifies methods and properties specific to `PTIntraday` class."""
 
     @pytest.fixture(scope="class")
-    @classmethod
-    def cc(cls, calendars) -> abc.Iterator[calutils.CompositeCalendar]:
+    @staticmethod
+    def cc(calendars) -> abc.Iterator[calutils.CompositeCalendar]:
         """Composite calendar for `calendars`.
 
         Composite calendar verified as not overlapping
@@ -2985,9 +2985,9 @@ class TestPTIntraday:
         yield cc
 
     @pytest.fixture(scope="class")
-    @classmethod
+    @staticmethod
     def cc_overlapping(
-        cls, calendars_overlapping
+        calendars_overlapping,
     ) -> abc.Iterator[calutils.CompositeCalendar]:
         """Composite calendar for `calendars_overlapping`."""
         cc = calutils.CompositeCalendar(calendars_overlapping)
