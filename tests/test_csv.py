@@ -705,8 +705,16 @@ def test_consolidated_warning(csv_dir, symbols, calendars):
     )
     with pytest.warns(m.PricesCsvParsingConsolidatedWarning, match=match) as warning_:
         m.PricesCsv(csv_dir, symbols, calendars)
-    assert len(warning_) == 1
-    warning = str(warning_[0].message)
+    # filter to the package's own warning as unrelated third-party warnings
+    # (e.g. a numpy deprecation raised from within exchange_calendars) can
+    # also be recorded.
+    consolidated = [
+        w
+        for w in warning_
+        if issubclass(w.category, m.PricesCsvParsingConsolidatedWarning)
+    ]
+    assert len(consolidated) == 1
+    warning = str(consolidated[0].message)
 
     match = re.escape(
         "Price data has been found for all symbols at a least one interval, however,"
@@ -721,8 +729,13 @@ def test_consolidated_warning(csv_dir, symbols, calendars):
     )
     with pytest.warns(m.PricesCsvParsingConsolidatedWarning, match=match) as warning_v_:
         m.PricesCsv(csv_dir, symbols, calendars, verbose=True)
-    assert len(warning_v_) == 1
-    warning_v = str(warning_v_[0].message)
+    consolidated_v = [
+        w
+        for w in warning_v_
+        if issubclass(w.category, m.PricesCsvParsingConsolidatedWarning)
+    ]
+    assert len(consolidated_v) == 1
+    warning_v = str(consolidated_v[0].message)
 
     # can't match full string as will include local paths wtihin the traceback.
     assert len(warning_v) > len(warning)  # verbose warning should be longer
