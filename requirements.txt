@@ -6,9 +6,9 @@ certifi==2026.6.17
     # via
     #   curl-cffi
     #   requests
-cffi==2.0.0
+cffi==2.1.0
     # via curl-cffi
-charset-normalizer==3.4.7
+charset-normalizer==3.4.9
     # via requests
 colorama==0.4.6 ; sys_platform == 'win32'
     # via tqdm
@@ -31,7 +31,12 @@ numpy==2.2.6 ; python_full_version < '3.11'
     #   exchange-calendars
     #   market-prices
     #   pandas
-numpy==2.4.6 ; python_full_version >= '3.11'
+numpy==2.4.6 ; python_full_version == '3.11.*'
+    # via
+    #   exchange-calendars
+    #   market-prices
+    #   pandas
+numpy==2.5.1 ; python_full_version >= '3.12'
     # via
     #   exchange-calendars
     #   market-prices
@@ -68,11 +73,11 @@ soupsieve==2.8.4
     # via beautifulsoup4
 toolz==1.1.0
     # via exchange-calendars
-tqdm==4.68.3
+tqdm==4.68.4
     # via yahooquery
-typing-extensions==4.15.0
+typing-extensions==4.16.0
     # via beautifulsoup4
-tzdata==2026.2
+tzdata==2026.3
     # via
     #   exchange-calendars
     #   market-prices
