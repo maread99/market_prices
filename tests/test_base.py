@@ -2851,7 +2851,7 @@ class TestBis:
                 self,
                 *args,
                 drg: daterange.GetterIntraday | None = None,
-                ds_interval: intervals._TDIntervalBase | None | str = "none",
+                ds_interval: intervals._TDIntervalBase | str | None = "none",
                 anchor: mptypes.Anchor = None,
                 **kwargs,
             ):
@@ -2882,7 +2882,7 @@ class TestBis:
 
                     drg_intraday: daterange.GetterIntraday | None
                     drg_intraday_no_limit: daterange.GetterIntraday | None
-                    ds_interval: intervals._TDIntervalBase | intervals.BI | None | str
+                    ds_interval: intervals._TDIntervalBase | intervals.BI | str | None
                     anchor: mptypes.Anchor | None = None
 
                     @property

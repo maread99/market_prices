@@ -50,7 +50,7 @@ CSV_READ_DTYPE_VALUE: dict[str, str] = {
 # IDENTIFY CSV FILES
 
 
-def _get_csv_interval(s: str) -> TDInterval | None | ValueError:  # noqa: C901, PLR0911
+def _get_csv_interval(s: str) -> TDInterval | ValueError | None:  # noqa: C901, PLR0911
     """Evaluate any interval represented in part of a filename.
 
     Returns
@@ -783,8 +783,8 @@ def _get_limits_from_parsed(
     lls: dict[TDInterval, pd.Timestamp] = {}
     rls: dict[TDInterval, pd.Timestamp] = {}
     for intrvl, d in parsed.items():
-        ll: None | pd.Timestamp = None
-        rl: None | pd.Timestamp = None
+        ll: pd.Timestamp | None = None
+        rl: pd.Timestamp | None = None
         for df in d.values():
             ll_, rl_ = df.index[0], df.index[-1]
             if intrvl.is_intraday:
