@@ -372,7 +372,7 @@ class PricesYahoo(base.PricesBase):
         if delays is None or (isinstance(delays, dict) and len(delays) < len(symbols)):
             delays = self._ascertain_delays(delays)
 
-        self._cache_vol_bug_adj_start: None | tuple[pd.Timestamp, pd.Timestamp] = None
+        self._cache_vol_bug_adj_start: tuple[pd.Timestamp, pd.Timestamp] | None = None
         self._set_daily_bi_limit()
         self._adj_close = adj_close
         super().__init__(symbols, calendars, lead_symbol, delays)

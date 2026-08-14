@@ -76,6 +76,8 @@ ignore = [
     "TD003",  # missing-todo-issue
     "FIX002",  # line-contains-todo.  Ignore here to pass CI tests.
     "PLR0913",  # too-many-arguments
+    "PLR0917",  # too-many-positional-arguments
+    "CPY001",  # missing-copyright-notice
     # Package-specific wilful ignores...
     "C408",  # unnecessary-collection-call.  Ignore as prefer dict() when defining kwargs, particularly in tests.
     "B019",  # cached-instance-method.  Happy to use functools.cache and functools.lru_cache
