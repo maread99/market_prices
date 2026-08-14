@@ -13,16 +13,12 @@ Your name is Claude. Anywhere in the context that asks you to use your 'name' or
 ## Editing files with pre-granted permissions
 
 `.claude/settings.json` pre-grants `Edit(...)` permission for a specific set of
-files (e.g. `.pre-commit-config.yaml`, the `.github/workflows/*.yml` files and
-`.github/release-drafter.yml`). This permission applies **only** to the built-in
-`Edit` tool — it does not extend to the `Bash` tool. Editing one of these files
-via a shell command (`sed`, `awk`, redirection, etc.) is a `Bash(...)` action for
-which no permission is granted, so it triggers a permission prompt.
+files (e.g. `.pre-commit-config.yaml` and github workflows/*.yml` files). These
+permissions only apply to the built-in`Edit` tool — they do not extend to the
+`Bash` tool.
 
 Some routines (e.g. the `dependencies-management` routine) are configured to run
-automatically and unattended, where a permission prompt would stall the run.
-Therefore, when modifying any file covered by the `Edit(...)` permissions in
-`.claude/settings.json`, **always use the `Edit` tool** (not `Bash`/`sed`/etc.)
-so the pre-granted permission applies and no prompt is raised. This is a
-preference for editing those specific files without interruption; it does not
-mean permission prompts should be avoided for other files or actions.
+automatically and unattended and in these cases a permission prompt would stall
+the run. Therefore, when modifying any file covered by the `Edit(...)` permissions in
+`.claude/settings.json`, **always use the `Edit` tool** (not `Bash`/`sed`/etc.) so
+that the pre-granted permission applies and no prompt is raised.
