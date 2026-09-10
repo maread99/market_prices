@@ -20,7 +20,7 @@ be subsequently coerced to a specific type. For example, the following 'start' p
 start: Annotated[
     Union[pd.Timestamp, str, datetime.datetime, int, float, None],
     Coerce(pd.Timestamp),
-] = (None,)
+] = None,
 ```
 
 (NB The type annotation is wrapped in `typing.Annotated` and the `valimp.Coerce` instance is passed to the annotated metadata.)
@@ -34,7 +34,7 @@ session: Annotated[
     Union[pd.Timestamp, str, datetime.datetime, int, float, None],
     Coerce(pd.Timestamp),
     Parser(parsing.verify_datetimestamp, parse_none=False),
-] = (None,)
+] = None,
 ```
 
 In this case if the input does not represent a date then `parsing.verify_datetimestamp` will raise an appropriate error (the parsing functions' documentation offer advices as to what's required for an input to be considered valid).
