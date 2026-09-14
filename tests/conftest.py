@@ -158,17 +158,9 @@ def pytest_configure():
     `exchange_calendars` evaluates `GLOBAL_DEFAULT_START` against the real
     clock as the module is imported, which is before the `mock_now` fixture
     can take effect. Setting it here, from the same timestamp that `mock_now`
-    mocks, provides for calendars that are constructed without an explicit
-    start having the same first session regardless of the date on which the
+    mocks, provides for calendars (that are constructed without an explicit
+    start) having the same first session regardless of the date on which the
     tests are run.
-
-    `GLOBAL_DEFAULT_END` is left as evaluated against the real clock - tests
-    that do not mock 'now' require calendars that are valid through to the
-    current date.
-
-    NOTE: `ExchangeCalendar.default_start` looks up the module attribute as a
-    calendar is constructed, such that setting it after `exchange_calendars`
-    has been imported is effective.
     """
     now = _now_utc.tz_convert(None).floor("D")
     xcals.exchange_calendar.GLOBAL_DEFAULT_START = now - pd.DateOffset(years=20)

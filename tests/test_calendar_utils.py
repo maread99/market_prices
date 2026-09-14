@@ -267,23 +267,14 @@ def test_subsession_length(calendars_with_answers, strict_all, to_break_all):
 
 
 class CompositeAnswers:
-    """Answers for CompositeCalendar methods.
-
-    Notes
-    -----
-    Answers are sourced from the `exchange_calendars` repository at the tag
-    corresponding with the installed version of that package, such that the
-    expected values correspond with the calendars against which they are
-    evaluated. Answers are sourced from the `master` branch if there is no
-    such tag, as is the case if `exchange_calendars` is installed from a
-    non-release checkout (when the version carries a `setuptools_scm` dev
-    suffix).
-    """
+    """Answers for CompositeCalendar methods."""
 
     ANSWERS_BASE_PATH = (
         "https://raw.github.com/gerrymanoim/exchange_calendars/"
         f"{xcals.__version__}/tests/resources/"
     )
+    # fallback if no tag reflects installed version, for example if have a
+    # non-release version of `exchange-calendars` checked out
     ANSWERS_BASE_PATH_FALLBACK = (
         "https://raw.github.com/gerrymanoim/exchange_calendars/master/tests/resources/"
     )
