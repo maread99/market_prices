@@ -13,8 +13,6 @@
 - a fixture that returns a class is named in CapWords, as a class is; every other fixture is named in snake_case.
 
 ## Creating Test Datasets
-- datasets should be assigned to global constants in order to facilitate external access. Tests should not access these constants directly but rather use them via fixtures which should in turn return a COPY of the constants. Note that this rule does not apply to small datasets of less than 10 rows which can be reasonably interpreted from inspection of the raw data.
-- datasets shared by more than one test module are defined in a dedicated module of the test directory and exposed via fixtures in that directory's `conftest.py`. A test module must NEVER import from another test module.
 - define test data to include values at the limits of where the output of tested functions/methods changes.
 
 ## Writing tests
