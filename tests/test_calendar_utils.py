@@ -10,6 +10,7 @@ import functools
 import itertools
 import re
 import typing
+import urllib.error
 from collections import abc
 
 import exchange_calendars as xcals
@@ -273,12 +274,18 @@ class CompositeAnswers:
     Answers are sourced from the `exchange_calendars` repository at the tag
     corresponding with the installed version of that package, such that the
     expected values correspond with the calendars against which they are
-    evaluated.
+    evaluated. Answers are sourced from the `master` branch if there is no
+    such tag, as is the case if `exchange_calendars` is installed from a
+    non-release checkout (when the version carries a `setuptools_scm` dev
+    suffix).
     """
 
     ANSWERS_BASE_PATH = (
         "https://raw.github.com/gerrymanoim/exchange_calendars/"
         f"{xcals.__version__}/tests/resources/"
+    )
+    ANSWERS_BASE_PATH_FALLBACK = (
+        "https://raw.github.com/gerrymanoim/exchange_calendars/master/tests/resources/"
     )
 
     LEFT_SIDES = ["left", "both"]
@@ -306,11 +313,11 @@ class CompositeAnswers:
         """Get resources .csv file for given calendar `name`."""
         filename = name.replace("/", "-").lower() + ".csv"
 
-        df = pd.read_csv(
-            self.ANSWERS_BASE_PATH + filename,
-            index_col=0,
-            parse_dates=[0, 1, 2, 3, 4],
-        )
+        kwargs = dict(index_col=0, parse_dates=[0, 1, 2, 3, 4])
+        try:
+            df = pd.read_csv(self.ANSWERS_BASE_PATH + filename, **kwargs)
+        except urllib.error.HTTPError:
+            df = pd.read_csv(self.ANSWERS_BASE_PATH_FALLBACK + filename, **kwargs)
         # Necessary for csv saved prior to xcals v4.0
         if df.index.tz is not None:
             df.index = df.index.tz_convert(None)
