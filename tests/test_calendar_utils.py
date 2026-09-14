@@ -266,10 +266,19 @@ def test_subsession_length(calendars_with_answers, strict_all, to_break_all):
 
 
 class CompositeAnswers:
-    """Answers for CompositeCalendar methods."""
+    """Answers for CompositeCalendar methods.
+
+    Notes
+    -----
+    Answers are sourced from the `exchange_calendars` repository at the tag
+    corresponding with the installed version of that package, such that the
+    expected values correspond with the calendars against which they are
+    evaluated.
+    """
 
     ANSWERS_BASE_PATH = (
-        "https://raw.github.com/gerrymanoim/exchange_calendars/master/tests/resources/"
+        "https://raw.github.com/gerrymanoim/exchange_calendars/"
+        f"{xcals.__version__}/tests/resources/"
     )
 
     LEFT_SIDES = ["left", "both"]
