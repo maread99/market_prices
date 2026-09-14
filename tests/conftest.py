@@ -181,15 +181,8 @@ def today(now) -> abc.Iterator[pd.Timestamp]:
 def calendar_start(today) -> abc.Iterator[pd.Timestamp]:
     """Start date for any calendar created by a fixture of this module.
 
-    Fifteen years of sessions provides for those tests that evaluate
-    against a session at a fixed offset from a calendar's first session.
-    `test_daterange_add_a_row_errors` requires the most of these - it takes
-    the earliest session for which prices are available as the 1500th
-    session and evaluates a period that starts one day after the start of
-    the first `DOInterval` that can be covered. That session accordingly
-    has to fall at least 72 months before `now` for the longest
-    `DOInterval` (M36) to be covered. A window of 13 years is the shortest
-    that provides for this (over all the calendars of `_calendar_names`).
+    13 years is the minimum window required by any test. Set to 15 years
+    to give a margin.
     """
     yield today - pd.DateOffset(years=15)
 

@@ -1,16 +1,4 @@
-"""Tests for market_prices.support.tutorial_helpers module.
-
-Calendars are created with the `exchange_calendars` default bounds, which
-are evaluated against the real clock such that the first session advances
-a day per day. The prices against which the tests evaluate are fixed to
-late 2021, the earliest minute for which intraday prices are available to
-`PricesMock` being '2021-11-17 14:29'.
-
-These tests will accordingly expire on 17 November 2041, from when the
-default calendar start (20 years before 'today') falls later than
-'2021-11-16' and the XNYS calendar no longer covers that minute, such
-that `PricesBase` raises `CalendarTooShortError`.
-"""
+"""Tests for market_prices.support.tutorial_helpers module."""
 
 import re
 from collections import abc
