@@ -151,12 +151,6 @@ def one_sec() -> abc.Iterator[pd.Timedelta]:
 
 _now_utc = pd.Timestamp("2021-11-17 21:59", tz=UTC)
 
-# Start date for every calendar created by a fixture of this module. Fifteen
-# years provides for the tests that evaluate against a session at a fixed
-# offset from a calendar's first session (for example a test that takes the
-# earliest session for which prices are available as the 1500th session).
-_calendar_start = _now_utc.tz_convert(None).floor("D") - pd.DateOffset(years=15)
-
 
 @pytest.fixture(scope="session")
 def now_utc() -> abc.Iterator[pd.Timestamp]:
@@ -184,9 +178,20 @@ def today(now) -> abc.Iterator[pd.Timestamp]:
 
 
 @pytest.fixture(scope="session")
-def calendar_start() -> abc.Iterator[pd.Timestamp]:
-    """Start date for any calendar created by a fixture of this module."""
-    yield _calendar_start
+def calendar_start(today) -> abc.Iterator[pd.Timestamp]:
+    """Start date for any calendar created by a fixture of this module.
+
+    Fifteen years of sessions provides for those tests that evaluate
+    against a session at a fixed offset from a calendar's first session.
+    `test_daterange_add_a_row_errors` requires the most of these - it takes
+    the earliest session for which prices are available as the 1500th
+    session and evaluates a period that starts one day after the start of
+    the first `DOInterval` that can be covered. That session accordingly
+    has to fall at least 72 months before `now` for the longest
+    `DOInterval` (M36) to be covered. A window of 13 years is the shortest
+    that provides for this (over all the calendars of `_calendar_names`).
+    """
+    yield today - pd.DateOffset(years=15)
 
 
 @pytest.fixture(scope="class")

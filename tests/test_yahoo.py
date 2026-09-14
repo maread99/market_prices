@@ -19,17 +19,11 @@ from market_prices.helpers import UTC
 from market_prices.support import tutorial_helpers as th
 from market_prices.utils import calendar_utils as calutils
 
-from . import conftest
 from .test_base_prices import (
     assertions_daily,
     assertions_intraday,
     assertions_intraday_common,
 )
-
-# Calendars are created with an explicit start so that the number of sessions
-# does not grow with the passing of time. The end is left to the `xcals`
-# default as tests of this module evaluate against the real clock.
-_calendar_start = conftest._calendar_start
 
 # NOTE See ../docs/developers/testing.md...
 # ...sessions that yahoo temporarily fails to return prices for if (seemingly)
@@ -150,9 +144,7 @@ class skip_if_fails_and_today_flakylisted:  # noqa: N801
         cal_names: list[str],
         exceptions: list[type[Exception]] | None = None,
     ):
-        self.cals = [
-            xcals.get_calendar(name, start=_calendar_start) for name in cal_names
-        ]
+        self.cals = [xcals.get_calendar(name) for name in cal_names]
 
         permitted_exceptions = [errors.PricesUnavailableFromSourceError]
         if exceptions is not None:
@@ -187,7 +179,7 @@ class skip_if_prices_unavailable_for_flakylisted_session:  # noqa: N801
     """
 
     def __init__(self, cal_names: list[str]):
-        cals = [xcals.get_calendar(name, start=_calendar_start) for name in cal_names]
+        cals = [xcals.get_calendar(name) for name in cal_names]
         self.cc = calutils.CompositeCalendar(cals)
 
     def _flaky_sessions(
