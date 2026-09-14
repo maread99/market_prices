@@ -157,6 +157,7 @@ pre-commit install
 - shared fixtures are in @tests/conftest.py
 - tests are in @tests/
 - doctests are included to some methods/functions
+- create calendars with explicit bounds, i.e. always pass `start` (and, where applicable, `end`) to `exchange_calendars.get_calendar`. This keeps the number of sessions, and hence the time taken to create a calendar, independent of the date on which the tests are run (`exchange_calendars` otherwise evaluates its default bounds against the real clock as it is imported). Where 'now' is mocked, define the bounds from the mocked 'now', otherwise define a fixed `start` and leave the `end` to the `exchange_calendars` default.
 
 Commands to run tests:
 ```bash

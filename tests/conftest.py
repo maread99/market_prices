@@ -151,19 +151,11 @@ def one_sec() -> abc.Iterator[pd.Timedelta]:
 
 _now_utc = pd.Timestamp("2021-11-17 21:59", tz=UTC)
 
-
-def pytest_configure():
-    """Set the `exchange_calendars` default calendar start from the mocked 'now'.
-
-    `exchange_calendars` evaluates `GLOBAL_DEFAULT_START` against the real
-    clock as the module is imported, which is before the `mock_now` fixture
-    can take effect. Setting it here, from the same timestamp that `mock_now`
-    mocks, provides for calendars (that are constructed without an explicit
-    start) having the same first session regardless of the date on which the
-    tests are run.
-    """
-    now = _now_utc.tz_convert(None).floor("D")
-    xcals.exchange_calendar.GLOBAL_DEFAULT_START = now - pd.DateOffset(years=20)
+# Start date for every calendar created by a fixture of this module. Fifteen
+# years provides for the tests that evaluate against a session at a fixed
+# offset from a calendar's first session (for example a test that takes the
+# earliest session for which prices are available as the 1500th session).
+_calendar_start = _now_utc.tz_convert(None).floor("D") - pd.DateOffset(years=15)
 
 
 @pytest.fixture(scope="session")
@@ -189,6 +181,12 @@ def now(now_utc) -> abc.Iterator[pd.Timestamp]:
 def today(now) -> abc.Iterator[pd.Timestamp]:
     """Timestamp representing 'today' according to `now` fixture."""
     yield now.floor("D")
+
+
+@pytest.fixture(scope="session")
+def calendar_start() -> abc.Iterator[pd.Timestamp]:
+    """Start date for any calendar created by a fixture of this module."""
+    yield _calendar_start
 
 
 @pytest.fixture(scope="class")
@@ -219,7 +217,9 @@ _calendar_names = ["24/7", "XHKG", "CMES", "XLON"]
 
 
 @pytest.fixture(scope="class", params=_calendar_names)
-def calendars(request, today, side, mock_now) -> abc.Iterator[xcals.ExchangeCalendar]:
+def calendars(
+    request, calendar_start, today, side, mock_now
+) -> abc.Iterator[xcals.ExchangeCalendar]:
     """Four calendars of distinct behaviour.
 
     XLON - standard (no breaks, has gaps between sessions and has holidays)
@@ -227,7 +227,7 @@ def calendars(request, today, side, mock_now) -> abc.Iterator[xcals.ExchangeCale
     XHKG - has breaks
     CMES - 24h with gaps at weekends
     """
-    yield xcals.get_calendar(request.param, side=side, end=today)
+    yield xcals.get_calendar(request.param, calendar_start, today, side)
 
 
 @pytest.fixture(scope="class")
@@ -249,10 +249,10 @@ def calendar_end_extended(today, one_day) -> abc.Iterator[pd.Timestamp]:
 
 @pytest.fixture(scope="class", params=_calendar_names)
 def calendars_extended(
-    request, calendar_end_extended, side, mock_now
+    request, calendar_start, calendar_end_extended, side, mock_now
 ) -> abc.Iterator[xcals.ExchangeCalendar]:
     """As `calendars` with last session one week after 'today'."""
-    yield xcals.get_calendar(request.param, side=side, end=calendar_end_extended)
+    yield xcals.get_calendar(request.param, calendar_start, calendar_end_extended, side)
 
 
 @pytest.fixture(scope="class")
@@ -265,9 +265,11 @@ def calendars_with_answers_extended(
 
 
 @pytest.fixture(scope="class")
-def xlon_calendar(today, side, mock_now) -> abc.Iterator[xcals.ExchangeCalendar]:
+def xlon_calendar(
+    calendar_start, today, side, mock_now
+) -> abc.Iterator[xcals.ExchangeCalendar]:
     """XLON calendar."""
-    yield xcals.get_calendar("XLON", side=side, end=today)
+    yield xcals.get_calendar("XLON", calendar_start, today, side)
 
 
 @pytest.fixture(scope="class")
@@ -280,16 +282,18 @@ def xlon_calendar_with_answers(
 
 @pytest.fixture(scope="class")
 def xlon_calendar_extended(
-    calendar_end_extended, side, mock_now
+    calendar_start, calendar_end_extended, side, mock_now
 ) -> abc.Iterator[xcals.ExchangeCalendar]:
     """XLON calendar with extended end."""
-    yield xcals.get_calendar("XLON", side=side, end=calendar_end_extended)
+    yield xcals.get_calendar("XLON", calendar_start, calendar_end_extended, side)
 
 
 @pytest.fixture(scope="class")
-def xhkg_calendar(today, side, mock_now) -> abc.Iterator[xcals.ExchangeCalendar]:
+def xhkg_calendar(
+    calendar_start, today, side, mock_now
+) -> abc.Iterator[xcals.ExchangeCalendar]:
     """XLON calendar."""
-    yield xcals.get_calendar("XHKG", side=side, end=today)
+    yield xcals.get_calendar("XHKG", calendar_start, today, side)
 
 
 @pytest.fixture

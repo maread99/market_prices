@@ -15,6 +15,13 @@ from market_prices.helpers import UTC
 from market_prices.prices.base import PricesBase
 from market_prices.utils import calendar_utils as calutils
 
+from . import conftest
+
+# Calendars are created with an explicit start so that the number of sessions
+# does not grow with the passing of time. The end is left to the `xcals`
+# default as tests of this module evaluate against the real clock.
+_calendar_start = conftest._calendar_start
+
 
 @pytest.fixture(scope="class")
 def side() -> abc.Iterator[str]:
@@ -23,17 +30,17 @@ def side() -> abc.Iterator[str]:
 
 @pytest.fixture(scope="class")
 def xlon(side) -> abc.Iterator[xcals.ExchangeCalendar]:
-    yield xcals.get_calendar("XLON", side=side)
+    yield xcals.get_calendar("XLON", start=_calendar_start, side=side)
 
 
 @pytest.fixture(scope="class")
 def xnys(side) -> abc.Iterator[xcals.ExchangeCalendar]:
-    yield xcals.get_calendar("XNYS", side=side)
+    yield xcals.get_calendar("XNYS", start=_calendar_start, side=side)
 
 
 @pytest.fixture(scope="class")
 def xhkg(side) -> abc.Iterator[xcals.ExchangeCalendar]:
-    yield xcals.get_calendar("XHKG", side=side)
+    yield xcals.get_calendar("XHKG", start=_calendar_start, side=side)
 
 
 @pytest.fixture
