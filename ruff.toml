@@ -31,7 +31,7 @@ exclude = [
 ]
 
 # extend-exclude = []  # Default value
-extend-exclude = ["*.ipynb", "src/market_prices/_version.py"]
+extend-exclude = ["*.ipynb", "*.md", "src/market_prices/_version.py"]
 
 # Same as Black.
 line-length = 88
