@@ -161,6 +161,7 @@ pre-commit install
 - shared fixtures are in @tests/conftest.py
 - tests are in @tests/
 - doctests are included to some methods/functions
+- create any calendar that will be evaluated against a mocked 'now' with explicit bounds defined from that mocked 'now', i.e. pass both `start` and `end` to `exchange_calendars.get_calendar`. This is necessary as `exchange_calendars` otherwise evaluates default bounds against the real clock when it is imported (i.e. before `mock_now` can take effect).
 
 Commands to run tests:
 ```bash
