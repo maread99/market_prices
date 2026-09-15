@@ -2,7 +2,7 @@
 
 All strategies return parameters that are within, or evaluate to a
 session or minute within, the following calendar bounds:
-    start: as calendar default start
+    start: as defined by `_calendar_start`
     end: as defined by `_calendar_end` which coincides with conftest.today
 
 Accordingly these strategies are NOT suitable for testing for errors raised
@@ -38,13 +38,16 @@ def noneify(value: typing.Any) -> st.SearchStrategy:
 
 
 _calendar_end = pd.Timestamp("2021-11-17")
+_calendar_start = _calendar_end - pd.DateOffset(years=10)
 _24h_calendars = ["CMES", "24/7"]
 
 
 @functools.cache
 def get_calendar(calendar_name: str, side: str = "left") -> xcals.ExchangeCalendar:
     """Get a calendar."""
-    return xcals.get_calendar(calendar_name, end=_calendar_end, side=side)
+    return xcals.get_calendar(
+        calendar_name, start=_calendar_start, end=_calendar_end, side=side
+    )
 
 
 @st.composite
