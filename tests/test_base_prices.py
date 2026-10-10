@@ -12,7 +12,7 @@ defined on `test_yahoo.py` for the convenience of using fixtures and helpers
 best defined there.
 """
 
-import datetime
+import datetime as dt
 import itertools
 import re
 from collections import abc
@@ -2806,7 +2806,7 @@ class TestGet:
         start_str = sl.strftime("%Y-%m-%d %H:%M")
         start_str2 = sl.strftime("%Y-%m-%d %H")
         start_int = pd.Timestamp(start_str).value
-        start_dt = datetime.datetime(sl.year, sl.month, sl.day, sl.hour, sl.minute)
+        start_dt = dt.datetime(sl.year, sl.month, sl.day, sl.hour, sl.minute)
 
         end = cal.session_close(session)
         end -= pd.Timedelta(30, "min")
@@ -2815,7 +2815,7 @@ class TestGet:
         end_str = el.strftime("%Y-%m-%d %H:%M")
         end_str2 = el.strftime("%Y-%m-%d %H:%M")
         end_int = pd.Timestamp(end_str).value
-        end_dt = datetime.datetime(el.year, el.month, el.day, el.hour, el.minute)
+        end_dt = dt.datetime(el.year, el.month, el.day, el.hour, el.minute)
 
         starts = (start_utc, start_local, start_str, start_str2, start_int, start_dt)
         ends = (end_utc, end_local, end_str, end_str2, end_int, end_dt)
@@ -2861,8 +2861,8 @@ class TestGet:
         assertions_daily(df, prices, start, end)
 
         # repeat for datetime.date to test that start and end can be passed as dates
-        start_ = datetime.date(2021, 12, 6)
-        end_ = datetime.date(2021, 12, 10)
+        start_ = dt.date(2021, 12, 6)
+        end_ = dt.date(2021, 12, 10)
         df_ = prices.get("1D", start_, end_)
         assert_frame_equal(df_, df)
 

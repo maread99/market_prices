@@ -10,7 +10,7 @@ Currently (Nov 2022) the yahoo API (via [yahooquery](https://yahooquery.dpguthri
 
 On incorporating a further data provider it will be necessary to review `PricesYahoo` for potential common functionality that can be refactored back to either `PricesBase` or a common intermediary subclass. Also, it will be necessary to review `PricesBase` class for functionality that was assumed common although which, given the perspective of other providers, may prove unique to Yahoo or more appropriate to include to an intermediary class.
 
-### What does a provider have to provide? 
+### What does a provider have to provide?
 `market_prices` requires that the data source provides OHLCV data (open, high, low, close, volume).
 
 A source will provide OHLCV prices at one or more interval. For example [yahooquery](https://yahooquery.dpguthrie.com/) provides for requesting historic prices at one of the following intervals:

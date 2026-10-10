@@ -5,9 +5,9 @@ repos:
     - id: check-yaml
     - id: end-of-file-fixer
     - id: trailing-whitespace
-  repo: https://github.com/astral-sh/ruff-pre-commit
+- repo: https://github.com/astral-sh/ruff-pre-commit
   # Ruff version.
-  rev: v0.16.6
+  rev: v0.17.0
   hooks:
     # Run the linter.
     - id: ruff-check
