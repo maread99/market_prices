@@ -63,7 +63,7 @@ NB Here the `force` option forced the right side of the last indice back to the 
 
 For daily data...
 ```python
->>> prices.get("1D", start="2022-02-15", months=3) 
+>>> prices.get("1D", start="2022-02-15", months=3)
 ```
 ```
 symbol            MSFT
