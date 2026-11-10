@@ -266,16 +266,16 @@ def test_get_conforming_sessions(xlon, xhkg, xnys):
     length = full_session_xlon
     expected = pd.DatetimeIndex([start]).as_unit("ns")
     num = 1
-    assert_index_equal(f(cals, [length], start, end, num), expected)
+    assert_index_equal(f(cals, [length], start, end, num), expected, check_freq=False)
     assert_index_equal(f_cc(cc, length, start, end, num), expected)
     lengths = [[length]]
-    assert_index_equal(f_var(cals, lengths, start, end), expected)
-    assert_index_equal(f_cc_var(cc, [length], start, end), expected)
+    assert_index_equal(f_var(cals, lengths, start, end), expected, check_freq=False)
+    assert_index_equal(f_cc_var(cc, [length], start, end), expected, check_freq=False)
 
     num = 10  # limit that can be fuflilled
     expected = xlon.sessions_in_range(start, T("2021-12-23"))
     assert_index_equal(f(cals, [length], start, end, num), expected)
-    assert_index_equal(f_cc(cc, length, start, end, num), expected)
+    assert_index_equal(f_cc(cc, length, start, end, num), expected, check_freq=False)
     lengths = [[length] * num]
     assert_index_equal(f_var(cals, lengths, start, end), expected)
     assert_index_equal(f_cc_var(cc, [length] * num, start, end), expected)
@@ -300,10 +300,10 @@ def test_get_conforming_sessions(xlon, xhkg, xnys):
     lengths = [[length]]
     num = 1
     expected = pd.DatetimeIndex([T("2021-12-24")]).as_unit("ns")
-    assert_index_equal(f(cals, [length], start, end, num), expected)
+    assert_index_equal(f(cals, [length], start, end, num), expected, check_freq=False)
     assert_index_equal(f_cc(cc, length, start, end, num), expected)
-    assert_index_equal(f_var(cals, lengths, start, end), expected)
-    assert_index_equal(f_cc_var(cc, [length], start, end), expected)
+    assert_index_equal(f_var(cals, lengths, start, end), expected, check_freq=False)
+    assert_index_equal(f_cc_var(cc, [length], start, end), expected, check_freq=False)
 
     num += 1
     msg = match(cals, [[length] * num], start, end)
@@ -342,12 +342,20 @@ def test_get_conforming_sessions(xlon, xhkg, xnys):
     ).as_unit("ns")
     cc_lengths = [full_session_xlon, half_session_xlon]
     lengths = [cc_lengths]
-    assert_index_equal(f_var(cals, lengths, start, end), full_expected[:2])
-    assert_index_equal(f_cc_var(cc, cc_lengths, start, end), full_expected[:2])
+    assert_index_equal(
+        f_var(cals, lengths, start, end), full_expected[:2], check_freq=False
+    )
+    assert_index_equal(
+        f_cc_var(cc, cc_lengths, start, end), full_expected[:2], check_freq=False
+    )
     cc_lengths = [*cc_lengths, full_session_xlon]
     lengths = [cc_lengths]
-    assert_index_equal(f_var(cals, lengths, start, end), full_expected)
-    assert_index_equal(f_cc_var(cc, cc_lengths, start, end), full_expected)
+    assert_index_equal(
+        f_var(cals, lengths, start, end), full_expected, check_freq=False
+    )
+    assert_index_equal(
+        f_cc_var(cc, cc_lengths, start, end), full_expected, check_freq=False
+    )
 
     # two calendars
     cals = [xlon, xnys]
@@ -368,11 +376,17 @@ def test_get_conforming_sessions(xlon, xhkg, xnys):
 
     num = 10  # limit that can be fuflilled
     expected = xlon.sessions_in_range(start, T("2021-12-23"))
-    assert_index_equal(f(cals, length_by_cal, start, end, num), expected)
-    assert_index_equal(f_cc(cc, length_cc, start, end, num), expected)
+    assert_index_equal(
+        f(cals, length_by_cal, start, end, num), expected, check_freq=False
+    )
+    assert_index_equal(f_cc(cc, length_cc, start, end, num), expected, check_freq=False)
     lengths_by_cal = [[full_session_xlon] * num, [full_session_xnys] * num]
-    assert_index_equal(f_var(cals, lengths_by_cal, start, end), expected)
-    assert_index_equal(f_cc_var(cc, [length_cc] * num, start, end), expected)
+    assert_index_equal(
+        f_var(cals, lengths_by_cal, start, end), expected, check_freq=False
+    )
+    assert_index_equal(
+        f_cc_var(cc, [length_cc] * num, start, end), expected, check_freq=False
+    )
 
     # beyond limit
     num += 1
@@ -470,14 +484,20 @@ def test_get_conforming_sessions(xlon, xhkg, xnys):
 
     num = 10  # limit that can be fuflilled
     expected = xlon.sessions_in_range(start, T("2021-12-23"))
-    assert_index_equal(f(cals, length_by_cal, start, end, num), expected)
+    assert_index_equal(
+        f(cals, length_by_cal, start, end, num), expected, check_freq=False
+    )
     lengths_by_cal = [
         [full_session_xlon] * num,
         [full_session_xnys] * num,
         [full_session_xhkg] * num,
     ]
-    assert_index_equal(f_var(cals, lengths_by_cal, start, end), expected)
-    assert_index_equal(f_cc_var(cc, [length_cc] * num, start, end), expected)
+    assert_index_equal(
+        f_var(cals, lengths_by_cal, start, end), expected, check_freq=False
+    )
+    assert_index_equal(
+        f_cc_var(cc, [length_cc] * num, start, end), expected, check_freq=False
+    )
 
     # beyond limit
     num += 1

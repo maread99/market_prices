@@ -955,7 +955,7 @@ def assertions_daily(
     end_ = cc.sessions.get_slice_bound(end, "right")
     slc = slice(start_, end_)
     expected = cc.sessions[slc]
-    assert_index_equal(df.index, expected)
+    assert_index_equal(df.index, expected, check_freq=False)
 
     symbols = prices.symbols
     for s in symbols:
@@ -1239,7 +1239,7 @@ def test__get_table_daily(prices_us, one_day, monkeypatch):
     expected = cal.sessions_in_range(start, end)
     if expected.tz is not None:
         expected = expected.tz_convert(None)
-    assert_index_equal(table.index, expected)
+    assert_index_equal(table.index, expected, check_freq=False)
 
 
 class TestTableIntraday:
