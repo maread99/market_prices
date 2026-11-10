@@ -531,9 +531,7 @@ class TestPriceTables:
         assert df.pt.has_regular_interval
 
         xnys = calendars[0]
-        assert_index_equal(
-            daily_pt_ss.pt.get_trading_index(xnys), daily_pt_ss.index, check_freq=False
-        )
+        assert_index_equal(daily_pt_ss.pt.get_trading_index(xnys), daily_pt_ss.index)
 
         for cal in calendars:
             ti = df.pt.get_trading_index(cal)
@@ -876,7 +874,7 @@ class TestIndicesTradingStatus:
                 non_trading_sessions = dates.intersection(non_sessions)
                 assert not non_trading_sessions.empty
                 assert not dates.intersection(sessions).empty
-                assert_index_equal(info[indice], non_trading_sessions, check_freq=False)
+                assert_index_equal(info[indice], non_trading_sessions)
 
             for indice in df.pt.indices_trading(cal):
                 dates = pd.date_range(indice.left, indice.right - one_day)
