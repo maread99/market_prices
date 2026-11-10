@@ -12,7 +12,7 @@ NOTE: types concerning intervals are maintained on the
 `market_prices.intervals` module.
 """
 
-import datetime
+import datetime as dt
 import enum
 from typing import TypedDict
 
@@ -82,7 +82,7 @@ tuple[0]: Range start date.
 tuple[1]: Range end date.
 """
 
-DateTimestamp = pd.Timestamp | str | datetime.datetime | int | float
+DateTimestamp = pd.Timestamp | str | dt.datetime | int | float
 """Type to annotate an input that takes a value representing a date.
 
 Used in abstract base classes to identify inputs that should be coerced to
@@ -90,7 +90,7 @@ a `pd.Timestamp` and validated as a date with
 `market_prices.parsing.to_datetimestamp`.
 """
 
-TimeTimestamp = pd.Timestamp | str | datetime.datetime | int | float
+TimeTimestamp = pd.Timestamp | str | dt.datetime | int | float
 """Type to annotate an input that takes a value representing a time.
 
 Used in abstract base classes to identify inputs that should be coerced to

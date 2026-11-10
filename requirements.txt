@@ -2,21 +2,21 @@
 #    uv export --format requirements-txt --no-emit-project --no-hashes --no-dev -o requirements.txt
 beautifulsoup4==4.15.0
     # via yahooquery
-certifi==2026.7.22
+certifi==2026.10.23
     # via
     #   curl-cffi
     #   requests
 cffi==2.1.1
     # via curl-cffi
-charset-normalizer==3.5.1
+charset-normalizer==3.5.2
     # via requests
 colorama==0.4.6 ; sys_platform == 'win32'
     # via tqdm
-curl-cffi==0.16.3
+curl-cffi==0.17.0
     # via yahooquery
 exchange-calendars==4.13.2
     # via market-prices
-idna==3.19
+idna==3.20
     # via requests
 korean-lunar-calendar==0.4.0
     # via exchange-calendars
@@ -32,7 +32,7 @@ numpy==2.4.6 ; python_full_version == '3.11.*'
     #   exchange-calendars
     #   market-prices
     #   pandas
-numpy==2.5.3 ; python_full_version >= '3.12'
+numpy==2.5.4 ; python_full_version >= '3.12'
     # via
     #   exchange-calendars
     #   market-prices
@@ -42,39 +42,46 @@ pandas==2.3.3 ; python_full_version < '3.11'
     #   exchange-calendars
     #   market-prices
     #   yahooquery
-pandas==3.0.5 ; python_full_version >= '3.11'
+pandas==3.1.1 ; python_full_version >= '3.11'
     # via
     #   exchange-calendars
     #   market-prices
     #   yahooquery
-pycparser==3.0 ; implementation_name != 'PyPy'
+pycparser==3.11 ; python_full_version < '3.11' and implementation_name != 'PyPy'
+    # via cffi
+pycparser==3.12 ; python_full_version >= '3.11' and implementation_name != 'PyPy'
     # via cffi
 pyluach==2.3.0
     # via exchange-calendars
-python-dateutil==2.9.0.post0
+python-dateutil==3.0.0 ; python_full_version < '3.11'
     # via pandas
-pytz==2026.3.post1 ; python_full_version < '3.11'
+python-dateutil==4.0.0 ; python_full_version >= '3.11'
+    # via pandas
+pytz==2026.6 ; python_full_version < '3.11'
     # via pandas
 requests==2.34.2
     # via requests-futures
 requests-futures==1.1.0
     # via yahooquery
-six==1.17.0
+six==1.17.0 ; python_full_version < '3.11'
     # via python-dateutil
-soupsieve==2.9.2
+soupsieve==2.10 ; python_full_version < '3.11.5'
     # via beautifulsoup4
-toolz==1.1.0
+soupsieve==4.0.1 ; python_full_version >= '3.11.5'
+    # via beautifulsoup4
+toolz==1.2.0
     # via exchange-calendars
-tqdm==4.70.0
+tqdm==4.70.1
     # via yahooquery
 typing-extensions==4.16.0
     # via beautifulsoup4
-tzdata==2026.3
+tzdata==2026.6
     # via
     #   exchange-calendars
     #   market-prices
     #   pandas
-urllib3==2.7.0
+    #   python-dateutil
+urllib3==2.8.0
     # via requests
 valimp==0.6
     # via market-prices
