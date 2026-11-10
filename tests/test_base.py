@@ -1576,9 +1576,14 @@ class TestPricesBaseSetup:
 
         with pytest.warns(errors.CalendarTooShortWarning) as ws:
             PricesMock(symbols, [good_cal, cal, cal2])
-        assert len(ws.list) == 2
+        too_short_warnings = [
+            w for w in ws.list if isinstance(w.message, errors.CalendarTooShortWarning)
+        ]
+        assert len(too_short_warnings) == 2
         for match in (match(cal), match(cal2)):  # noqa: B020
-            assert match in str(ws[0].message) or match in str(ws[1].message)
+            assert match in str(too_short_warnings[0].message) or match in str(
+                too_short_warnings[1].message
+            )
 
     def test_calendar_too_short_error(
         self, PricesMock, symbols, side, xnys, one_day, monkeypatch

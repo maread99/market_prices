@@ -336,21 +336,27 @@ class TestConstructorErrors:
 
     def test_init_constructor_errors(self, daily_pt, daily_pt_ss, symbol):
         """Verify raises errors defined in PT.__init__."""
-        match = (
-            "To use PricesTable accessor columns must by in dict_keys(['open',"
-            " 'high', 'low', 'close', 'volume']) although columns evaluated as "
-        )
+
+        def expected_msg(cols) -> str:
+            return (
+                "To use PricesTable accessor columns must by in dict_keys(['open',"
+                " 'high', 'low', 'close', 'volume']) although columns evaluated as"
+                f" {cols}."
+            )
+
         daily_pt_ss["extra_col"] = daily_pt_ss["open"] + 1
-        with pytest.raises(
-            KeyError, match=re.escape(match + f"{daily_pt_ss.columns}.")
-        ):
+        with pytest.raises(KeyError) as exc_info:
             _ = daily_pt_ss.pt
+        # Compare directly, rather than via `match`, to avoid ambiguity over
+        # how a literal newline within the message (as can occur when the
+        # repr of `cols` wraps) is represented within a regex pattern vs.
+        # within `KeyError.__str__`, which reprs the underlying message.
+        assert str(exc_info.value) == repr(expected_msg(daily_pt_ss.columns))
 
         daily_pt[(symbol, "extra_col")] = daily_pt[(symbol, "open")] + 1
-        with pytest.raises(
-            KeyError, match=re.escape(match + f"{daily_pt.columns.levels[1]}.")
-        ):
+        with pytest.raises(KeyError) as exc_info:
             _ = daily_pt.pt
+        assert str(exc_info.value) == repr(expected_msg(daily_pt.columns.levels[1]))
 
 
 class TestCommonProperties:
@@ -515,7 +521,7 @@ class TestPriceTables:
         assert df.pt.convert_to_table_tz(session_naive) == session_naive
         assert df.pt.utc.index.tz is UTC
         assert df.pt.utc.pt.tz is UTC
-        assert_frame_equal(df.pt.utc, df, check_index_type=False)
+        assert_frame_equal(df.pt.utc.pt.naive, df)
         assert df.pt.utc.pt.convert_to_table_tz(session_utc) == session_utc
         assert df.pt.utc.pt.convert_to_table_tz(session_naive) == session_utc
         self.assert_set_tz_not_implemented(df)
