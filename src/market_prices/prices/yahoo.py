@@ -1,6 +1,6 @@
 """Get prices via yahooquery."""
 
-import datetime
+import datetime as dt
 import functools
 import warnings
 
@@ -722,7 +722,7 @@ class PricesYahoo(base.PricesBase):
     def _resolve_current_ts_daily(self, symbol: str, df: DataFrame) -> pd.DataFrame:
         """Set current ts to its session value."""
         last_ts = df.index[-1]
-        if isinstance(last_ts, datetime.datetime):
+        if isinstance(last_ts, dt.datetime):
             # last indice is a 'live indice' (API returns close data as datetime.date)
             cal = self.calendars[symbol]
             session = cal.minute_to_session(last_ts, "previous")

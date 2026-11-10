@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import abc
-import datetime  # noqa: TC003
+import datetime as dt  # noqa: TC003
 import functools
 import warnings
 from typing import TYPE_CHECKING, Annotated, Literal
@@ -1158,7 +1158,7 @@ class PTDaily(_PT):
     def session_prices(
         self,
         session: Annotated[
-            pd.Timestamp | str | datetime.datetime | int | float,
+            pd.Timestamp | str | dt.datetime | int | float,
             Coerce(pd.Timestamp),
             Parser(parsing.verify_datetimestamp),
         ],
@@ -1167,7 +1167,7 @@ class PTDaily(_PT):
 
         Parameters
         ----------
-        session : pd.Timestamp | str | datetime.datetime | int | float
+        session : pd.Timestamp | str | dt.datetime | int | float
             Session for which require prices. Must not include time
             component. If passsed as a pd.Timestamp must be tz-naive.
 
@@ -1193,7 +1193,7 @@ class PTDaily(_PT):
     def close_at(
         self,
         date: Annotated[
-            pd.Timestamp | str | datetime.datetime | int | float,
+            pd.Timestamp | str | dt.datetime | int | float,
             Coerce(pd.Timestamp),
             Parser(parsing.verify_datetimestamp),
         ],
@@ -1207,7 +1207,7 @@ class PTDaily(_PT):
 
         Parameters
         ----------
-        date : pd.Timestamp | str | datetime.datetime | int | float
+        date : pd.Timestamp | str | dt.datetime | int | float
             Date for which require end-of-day prices. Must not include time
             component. If passsed as a pd.Timestamp must be tz-naive.
 
@@ -1922,7 +1922,7 @@ class PTIntraday(_PTIntervalIndex):
     def price_at(
         self,
         ts: Annotated[
-            pd.Timestamp | str | datetime.datetime | int | float,
+            pd.Timestamp | str | dt.datetime | int | float,
             Coerce(pd.Timestamp),
             Parser(parsing.verify_timetimestamp),
         ],
@@ -2518,7 +2518,7 @@ class PTDailyIntradayComposite(_PTIntervalIndexNotIntraday):
     def price_at(
         self,
         ts: Annotated[
-            pd.Timestamp | str | datetime.datetime | int | float,
+            pd.Timestamp | str | dt.datetime | int | float,
             Coerce(pd.Timestamp),
             Parser(parsing.verify_timetimestamp),
         ],

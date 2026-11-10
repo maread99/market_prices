@@ -5,7 +5,7 @@
 If all of...
 * prices are anchored to a session open
 * the period ends on the session close
-* the interval is not a factor of the session  
+* the interval is not a factor of the session
 
 ...then the final indice will not align with the session close, rather the left side of the final indice falls before the session close and the right side falls afterwards.
 
@@ -36,7 +36,7 @@ This allows for prices to be requested for a range that will ensure the session 
 
 To express range end **accuracy** `daterange.GetterIntraday.daterange` and `daterange.GetterIntraday.get_end()` return a tuple, the second item of which gives the accuracy of the range end indicated by the first item. This allows for the accuracy of the range end to be interrogated when evaluating which base intervals can best serve a call.
 
-The `PricesBase.get()` method provides the **'openend'** argument so the client can determine how to treat any unaligned end indice:  
+The `PricesBase.get()` method provides the **'openend'** argument so the client can determine how to treat any unaligned end indice:
 
     openend : Literal["maintain", "shorten"], default: "maintain"
         Only relevant if anchor is 'open', otherwise ignored.
@@ -76,7 +76,7 @@ The `PricesBase.get()` method provides the **'openend'** argument so the client 
                 if either:
                     No symbol trades during the part of the final
                     indice that falls after the session close.
-                    
+
                     Data is available to create the table by
                     downsampling data of a base interval that aligns
                     with the session close.

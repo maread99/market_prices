@@ -86,7 +86,7 @@ See the [Issues](https://github.com/maread99/market_prices/issues) page for outs
 
 ### Developer
 
-Contributions to `market_prices` are certainly welcome. If you are looking to contribute, please do have a look through the following developer docs. 
+Contributions to `market_prices` are certainly welcome. If you are looking to contribute, please do have a look through the following developer docs.
 
 [serving_data.md](./developers/serving_data.md) :
 * The internals around serving price data.

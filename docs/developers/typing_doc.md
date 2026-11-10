@@ -10,7 +10,7 @@ It is not necessary to type tests although test helpers should be typed.
 
 ### mypy
 
-Code should be type checked with mpyp configured for the project's `mpyp.ini` file. 
+Code should be type checked with mpyp configured for the project's `mpyp.ini` file.
 
 Accepted errors should be silenced in-line with `# type: ignore[error_ref]`. An additional comment should be included alongside explaining why the error is accepted.
 

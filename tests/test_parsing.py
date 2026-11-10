@@ -1,7 +1,7 @@
 """Tests for market_prices.parsing module."""
 
 import dataclasses
-import datetime
+import datetime as dt
 import itertools
 import re
 import typing
@@ -1205,7 +1205,7 @@ def test_to_datetimestamp():
     @parse
     def mock_func(
         arg: Annotated[
-            pd.Timestamp | str | datetime.datetime | int | float | None,
+            pd.Timestamp | str | dt.datetime | int | float | None,
             Coerce(pd.Timestamp),
             Parser(m.verify_datetimestamp, parse_none=False),
         ] = None,
@@ -1244,7 +1244,7 @@ def test_to_timetimestamp():
     @parse
     def mock_func(
         arg: Annotated[
-            pd.Timestamp | str | datetime.datetime | int | float | None,
+            pd.Timestamp | str | dt.datetime | int | float | None,
             Coerce(pd.Timestamp),
             Parser(m.verify_timetimestamp, parse_none=False),
         ] = None,
