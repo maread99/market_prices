@@ -100,7 +100,7 @@ def timestamps_in_interval_of_intervals(
     >>> timestamps_in_interval_of_intervals(timestamps, intervals)
     False
     >>> intervals = pd.interval_range(start, end, freq="10D", closed=closed)
-    >>> intervals
+    >>> intervals  # doctest: +NORMALIZE_WHITESPACE
     IntervalIndex([[2021-03-02 00:00:00, 2021-03-12 00:00:00],
                    [2021-03-12 00:00:00, 2021-03-22 00:00:00]],
                   dtype='interval[datetime64[ns], both]')
