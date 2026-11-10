@@ -100,8 +100,10 @@ def timestamps_in_interval_of_intervals(
     >>> timestamps_in_interval_of_intervals(timestamps, intervals)
     False
     >>> intervals = pd.interval_range(start, end, freq="10D", closed=closed)
-    >>> intervals
-    IntervalIndex([[2021-03-02 00:00:00, 2021-03-12 00:00:00], [2021-03-12 00:00:00, 2021-03-22 00:00:00]], dtype='interval[datetime64[ns], both]')
+    >>> intervals  # doctest: +NORMALIZE_WHITESPACE
+    IntervalIndex([[2021-03-02 00:00:00, 2021-03-12 00:00:00],
+                   [2021-03-12 00:00:00, 2021-03-22 00:00:00]],
+                  dtype='interval[datetime64[ns], both]')
     >>> timestamps_in_interval_of_intervals(timestamps, intervals)
     True
     """  # noqa: E501
@@ -293,8 +295,11 @@ def get_interval_index(
     if isinstance(offset, str):
         offset = pdfreq_to_offset(offset)
     right = left.shift(freq=offset)
-    right.freq = left.freq
     index = pd.IntervalIndex.from_arrays(left, right, closed=closed)
+    # `from_arrays` does not carry `left`'s freq through to the resulting
+    # index's `left` and `right` properties, so set it directly.
+    index.left.freq = left.freq
+    index.right.freq = left.freq
     if non_overlapping and index.is_overlapping:
         return make_non_overlapping(index)
     return index

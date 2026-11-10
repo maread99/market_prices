@@ -40,7 +40,7 @@ indent-width = 4
 # Assume Python 3.10
 target-version = "py310"
 
-[lint]  
+[lint]
 # Allow fix for all enabled rules (when `--fix`) is provided.
 fixable = ["ALL"]
 unfixable = []

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import abc
-import datetime  # noqa: TC003
+import datetime as dt  # noqa: TC003
 import functools
 import warnings
 from typing import TYPE_CHECKING, Annotated, Literal
@@ -1158,7 +1158,7 @@ class PTDaily(_PT):
     def session_prices(
         self,
         session: Annotated[
-            pd.Timestamp | str | datetime.datetime | int | float,
+            pd.Timestamp | str | dt.datetime | int | float,
             Coerce(pd.Timestamp),
             Parser(parsing.verify_datetimestamp),
         ],
@@ -1167,7 +1167,7 @@ class PTDaily(_PT):
 
         Parameters
         ----------
-        session : pd.Timestamp | str | datetime.datetime | int | float
+        session : pd.Timestamp | str | dt.datetime | int | float
             Session for which require prices. Must not include time
             component. If passsed as a pd.Timestamp must be tz-naive.
 
@@ -1193,7 +1193,7 @@ class PTDaily(_PT):
     def close_at(
         self,
         date: Annotated[
-            pd.Timestamp | str | datetime.datetime | int | float,
+            pd.Timestamp | str | dt.datetime | int | float,
             Coerce(pd.Timestamp),
             Parser(parsing.verify_datetimestamp),
         ],
@@ -1207,7 +1207,7 @@ class PTDaily(_PT):
 
         Parameters
         ----------
-        date : pd.Timestamp | str | datetime.datetime | int | float
+        date : pd.Timestamp | str | dt.datetime | int | float
             Date for which require end-of-day prices. Must not include time
             component. If passsed as a pd.Timestamp must be tz-naive.
 
@@ -1548,21 +1548,18 @@ class _PTIntervalIndex(_PT):
             msg = f"`start` ({start}) is not the left side of an indice."
             raise ValueError(msg)
 
-        if pd.Interval(start, start, "left") in self.index:
-            # daily composite tables indexed [session, session) such that when session
-            # is start this 'start indice' will be excluded (although the interval is
-            # closed "left", pandas will not consider any value to fall within an
-            # interval of zero length).
-            start -= helpers.ONE_SEC
-            # typing note: datetime/timestamp tomato/tomarto
-
         if not (end in self.index.right or self.index.contains(end).any()):
             msg = (
                 f"`end` ({end}) is not the right side of or contained within an indice."
             )
             raise ValueError(msg)
-        rng = pd.Interval(start, end, "left")
-        bv = self.index.overlaps(rng)
+
+        # Evaluate inclusion directly from each indice's left side rather than via
+        # `self.index.overlaps(pd.Interval(start, end, "left"))`. Daily composite
+        # tables are indexed [session, session), i.e. a zero-length interval per
+        # session, and `overlaps` never considers a zero-length interval to overlap
+        # with another interval (even one within which it wholly falls).
+        bv = (self.index.left >= start) & (self.index.left < end)
         return self.prices[bv]
 
 
@@ -1922,7 +1919,7 @@ class PTIntraday(_PTIntervalIndex):
     def price_at(
         self,
         ts: Annotated[
-            pd.Timestamp | str | datetime.datetime | int | float,
+            pd.Timestamp | str | dt.datetime | int | float,
             Coerce(pd.Timestamp),
             Parser(parsing.verify_timetimestamp),
         ],
@@ -2518,7 +2515,7 @@ class PTDailyIntradayComposite(_PTIntervalIndexNotIntraday):
     def price_at(
         self,
         ts: Annotated[
-            pd.Timestamp | str | datetime.datetime | int | float,
+            pd.Timestamp | str | dt.datetime | int | float,
             Coerce(pd.Timestamp),
             Parser(parsing.verify_timetimestamp),
         ],
