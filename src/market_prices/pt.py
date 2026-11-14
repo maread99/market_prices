@@ -1548,21 +1548,13 @@ class _PTIntervalIndex(_PT):
             msg = f"`start` ({start}) is not the left side of an indice."
             raise ValueError(msg)
 
-        if pd.Interval(start, start, "left") in self.index:
-            # daily composite tables indexed [session, session) such that when session
-            # is start this 'start indice' will be excluded (although the interval is
-            # closed "left", pandas will not consider any value to fall within an
-            # interval of zero length).
-            start -= helpers.ONE_SEC
-            # typing note: datetime/timestamp tomato/tomarto
-
         if not (end in self.index.right or self.index.contains(end).any()):
             msg = (
                 f"`end` ({end}) is not the right side of or contained within an indice."
             )
             raise ValueError(msg)
-        rng = pd.Interval(start, end, "left")
-        bv = self.index.overlaps(rng)
+
+        bv = (self.index.left >= start) & (self.index.left < end)
         return self.prices[bv]
 
 
