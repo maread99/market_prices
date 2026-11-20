@@ -10,12 +10,12 @@ Identify all available skills in the @.agents\skills directory
 ## LLM context
 
 Add the 'agents' label to any PR that amends:
-- this @AGENT.md
+- this @AGENTS.md
 - any SKILL.md file
 
 ## Project Overview
 
-**market-prices** is a Python package to create meaningful OHLCV datasets for financial instruments. It provides for enchanced querying and post-processing of financial price data.
+**market-prices** is a Python package to create meaningful OHLCV datasets for financial instruments. It provides for enhanced querying and post-processing of financial price data.
 
 See @pyproject.toml for project metadata and dependencies.
 
@@ -30,6 +30,8 @@ market_prices/
 │       ├── dependencies-management/
 │       │   └── SKILL.md
 │       ├── update-agents-md/
+│       │   └── SKILL.md
+│       ├── writing-documentation/
 │       │   └── SKILL.md
 │       └── writing-tests/
 │           └── SKILL.md
@@ -139,7 +141,7 @@ market_prices/
 | Data Manipulation | `pandas`, `numpy` |
 | Calendars of Market Hours | `exchange-calendars` |
 
-The current project version is managed by `setuptools_scm` and written to `src/market_prrices/_version.py`.
+The current project version is managed by `setuptools_scm` and written to `src/market_prices/_version.py`.
 IMPORTANT: `src/market_prices/_version.py` is auto-generated and you should not edit it.
 
 ## Development Workflows
@@ -236,7 +238,7 @@ uv run mypy src/market_prices/
     - `ignore_missing_imports = True` is set globally (many dependencies lack stubs).
 - `valimp` library is used for runtime parameter validation:
     - use `@parse` decorator with typed signatures.
-    - use`@parse_cls` for dataclasses.
+    - use `@parse_cls` for dataclasses.
 
 ### Docstrings
 
@@ -255,6 +257,7 @@ Docstrings should follow **NumPy convention**. Familiarise yourself with this as
 - documentation of **subclass methods that extend methods of a base class** should only include any parameters added by the extension. With respect to undocumented parameters a note should be included to refer the user to the corresponding 'super' method(s)' documentation on the corresponding base class or classes.
 - **documentation of exceptions and warnings** should be limited to only **unusual** exceptions and warnings that are raised directly by the function/method itself or by any private function/method that is called directly or indirectly by the function/method.
 - summary line should be in the imperative mood only when sensical to do so.
+- **DO NOT BLOAT documentation**. Focus on the code being documented; **avoid comment on other parts of the codebase** unless specifically warranted.
 - magic methods do not require documentation if their functionality is fully implied by the method name.
 - unit tests do not require docstrings.
 
@@ -285,6 +288,30 @@ def my_func(param1: int, param2: str = "default", param3: None | str = None) -> 
 
 - when **revising documentation to reflect changes in implementation**, do NOT fall into the trap of documenting what's 'not the case' in the context of the previous implementation. Rather, just document what *is* the case, in the context of the revised implementation. Documentation that describes what the implementation does NOT do, in terms of a prior or erroneous implementation, is irrelevant and obfuscating to a reader who never knew of that prior implementation. Only ever make comparisons to erroneous or prior implementations if there is GOOD REASON to fear regression!
 
+#### Prose style
+
+All documentation (docstrings, comments and markdown files, tests' included) is written
+to be understood on a single reading. The 'writing-documentation' skill defines the
+style that serves this aim. The skill holds core rules and guidance. The core rules
+apply to all new and revised text, whereas the guidance is applied only to new text.
+The core rules are:
+1. Give every claim its own verb.
+2. Carry no reason or fact in an absolute construction (a noun with a participle of its
+   own) or in a participial phrase whose subject is not the subject of the main clause.
+3. Write no reference that a reader could take two ways.
+4. Never introduce a purpose with ", such that".
+5. Never introduce a condition on a particular thing with "where".
+6. Never split the main clause with an aside that holds a clause.
+7. Never introduce a reason with ", as".
+
+These are the names of the core rules only. The skill gives each rule's limits, the test
+for rule 4, and the guidance. Read the skill before writing or revising any
+documentation.
+
+'DO NOT BLOAT' (above) concerns what is documented, not how it is written. It does not
+license compression: do not add content, but where making the structure of a sentence
+explicit takes more words, use more words.
+
 ### Comments
 
 - pay particular attention to comments starting with...:
@@ -302,12 +329,16 @@ def my_func(param1: int, param2: str = "default", param3: None | str = None) -> 
     - NEVER schedule a check-in unless specifically asked to.
     - Never edit the file `src/market_prices/_version.py` - this is auto-generated by the build process.
 
-2. **Do not assume that the package is coherent or free of bugs**, or that tests or documentation should be treated as gospel. If you come across a contradiction or a conflict or what you believe to be a bug, then say so.
+2. **Do not assume that the package is coherent or free of bugs**, or that tests or documentation or any plans should be treated as gospel. If you come across a contradiction or a conflict or what you believe to be a bug, then say so.
 
-3. **Use `valimp` for validation of parameters of public API** — see 'Type Annotations' section of this @AGENTS.md file.
+3. **Do not assume that the code structure is sensible or as required**. If you come across existing or planned code that you believe to be poorly structured, then say so.
 
-4. **NumPy docstring style** — all new public functions/classes must use NumPy-convention docstrings and rules as defined under Docstrings section of this @AGENTS.md file.
+4. **Use `valimp` for validation of parameters of public API** — see 'Type Annotations' section of this @AGENTS.md file.
 
-5. **Branch naming** — feature branches should follow the `<agent-name>/<description>` pattern with the following substitutions:
+5. **NumPy docstring style** — all new public functions/classes must use NumPy-convention docstrings and rules as defined under Docstrings section of this @AGENTS.md file.
+
+6. **Branch naming** — feature branches should follow the `<agent-name>/<description>` pattern with the following substitutions:
     - `<agent-name>` -> your name
     - `<description>` -> very short description of changes
+
+7. **Typos** — do not report typos when reviewing code, rather just plan to fix them in the next commit (regardless of whether that next commit is related to the typos or not). If the user indicates that the session will end without you making any further commits (for example by requesting that the PR body be updated to reflect the changes) then advise of any outstanding typos to be fixed; do not list them; do not advise of the negative situation, i.e. if there are no outstanding typo fixes.
