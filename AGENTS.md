@@ -29,6 +29,8 @@ market_prices/
 │       │   └── SKILL.md
 │       ├── dependencies-management/
 │       │   └── SKILL.md
+│       ├── pr-body-layout/
+│       │   └── SKILL.md
 │       ├── update-agents-md/
 │       │   └── SKILL.md
 │       ├── writing-documentation/
@@ -338,7 +340,7 @@ explicit takes more words, use more words.
 5. **NumPy docstring style** — all new public functions/classes must use NumPy-convention docstrings and rules as defined under Docstrings section of this @AGENTS.md file.
 
 6. **Branch naming** — feature branches should follow the `<agent-name>/<description>` pattern with the following substitutions:
-    - `<agent-name>` -> your name
+    - `<agent-name>` -> your colloquial name, in lower case
     - `<description>` -> very short description of changes
 
 7. **Typos** — do not report typos when reviewing code, rather just plan to fix them in the next commit (regardless of whether that next commit is related to the typos or not). If the user indicates that the session will end without you making any further commits (for example by requesting that the PR body be updated to reflect the changes) then advise of any outstanding typos to be fixed; do not list them; do not advise of the negative situation, i.e. if there are no outstanding typo fixes.

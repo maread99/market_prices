@@ -181,7 +181,7 @@ ONLY if any test failures cannot be resolved, raise an issue that references the
 ### 12. Tidy up
 
 Perform the following 'tidy up' actions:
-- Call `mcp__github__unsubscribe_pr_activity` to unscubscribe from the PR activity.
+- Call `mcp__github__unsubscribe_pr_activity` to unsubscribe from the PR activity.
 - Review and if necessary update the PR body to reflect the final circumstances.
 
 ---
