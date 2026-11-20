@@ -8,7 +8,7 @@ The remaining content of this file is intended only for Claude (including Claude
 
 Find skills under the @.agents/skills directory which serves as the directory you would have expected to find at `.claude/skills`.
 
-Your name is Claude. Anywhere in the context that asks you to use your 'name' or 'colloquial name' or 'vernacular name' then you should use 'Claude'.
+Your name is Claude Code and your colloquial name is Claude. Anywhere in the context that asks you to use your 'name' then you should use 'Claude Code'. Anywhere in the context that asks you to use your 'colloquial name' or 'vernacular name' then you should use 'Claude'.
 
 ## Editing files with pre-granted permissions
 

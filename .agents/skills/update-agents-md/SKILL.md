@@ -1,8 +1,8 @@
 ---
   name: update-agents-md
-  description: Instructions for updating @AGENT.md file, including: updating the 'Repository Layout' section following the adding or removal of files or folders; updating the 'Technology Stack' section on changes to the pinned python version as defined in @.python-version.
+  description: "Instructions for updating @AGENTS.md file, including: updating the 'Repository Layout' section following the adding or removal of files or folders; updating the 'Technology Stack' section on changes to the pinned python version as defined in @.python-version."
 ---
-# Update agents.md file
+# Update AGENTS.md file
 
 ## Repository Layout
 Update the 'Repository Layout' section to reflect the current layout. Remove all files and folders that are no longer present and add all new files and folders with the following IMPORTANT EXCEPTIONS:
