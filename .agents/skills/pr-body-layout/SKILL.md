@@ -21,8 +21,8 @@ In the following template, `{curly braces}` mark placeholders for you to replace
 {Summary}
 
 ---
-- [ ] I've reviewed/revised the PR title (if unticked, treat it as an agent's unchecked title).
-- [ ] I've reviewed/revised the summary above and it covers what a reviewer needs to know (if unticked, treat it as an agent's unchecked summary).
+- [ ] I've reviewed/revised the PR **title** (if unticked, treat it as an agent's unchecked title).
+- [ ] I've reviewed/revised the **summary** above and it covers what a reviewer needs to know (if unticked, treat it as an agent's unchecked summary).
 
 ### Agent autonomy
 
