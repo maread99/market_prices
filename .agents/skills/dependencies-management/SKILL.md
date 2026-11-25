@@ -106,7 +106,7 @@ Then, run the test suite with options as determined by the reachability results:
 
 **Interpreting the local test results:**
 - All tests pass and no raised warning is fixable (see *Fixable warnings* section below) → go to step 7 to raise PR.
-- All failing tests are in `tests/test_yahoo.py` and/or `tests/test_calendar_utils.py` and no raised warning is fixable → test failures probably due to a transient network issue (see *Network tests* section below), go to step 7 to raise PR.
+- All failing tests are in `tests/test_yahoo.py` and/or `tests/test_calendar_utils.py` and no raised warning is fixable → test failures probably due to a transient network issue (see *Network tests* section below), go to step 7 to raise PR. The CI checks will verify the network tests (see step 9).
 - Failure of any other test or a fixable warning raised → proceed to step 6 to fix.
 
 ### 6. Fix
@@ -149,10 +149,14 @@ Proceed to step 9 when you receive events indicating that all triggered workflow
 
 The CI workflow will have run the full test suite against a matrix of OS and Python versions. Use `mcp__github__pull_request_read` with the `get_check_runs` method to read check statuses for all matrix jobs.
 
+If any check is red, read the logs of the failed jobs to identify each failing test and the cause of its failure. To read the logs, call `mcp__github__get_job_logs` with the `run_id` of the failed workflow run, `failed_only: true` and `return_content: true`. If a returned log does not reach back to the test failures, call again with a larger `tail_lines`.
+
+The CI checks are the arbiter of the network tests (see *Network tests* section below), including any network tests that the local test run excluded or that failed locally. A network test that passes in CI needs no fix.
+
 **Interpreting CI results:**
 - All checks green → proceed to step 12.
-- Failures only in `tests/test_yahoo.py` and/or `tests/test_calendar_utils.py` → add a comment to the PR identifying the failure as a possible network issue (see *Network tests* section below) and ask the owner to investigate the test logs and then EITHER re-run the failed jobs if the failure was due to a transient network error OR provide you with a copy of the log for the failing tests in order that you can work on a fix. In this case suspend the session as pending further prompting.
-- Failures in any other test file → proceed to step 10.
+- Every test failure is a network test failure (see *Network tests* section below) → add a comment to the PR that lists the failing tests, identifies the failures as possible network issues and asks the owner to re-run the failed jobs. Suspend the session pending further prompting.
+- Any other test failure → proceed to step 10.
 
 ### 10. Fix tests for specific OS/Python configuration
 
@@ -168,8 +172,10 @@ If the tests failed on specific matrix combinations (e.g. Windows / Python 3.10)
 Run the test suite to identify failing tests. For example:
 
 ```bash
-uv run --isolated --python 3.11 python pytest --ignore=tests/test_yahoo.py -v
+uv run --isolated --python 3.11 pytest --ignore=tests/test_yahoo.py -v
 ```
+
+If the local test environment cannot reach a service that a network test requires, the network test cannot be verified locally (see *Network tests* section below). In that case, find the cause of the network test's failure from the CI logs read in step 9.
 
 Then find fixes for the failing tests by following step 6.
 
@@ -196,8 +202,11 @@ Tests in `tests/test_yahoo.py` require live network access to the Yahoo Finance 
 
 Tests in `tests/test_calendar_utils.py` fetch CSV fixture files from `raw.githubusercontent.com`, which can return HTTP 403 Forbidden when network access is restricted.
 
+A failure of a test in either module is a *network test failure* if the failure's output shows a network cause, for example an HTTP error (such as 403 Forbidden or 429 Too Many Requests), a connection error, a timeout or prices missing from the data that the Yahoo Finance API returned. A failure in either module that has another cause (for example an error raised by the package code) is not a network test failure.
+
 - **Local test runs**: use the reachability check described in step 5 to decide whether to include or exclude tests in `test_yahoo.py` and/or `test_calendar_utils.py`.
-- **CI failures in `tests/test_yahoo.py` or `tests/test_calendar_utils.py`**: the cause of such failures may be a dropped, rate-limited, or blocked network connection although this cannot be assumed.
+- **CI test runs**: the CI checks are the arbiter of the network tests (see step 9). The cause of a network test failure in CI may be a dropped, rate-limited, or blocked network connection, although this cannot be assumed.
+
 ---
 
 **Fixable warnings**
