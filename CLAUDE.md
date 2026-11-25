@@ -13,8 +13,8 @@ Your name is Claude Code and your colloquial name is Claude. Anywhere in the con
 ## Editing files with pre-granted permissions
 
 `.claude/settings.json` pre-grants `Edit(...)` permission for a specific set of
-files (e.g. `.pre-commit-config.yaml` and github workflows/*.yml` files). These
-permissions only apply to the built-in`Edit` tool — they do not extend to the
+files (e.g. `.pre-commit-config.yaml` and github `workflows/*.yml` files). These
+permissions only apply to the built-in `Edit` tool — they do not extend to the
 `Bash` tool.
 
 Some routines (e.g. the `dependencies-management` routine) are configured to run
@@ -22,3 +22,7 @@ automatically and unattended and in these cases a permission prompt would stall
 the run. Therefore, when modifying any file covered by the `Edit(...)` permissions in
 `.claude/settings.json`, **always use the `Edit` tool** (not `Bash`/`sed`/etc.) so
 that the pre-granted permission applies and no prompt is raised.
+
+The one exception is any command that a skill directs you to run, for example
+`uv run pre-commit autoupdate`, which rewrites `.pre-commit-config.yaml`. Run such a
+command as the skill directs.
