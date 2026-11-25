@@ -758,11 +758,13 @@ class TestIndicesTradingStatus:
         self.assertions_no_partial_indices(daily_pt, symbols[:-1], calendars[:-1])
 
     def test_intraday_pt(self, intraday_pt, symbols, calendars):
-        self.assertions_no_partial_indices(intraday_pt, symbols, calendars)
+        # do not include ES=F as trading does not fully align with calendar.
+        self.assertions_no_partial_indices(intraday_pt, symbols[:-1], calendars[:-1])
 
     def test_composite_intraday_pt(self, composite_intraday_pt, symbols, calendars):
+        # do not include ES=F as trading does not fully align with calendar.
         self.assertions_no_partial_indices(
-            composite_intraday_pt, symbols, calendars, reindex=False
+            composite_intraday_pt, symbols[:-1], calendars[:-1], reindex=False
         )
 
     def test_composite_daily_intraday_pt(
@@ -2955,15 +2957,17 @@ class TestDownsampleIntraday:
         df = intraday_pt
         freq = df.pt.interval.as_pdfreq
 
-        for s, cal in zip(symbols, calendars, strict=True):
+        # do not include ES=F as trading does not fully align with calendar.
+        for s, cal in zip(symbols[:-1], calendars[:-1], strict=True):
             rtrn = df.pt.downsample(freq, anchor="open", calendar=cal)
             bv = rtrn[s].notna().all(axis=1)
             rtrn_reindex = df.pt.reindex_to_calendar(cal)
             assert_frame_equal(rtrn[bv], rtrn_reindex)
 
         # Also serves to test single symbol tables
+        # do not include ES=F as trading does not fully align with calendar.
         for anchor in ["open", "workback"]:
-            for s, cal in zip(symbols, calendars, strict=True):
+            for s, cal in zip(symbols[:-1], calendars[:-1], strict=True):
                 rtrn = df[s].pt.downsample(freq, anchor=anchor, calendar=cal)
                 rtrn_reindex = df[s].pt.reindex_to_calendar(cal)
                 assert_frame_equal(rtrn.dropna(how="all"), rtrn_reindex)

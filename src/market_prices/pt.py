@@ -1640,7 +1640,8 @@ class PTIntraday(_PTIntervalIndex):
                     direction_ = "none" if direction is None else direction
                     s = calendar.minute_to_session(indice, direction=direction_)
                 else:
-                    s = calendar.minute_to_sessions(indice, direction=direction)[0]
+                    sessions = calendar.minute_to_sessions(indice, direction=direction)
+                    s = sessions[0] if len(sessions) else pd.NaT
             except ValueError:
                 s = pd.NaT
             return s
