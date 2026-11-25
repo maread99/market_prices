@@ -1,6 +1,5 @@
 """Common pytest fixtures."""
 
-import os
 from collections import abc
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -8,14 +7,10 @@ from zoneinfo import ZoneInfo
 import exchange_calendars as xcals
 import pandas as pd
 import pytest
-from hypothesis import HealthCheck, settings
 
 from market_prices.intervals import TDInterval
 
 from .utils import TEMP_DIR, Answers, clean_temp_test_dir
-
-settings.register_profile("ci", suppress_health_check=[HealthCheck.too_slow])
-settings.load_profile(os.getenv("HYPOTHESIS_PROFILE", "default"))
 
 base_intervals_sample = [
     TDInterval.T1,
