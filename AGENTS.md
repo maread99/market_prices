@@ -41,8 +41,8 @@ market_prices/
 │   ├── workflows/
 │   │   ├── build-test.yml
 │   │   ├── draft-release-notes.yml
+│   │   ├── pre-commit.yml
 │   │   └── release.yml
-│   ├── dependabot.yml
 │   └── release-drafter.yml
 ├── docs/
 │   ├── developers/
@@ -155,7 +155,7 @@ IMPORTANT: `src/market_prices/_version.py` is auto-generated and you should not 
 uv sync
 
 # Install pre-commit hooks
-pre-commit install
+uv run pre-commit install
 ```
 
 ### Testing
@@ -185,17 +185,22 @@ pytest -v
 
 See @.pre-commit-config.yaml for pre-commit implementation.
 
-Pre-commit runs automatically on `git commit`.
+If the pre-commit git hook has been installed (see 'Setup'), pre-commit runs automatically on `git commit`. Otherwise, pre-commit must be run manually.
 
 To run manually:
 ```bash
-pre-commit run --all-files
+# Against only the staged files
+uv run pre-commit run
+
+# Against all files
+uv run pre-commit run --all-files
 ```
 
 ### Continuous Integration
 
 GitHub Actions is used for CI. Defined workflows include:
-- @.github/workflows/build-test.yml - runs full test suite on matrix of platforms and python versions
+- @.github/workflows/build-test.yml - runs full test suite on matrix of platforms and python versions. The workflow is skipped if a pull request changes only files that cannot affect the tests (see the workflow's `paths-ignore`).
+- @.github/workflows/pre-commit.yml - runs the pre-commit hooks against all files
 - @.github/workflows/release.yml - releases a new version to PyPI
 
 ## Code Conventions
@@ -342,4 +347,6 @@ explicit takes more words, use more words.
     - `<agent-name>` -> your colloquial name, in lower case
     - `<description>` -> very short description of changes
 
-7. **Typos** — do not report typos when reviewing code, rather just plan to fix them in the next commit (regardless of whether that next commit is related to the typos or not). If the user indicates that the session will end without you making any further commits (for example by requesting that the PR body be updated to reflect the changes) then advise of any outstanding typos to be fixed; do not list them; do not advise of the negative situation, i.e. if there are no outstanding typo fixes.
+7. **Pre-commit** — before making any commit, stage the changes to be committed and then run `uv run pre-commit run` to run the hooks against the staged files. Stage any changes that the hooks make. If a hook reports a violation that the hook cannot fix, fix the violation, stage the fix and run pre-commit again.
+
+8. **Typos** — do not report typos when reviewing code, rather just plan to fix them in the next commit (regardless of whether that next commit is related to the typos or not). If the user indicates that the session will end without you making any further commits (for example by requesting that the PR body be updated to reflect the changes) then advise of any outstanding typos to be fixed; do not list them; do not advise of the negative situation, i.e. if there are no outstanding typo fixes.
