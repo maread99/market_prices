@@ -5,8 +5,12 @@ on:
     branches:
       - master
 
+permissions:
+  contents: write
+  pull-requests: read
+
 # Updates next release notes on any push to master. Label a PR to categorize it
-# in accordance with .github/release_drafter.yml.
+# in accordance with .github/release-drafter.yml.
 jobs:
   update_release_draft:
     runs-on: ubuntu-latest
