@@ -58,7 +58,7 @@ Tests exist to verify the intended and documented behaviour of the code, to find
 - a test docstring, where included, starts with an imperative, for example 'Verify' or 'Test'.
 - a test docstring states WHAT the test verifies and, where not evident from the code, the circumstance it is verified under and WHY it is verified that way (the scenario, scope or design of the test) - i.e. anything about the test as a whole.
 - a paragraph of a test docstring that describes one of the following opens with the words given here, such that its opening announces what the paragraph describes:
-  - what the test verifies - "The test verifies ...". The paragraph may also state the circumstance under which the test verifies it.
+  - what the test verifies - "This test verifies ...". The paragraph may also state the circumstance under which the test verifies it.
   - what the code under test does - "The <function | method | property | class> under test ...", for example "The method under test ...".
   - the parameters of a parametrised test - "The parameters ..." or, for a single parameter, "The parameter `<name>` ...". A paragraph that describes two or more parameters may instead describe each parameter in a sentence of its own, each sentence opening "The parameter `<name>` ...". A paragraph of a class docstring that describes a parameter shared by the class's tests opens in the same way.
 
