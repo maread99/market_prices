@@ -3,8 +3,8 @@
 import datetime as dt
 import functools
 import inspect
-import os
 import shelve
+import shutil
 from collections import abc
 from pathlib import Path
 from typing import TYPE_CHECKING, Literal
@@ -346,42 +346,13 @@ class XHKGAsAt4132(XHKGExchangeCalendar):
         return [d for d in super().adhoc_holidays if d not in closures]
 
 
-# functions to administer _temp folder
-
-TEMP_DIR = TEST_ROOT / r"./_temp"
-if not TEMP_DIR.is_dir():
-    TEMP_DIR.mkdir()
-ENCODING = "utf-8"
-
-
-def clean_temp_test_dir():
-    """Remove all files and directories from the test directory"""
-    # when min version goes to py 3.12 can simplify using walk method on Path
-    for dir_, subdirs, filenames in os.walk(TEMP_DIR):  # noqa: B007
-        dir_path = Path(dir_)
-        for filename in filenames:
-            path = dir_path / filename
-            path.unlink()
-        if dir_ != str(TEMP_DIR):
-            dir_path.rmdir()
-
-
-def create_temp_subdir(name: str) -> Path:
-    """Create a subdirectory in the temporary test directory.
-
-    Returns Path to temporary directory.
-    """
-    path = TEMP_DIR / name
-    path.mkdir()
-    return path
-
-
-def create_temp_file(filename: str, dir_: Path = TEMP_DIR) -> Path:
-    """Create a file, by default in the temporary test directory."""
-    assert dir_ is TEMP_DIR or (dir_.is_dir() and str(dir_).startswith(str(TEMP_DIR)))
-    path = dir_ / filename
-    path.write_text("", encoding=ENCODING)
-    return path
+def empty_dir(path: Path):
+    """Remove all files and directories from the directory `path`."""
+    for child in path.iterdir():
+        if child.is_dir():
+            shutil.rmtree(child)
+        else:
+            child.unlink()
 
 
 class Answers:

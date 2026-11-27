@@ -15,12 +15,7 @@ from market_prices.intervals import TDInterval
 from market_prices.prices import csv as m
 from market_prices.prices.csv import ERROR_DAILY_INTRVL, ERROR_MALFORMED_INTRVL
 
-from .utils import (
-    RESOURCES_PATH,
-    create_temp_file,
-    create_temp_subdir,
-    get_resource_pbt,
-)
+from .utils import RESOURCES_PATH, get_resource_pbt
 
 # ruff: noqa: E501  # line-too-long
 
@@ -199,7 +194,7 @@ def test__get_interval_from_filename():
         assert m._get_interval_from_filename(inp) == out
 
 
-def test_get_csv_paths_0(symbols_fict: list[str], temp_dir):
+def test_get_csv_paths_0(symbols_fict: list[str], tmp_path):
     """Test returns expected paths only."""
     # will not raise errors
     filenames = [
@@ -220,9 +215,10 @@ def test_get_csv_paths_0(symbols_fict: list[str], temp_dir):
         "Dal_SYMC.csv",
     ]
     for filename in filenames:
-        create_temp_file(filename)
+        (tmp_path / filename).touch()
 
-    temp_subdir = create_temp_subdir("temp_subdir")
+    temp_subdir = tmp_path / "temp_subdir"
+    temp_subdir.mkdir()
     subdir_filenames = [
         # should include
         "SYMB_T.csv",
@@ -235,15 +231,15 @@ def test_get_csv_paths_0(symbols_fict: list[str], temp_dir):
         "5T_SYMB_what_SYMC.csv",
     ]
     for filename in subdir_filenames:
-        create_temp_file(filename, temp_subdir)
+        (temp_subdir / filename).touch()
 
-    paths = m.get_csv_paths(temp_dir, symbols_fict)
+    paths = m.get_csv_paths(tmp_path, symbols_fict)
 
     def to_path(s: str) -> Path:
         return Path(s)
 
     def to_subdir_path(s: str) -> Path:
-        return Path(temp_subdir.relative_to(temp_dir) / s)
+        return Path(temp_subdir.relative_to(tmp_path) / s)
 
     expected = {
         "SYMA": {
@@ -328,7 +324,7 @@ def test_get_csv_paths_1(csv_dir, symbols, csv_dir_paths):
     assert paths == expected
 
 
-def test_get_csv_paths_error0(symbols_fict: list[str], temp_dir):
+def test_get_csv_paths_error0(symbols_fict: list[str], tmp_path):
     """Test raises error on duplicate symbol/interval."""
     filenames = [
         # valid
@@ -339,17 +335,17 @@ def test_get_csv_paths_error0(symbols_fict: list[str], temp_dir):
         "SYMA_T_SYMA.csv",
     ]
     for filename in filenames:
-        create_temp_file(filename)
+        (tmp_path / filename).touch()
 
     match = re.escape(
         "At least two paths have been found with data for symbol 'SYMA' over"
         f" interval '{TDInterval.T1}'. Paths are:\n"
     )
     with pytest.raises(ValueError, match=match):
-        m.get_csv_paths(temp_dir, symbols_fict)
+        m.get_csv_paths(tmp_path, symbols_fict)
 
 
-def test_get_csv_paths_error1(symbols_fict: list[str], temp_dir):
+def test_get_csv_paths_error1(symbols_fict: list[str], tmp_path):
     """Test raises error for name as single symbol when 1D interval already assigned."""
     filenames = [
         # valid
@@ -359,24 +355,25 @@ def test_get_csv_paths_error1(symbols_fict: list[str], temp_dir):
         "what_SYMB_ever.csv",
     ]
     for filename in filenames:
-        create_temp_file(filename)
+        (tmp_path / filename).touch()
 
-    temp_subdir = create_temp_subdir("temp_subdir")
+    temp_subdir = tmp_path / "temp_subdir"
+    temp_subdir.mkdir()
     subdir_filenames = [
         # valid
         "SYMB_T.csv",
-        # should error on repeating STMB 1D
+        # should error on repeating SYMB 1D
         "SYMB.csv",
     ]
     for filename in subdir_filenames:
-        create_temp_file(filename, temp_subdir)
+        (temp_subdir / filename).touch()
 
     match = re.escape(
         "At least two paths have been found with data for symbol 'SYMB' over"
         f" interval '{TDInterval.D1}'. Paths are:\n"
     )
     with pytest.raises(ValueError, match=match):
-        m.get_csv_paths(temp_dir, symbols_fict)
+        m.get_csv_paths(tmp_path, symbols_fict)
 
 
 def test_check_adjust_high_low():

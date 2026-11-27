@@ -1,7 +1,6 @@
 """Common pytest fixtures."""
 
 from collections import abc
-from pathlib import Path
 from zoneinfo import ZoneInfo
 
 import exchange_calendars as xcals
@@ -10,7 +9,7 @@ import pytest
 
 from market_prices.intervals import TDInterval
 
-from .utils import TEMP_DIR, Answers, clean_temp_test_dir
+from .utils import Answers
 
 base_intervals_sample = [
     TDInterval.T1,
@@ -29,17 +28,6 @@ UTC = ZoneInfo("UTC")
 def utc() -> abc.Iterator[ZoneInfo]:
     """UTC zoneinfo."""
     yield UTC
-
-
-@pytest.fixture
-def temp_dir() -> abc.Iterator[Path]:
-    """Clean temporary test directory.
-
-    Directory cleaned before and after test.
-    """
-    clean_temp_test_dir()
-    yield TEMP_DIR
-    clean_temp_test_dir()
 
 
 @pytest.fixture(scope="session")
