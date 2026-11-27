@@ -21,7 +21,7 @@ from market_prices import errors, helpers, mptypes
 from market_prices.helpers import UTC
 from market_prices.intervals import TDInterval
 
-from .utils import Answers, create_temp_file
+from .utils import Answers
 
 
 def test_verify_period_parameters():
@@ -1281,14 +1281,14 @@ def test_to_timetimestamp():
         mock_func(ts)
 
 
-def test_verify_directory(temp_dir):
+def test_verify_directory(tmp_path):
     @parse
     def f(path: Annotated[Path, Parser(m.verify_directory)]):
         return path
 
-    assert f(temp_dir) is temp_dir
+    assert f(tmp_path) is tmp_path
 
-    not_a_dir = temp_dir / "not_a_dir"
+    not_a_dir = tmp_path / "not_a_dir"
     match = re.escape(
         "'path' must represent an existing local directory although received "
     )
@@ -1297,7 +1297,8 @@ def test_verify_directory(temp_dir):
 
     # verify also raises when path is a valid file (i.e. not directory)
     filename = "a_csv_file.csv"
-    path_file = create_temp_file(filename)
+    path_file = tmp_path / filename
+    path_file.touch()
     assert path_file.is_file()
     with pytest.raises(ValueError, match=match):
         f(path_file)

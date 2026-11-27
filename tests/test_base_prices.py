@@ -39,7 +39,7 @@ from .utils import (
     RESOURCES_PATH,
     XHKGAsAt4132,
     assert_index_equal,
-    clean_temp_test_dir,
+    empty_dir,
     get_resource_pbt,
 )
 
@@ -6290,7 +6290,7 @@ def calendars(symbols) -> abc.Iterator[dict[str, str]]:
     xcals.deregister_calendar(calendars["9988.HK"])
 
 
-def test_to_csv(to_csv_dir, temp_dir, symbols, calendars, one_day):
+def test_to_csv(to_csv_dir, tmp_path, symbols, calendars, one_day):
     match = re.escape(
         "Price data has been found for all symbols at a least one interval, however,"
         " you may find that not all the expected price data is available. See the"
@@ -6318,7 +6318,7 @@ def test_to_csv(to_csv_dir, temp_dir, symbols, calendars, one_day):
             assert content == content_orig
 
     # export all data to .csv files in temp dir
-    paths = prices.to_csv(temp_dir)
+    paths = prices.to_csv(tmp_path)
 
     # verify that, when intervals are default, data is not included for unaligned
     # base intervals (as if were to have been exported then data would have to
@@ -6327,64 +6327,64 @@ def test_to_csv(to_csv_dir, temp_dir, symbols, calendars, one_day):
     assert_output_as_original_files(paths)
 
     # verify can pass list of multiple intervals
-    clean_temp_test_dir()
+    empty_dir(tmp_path)
     intervals = ["5T", "2T"]
-    paths = prices.to_csv(temp_dir, intervals)
+    paths = prices.to_csv(tmp_path, intervals)
     assert len(paths) == 6
     assert_output_as_original_files(paths)
 
     # verify effect of include
-    clean_temp_test_dir()
+    empty_dir(tmp_path)
     symbol = symbols[0]
-    paths = prices.to_csv(temp_dir, intervals, include=symbol)
+    paths = prices.to_csv(tmp_path, intervals, include=symbol)
     assert len(paths) == 2
     assert all(symbol in path.name for path in paths)
     assert_output_as_original_files(paths)
 
     # verify effect of exclude
-    clean_temp_test_dir()
-    paths = prices.to_csv(temp_dir, intervals, exclude=symbol)
+    empty_dir(tmp_path)
+    paths = prices.to_csv(tmp_path, intervals, exclude=symbol)
     assert len(paths) == 4
     assert not any(symbol in path.name for path in paths)
     assert_output_as_original_files(paths)
 
     # verify can pass single interval, verify can pass an unaligned base interval
-    clean_temp_test_dir()
-    paths = prices.to_csv(temp_dir, "1H")
+    empty_dir(tmp_path)
+    paths = prices.to_csv(tmp_path, "1H")
     # verify output as original 1H files created from downsampled data...
     assert_output_as_original_files(paths)
 
     # verify can pass non-base interval
-    clean_temp_test_dir()
+    empty_dir(tmp_path)
     df = prices.get("10T")
     df = df[df.columns.sort_values()]
-    paths = prices.to_csv(temp_dir, "10T")
-    prices_reloaded = csv.PricesCsv(temp_dir, symbols, calendars)
+    paths = prices.to_csv(tmp_path, "10T")
+    prices_reloaded = csv.PricesCsv(tmp_path, symbols, calendars)
     df_reloaded = prices_reloaded.get("10T")
     df_reloaded = df_reloaded[df_reloaded.columns.sort_values()]
     assert_frame_equal(df, df_reloaded)
 
     # verify can pass kwargs
-    clean_temp_test_dir()
+    empty_dir(tmp_path)
     kwargs = {"start": df.index[7].right, "end": df.index[-7].left}
-    paths = prices.to_csv(temp_dir, "5T", **kwargs)
+    paths = prices.to_csv(tmp_path, "5T", **kwargs)
     assert len(paths) == 3
-    prices_reloaded = csv.PricesCsv(temp_dir, symbols, calendars)
+    prices_reloaded = csv.PricesCsv(tmp_path, symbols, calendars)
     df_reloaded = prices_reloaded.get("5T")
     assert df_reloaded.pt.interval == prices.bis.T5
     assert df_reloaded.pt.first_ts == kwargs["start"]
     assert df_reloaded.pt.last_ts == kwargs["end"]
 
     # verify raises when no kwargs
-    clean_temp_test_dir()
+    empty_dir(tmp_path)
     match = re.escape(
         "It was not possible to export prices as an error was raised when prices were"
         f" requested for interval {prices.bis.T1}. The error is included at the top of"
         " the traceback.\nNB prices have not been exported for any interval."
     )
     with pytest.raises(errors.PricesUnavailableForExport, match=match):
-        prices.to_csv(temp_dir, include=["NOT_A_SYMBOL"])
-    assert not list(temp_dir.iterdir())
+        prices.to_csv(tmp_path, include=["NOT_A_SYMBOL"])
+    assert not list(tmp_path.iterdir())
 
     # verify raises when pass kwargs
     kwargs = {"start": df.pt.first_ts - (one_day * 7)}
@@ -6396,5 +6396,5 @@ def test_to_csv(to_csv_dir, temp_dir, symbols, calendars, one_day):
         "\nNB prices have not been exported for any interval."
     )
     with pytest.raises(errors.PricesUnavailableForExport, match=match):
-        prices.to_csv(temp_dir, "5T", **kwargs)
-    assert not list(temp_dir.iterdir())
+        prices.to_csv(tmp_path, "5T", **kwargs)
+    assert not list(tmp_path.iterdir())
