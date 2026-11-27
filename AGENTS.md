@@ -171,6 +171,10 @@ Commands to run tests:
 # All tests (including doctests under src/market_prices/)
 pytest
 
+# All tests, run in parallel on one pytest-xdist worker per CPU
+# (see @docs/developers/testing.md)
+pytest -n auto
+
 # Tests in specific file
 pytest tests/test_module.py
 
@@ -199,7 +203,7 @@ uv run pre-commit run --all-files
 ### Continuous Integration
 
 GitHub Actions is used for CI. Defined workflows include:
-- @.github/workflows/build-test.yml - runs full test suite on matrix of platforms and python versions. The workflow is skipped if a pull request changes only files that cannot affect the tests (see the workflow's `paths-ignore`).
+- @.github/workflows/build-test.yml - runs full test suite (in parallel) on matrix of platforms and python versions. The workflow is skipped if a pull request changes only files that cannot affect the tests (see the workflow's `paths-ignore`).
 - @.github/workflows/pre-commit.yml - runs the pre-commit hooks against all files
 - @.github/workflows/release.yml - releases a new version to PyPI
 

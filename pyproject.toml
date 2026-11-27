@@ -68,6 +68,7 @@ test = [
     "pytz",  # required as stored hdf data includes pytz objects
     "pytest",
     "pytest-mock",
+    "pytest-xdist",
     "tables",
 ]
 dev = [

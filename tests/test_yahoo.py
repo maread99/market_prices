@@ -25,6 +25,11 @@ from .test_base_prices import (
     assertions_intraday_common,
 )
 
+# All tests of this module are run by the same pytest-xdist worker (see `--dist
+# loadgroup` in pytest.ini) so that the tests do not request prices from Yahoo
+# concurrently.
+pytestmark = pytest.mark.xdist_group("yahoo")
+
 # NOTE See ../docs/developers/testing.md...
 # ...sessions that yahoo temporarily fails to return prices for if (seemingly)
 # send a high frequency of requests for prices from the same IP address.
