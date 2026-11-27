@@ -25,7 +25,7 @@ import exchange_calendars as xcals
 import pandas as pd
 import pytest
 import valimp
-from pandas.testing import assert_frame_equal, assert_index_equal
+from pandas.testing import assert_frame_equal
 
 import market_prices.prices.base as m
 from market_prices import data, errors, helpers, intervals, mptypes, pt
@@ -38,6 +38,7 @@ from market_prices.support import tutorial_helpers as th
 from .utils import (
     RESOURCES_PATH,
     XHKGAsAt4132,
+    assert_index_equal,
     clean_temp_test_dir,
     get_resource_pbt,
 )

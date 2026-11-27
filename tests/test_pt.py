@@ -10,7 +10,7 @@ import exchange_calendars as xcals
 import numpy as np
 import pandas as pd
 import pytest
-from pandas.testing import assert_frame_equal, assert_index_equal, assert_series_equal
+from pandas.testing import assert_frame_equal, assert_series_equal
 
 import market_prices.pt as m
 from market_prices import errors, helpers
@@ -18,7 +18,12 @@ from market_prices.helpers import UTC
 from market_prices.intervals import TDInterval
 from market_prices.utils import calendar_utils as calutils
 
-from .utils import CMESAsAt4132, get_resource, multiple_sessions_freq
+from .utils import (
+    CMESAsAt4132,
+    assert_index_equal,
+    get_resource,
+    multiple_sessions_freq,
+)
 
 
 @pytest.fixture
