@@ -35,7 +35,12 @@ from market_prices.mptypes import Anchor, OpenEnd, Priority
 from market_prices.prices import csv
 from market_prices.support import tutorial_helpers as th
 
-from .utils import RESOURCES_PATH, clean_temp_test_dir, get_resource_pbt
+from .utils import (
+    RESOURCES_PATH,
+    XHKGAsAt4132,
+    clean_temp_test_dir,
+    get_resource_pbt,
+)
 
 # ruff: noqa: PLW0127  # self-assigning-variable serves role in some tests here
 
@@ -6276,10 +6281,12 @@ def calendars(symbols) -> abc.Iterator[dict[str, str]]:
     calendars = {
         "MSFT": "XNYS",
         "AZN.L": "XLON",
-        "9988.HK": "XHKG",
+        "9988.HK": "XHKG_4132",
     }
     assert set(symbols) == set(calendars)
+    xcals.register_calendar_type(calendars["9988.HK"], XHKGAsAt4132)
     yield calendars
+    xcals.deregister_calendar(calendars["9988.HK"])
 
 
 def test_to_csv(to_csv_dir, temp_dir, symbols, calendars, one_day):

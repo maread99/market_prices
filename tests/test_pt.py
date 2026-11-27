@@ -18,7 +18,7 @@ from market_prices.helpers import UTC
 from market_prices.intervals import TDInterval
 from market_prices.utils import calendar_utils as calutils
 
-from .utils import get_resource, multiple_sessions_freq
+from .utils import CMESAsAt4132, get_resource, multiple_sessions_freq
 
 
 @pytest.fixture
@@ -103,7 +103,7 @@ def composite_intraday_pt() -> abc.Iterator[pd.DataFrame]:
     """Composite price table for test symbols.
 
     Recreate table with:
-    > symbols = ["MSFT", "AZN.L", "BTC-USD"]
+    > symbols = ["MSFT", "AZN.L", "ES=F"]
     > df = prices.get(start="2021-12-01", end="2022-01-06 15:11", composite=True)
 
     Covers period from 2021-12-01 09:30 (session open) through 2022-01-06 15:05 at
@@ -242,7 +242,11 @@ def xlon(calendar_dates, side) -> abc.Iterator[xcals.ExchangeCalendar]:
 
 @pytest.fixture(scope="session")
 def cmes(calendar_dates, side) -> abc.Iterator[xcals.ExchangeCalendar]:
-    yield xcals.get_calendar("CMES", *calendar_dates, side)
+    """CMES calendar as at version 4.13.2 of `exchange_calendars`.
+
+    See `CMESAsAt4132`.
+    """
+    yield CMESAsAt4132(*calendar_dates, side)
 
 
 @pytest.fixture(scope="session")
@@ -2711,7 +2715,7 @@ class TestDownsampleIntraday:
         num_indices = num_i_session + num_i_next_session
         assert len(rtrn_exc_na) == num_indices
 
-        # As xlon opens before xnys, composite calendar should elimiate missing
+        # As xlon opens before xnys, composite calendar should eliminate missing
         # rows between sessions
         rtrn_cc = f(xnys, cc)
         assert_frame_equal(rtrn_exc_na, rtrn_cc)
@@ -2719,7 +2723,24 @@ class TestDownsampleIntraday:
     def test_excess_row_handling_and_lengths(self, intraday_pt, cmes, xnys, one_sec):
         """Verify handling of excess rows at the start and/or end of sessions.
 
-        Verifies handing where last downsampled indice of a session overlaps with
+        Excess rows are rows of the table being downsampled that do not fill a
+        full downsampled indice. `downsample` anchors the downsampled indices of
+        each session on the open of the corresponding session of `calendar`.
+        Throughout this test, `calendar` is `xnys`. A session can have excess rows
+        at either end:
+            - end: the excess rows are the rows that follow the session's last full
+              downsampled indice.
+            - start: the excess rows are the rows that precede the session's first
+              full downsampled indice. A session can have excess rows at the start
+              only if the rows attributed to the session start before the
+              session's `xnys` open. In this test, the rows attributed to a session
+              start before the `xnys` open only if `downsample` is passed the
+              composite calendar `cc` (which consists of `cmes` and `xnys`).
+
+        Whether a session has excess rows depends on the downsample interval. This
+        test measures excess rows by the period that they cover.
+
+        Verifies handling where last downsampled indice of a session overlaps with
         the first downsampled indice of the following session.
 
         Also, takes advantage of knowledge of irregular indice lengths to
@@ -2767,8 +2788,14 @@ class TestDownsampleIntraday:
         next_session_cc_open = cc.session_open(next_session)
         next_session_cc_close = cc.session_close(next_session)
 
-        # verify any excess rows at end of session will be contiguous with excess rows
-        # of at start of next session
+        # verify condition: `session` closes when the next session opens (as evaluated
+        # against `cc`). Whether either session has excess rows depends on the
+        # downsample interval. If both sessions have excess rows then the two sets of
+        # excess rows are contiguous. The excess rows at the end of `session` are the
+        # rows of `session` that follow its last full downsampled indice (hence these
+        # rows end at `session_cc_close`). The excess rows at the start of the next
+        # session are the rows of the next session that precede its first full
+        # downsampled indice (hence these rows start at `next_session_cc_open`).
         assert session_cc_close == next_session_cc_open
 
         # Sometimes the interval can be maintained by consolidating the overlapping
@@ -2805,17 +2832,22 @@ class TestDownsampleIntraday:
 
         # indices will overlap when the right side of the last indice of a session
         # is later than the left side of the first indice of the next session.
-        # This is resovled in the first instance by curtailing the left side of the
-        # first dowsampled indice of each session. These indices are curtailed to
+        # This is resolved in the first instance by curtailing the left side of the
+        # first downsampled indice of each session. These indices are curtailed to
         # reflect only the period for which the indice includes aggregated data (as
         # opposed to the full downsample interval which may have included a period at
         # the left for which no data was aggregated). If the overlapping persists then
         # the right of the last downsampled indice of each session is curtailed to the
         # left of the first downsampled indice of the next session.
 
-        # Verify for case where curtails only left side of first session indice.
-        # Set interval to ensure no excess rows at the end of session. Let there be
-        # two intervals from session origin through session_cc_close.
+        # Verify for case where `downsample` resolves the overlap between `session`
+        # and the next session by curtailing only the left side of the first indice
+        # of the next session. Set the interval to ensure that `session` has no excess
+        # rows at the end: let there be two intervals from `session_origin` through
+        # `session_cc_close`. The last indice of `session` then ends at
+        # `session_cc_close`, which is where the curtailed first indice of the next
+        # session starts (hence the right side of the last indice of `session` is not
+        # curtailed).
         ds_interval = TDInterval((session_cc_close - session_origin) // 2)
         # check that there are excess rows at the start of the next session
         next_session_start_excess = (
@@ -3011,7 +3043,7 @@ class TestPTIntraday:
         expected.index = expected.index.right.rename("right")
         assert_frame_equal(df.pt.indexed_right, expected)
 
-    def test_sessions(self, intraday_pt, calendars, cc):
+    def test_sessions(self, intraday_pt, calendars, cc, xnys, xlon):
         """Verify `sessions` and `session_column` methods."""
         # NB. To get expected return test employs a different approach to method
         # under test. The approach here is NOT comprehensive. Whilst it works
@@ -3025,7 +3057,11 @@ class TestPTIntraday:
         # more complex.
         df = intraday_pt
         f = df.pt.sessions
-        calendars = [*list(calendars), cc]
+        # Unlike `cc`, the composite calendar of `xnys` and `xlon` has minutes that
+        # fall outside every session. The table has rows for ES=F at some of these
+        # minutes.
+        cc_gaps = calutils.CompositeCalendar([xnys, xlon])
+        calendars = [*list(calendars), cc, cc_gaps]
         for cal in calendars:
             opens_ = pd.DatetimeIndex(cal.opens.values, tz=UTC)
             opens_arr = opens_.get_indexer(df.pt.utc.index.left, "ffill")

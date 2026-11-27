@@ -1,5 +1,6 @@
 """Utility functions for test suite."""
 
+import datetime as dt
 import functools
 import os
 import shelve
@@ -10,6 +11,8 @@ from typing import TYPE_CHECKING, Literal
 import exchange_calendars as xcals
 import numpy as np
 import pandas as pd
+from exchange_calendars.exchange_calendar_cmes import CMESExchangeCalendar
+from exchange_calendars.exchange_calendar_xhkg import XHKGExchangeCalendar
 from exchange_calendars.utils import pandas_utils as xcals_pdutils
 
 from market_prices import intervals
@@ -251,6 +254,75 @@ def get_resource_pbt(key: str) -> tuple[dict[str, pd.DataFrame], pd.Timestamp]:
             assert BI == "H1"
             continue
     return d, now
+
+
+# calendars with which the stored resources are consistent
+
+
+class CMESAsAt4132(CMESExchangeCalendar):
+    """CMES calendar as at version 4.13.2 of `exchange_calendars`.
+
+    This class is consistent with the stored price tables that include ES=F -
+    these were created before `exchange_calendars` version 4.13.3.
+
+    The `cmes` fixture of `tests/test_pt.py` creates this calendar over the
+    period of that module's `calendar_dates` fixture (2020-01-01 to
+    2022-01-08). This period covers every stored price table. This class
+    should revert each change to the CMES calendar of `exchange_calendars`
+    that affects the schedule over this period (i.e. the sessions, or the
+    open or close of a session). The changes it reverts are listed under
+    Notes. Changes that affect only sessions outside this period are not
+    reverted.
+
+    Notes
+    -----
+    This class should be maintained on changes to `CMESExchangeCalendar` that
+    affect that calendar's schedule over the period of the `calendar_dates`
+    fixture. Each change that this class reverts should be listed here:
+        - Version 4.13.3 moved the close of each session from 17:00 to 16:00
+          America/Chicago. This class restores the 17:00 close through its
+          `close_times` attribute.
+
+    This class ignores a change that does not affect the schedule over the
+    period of the `calendar_dates` fixture. An ignored change can optionally
+    be listed here (do not treat this list as exhaustive):
+        - Version 4.13.3 made Juneteenth an early close. The first early close
+          for Juneteenth falls on 2022-06-20, after the period of the
+          `calendar_dates` fixture.
+    """
+
+    close_times = ((None, dt.time(17)),)
+
+
+class XHKGAsAt4132(XHKGExchangeCalendar):
+    """XHKG calendar as at version 4.13.2 of `exchange_calendars`.
+
+    This class is consistent with the csv files of the 'to_csv' resources
+    directory - these were created before `exchange_calendars` version 4.13.3.
+    The `calendars` fixture of `tests/test_base_prices.py` registers this class
+    so that `test_to_csv` evaluates 9988.HK against this calendar.
+
+    The 9988.HK csv files cover sessions from 2019-11-26 to 2024-02-14. This
+    class should revert each change to the XHKG calendar of `exchange_calendars`
+    that affects the schedule on or before 2024-02-14 (i.e. the sessions, or
+    the open, close or break times of a session). The changes it reverts are
+    listed under Notes. Changes that affect only later sessions are not
+    reverted.
+
+    Notes
+    -----
+    This class should be maintained on changes to `XHKGExchangeCalendar` that
+    affect that calendar's schedule on or before 2024-02-14. Each change that
+    this class reverts should be listed here:
+        - Version 4.13.3 added two closures to the XHKG calendar (2023-09-01
+          and 2023-09-08). This class excludes these closures through its
+          override of the `adhoc_holidays` property.
+    """
+
+    @property
+    def adhoc_holidays(self):
+        closures = {pd.Timestamp("2023-09-01"), pd.Timestamp("2023-09-08")}
+        return [d for d in super().adhoc_holidays if d not in closures]
 
 
 # functions to administer _temp folder

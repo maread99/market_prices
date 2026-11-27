@@ -470,7 +470,7 @@ class PricesCsvIgnoredUnalignedIndicesWarning(PricesCsvWarning):
     def __init__(self, indices: pd.DatetimeIndex, interval: TDInterval, symbol: str):
         self._msg = (
             f"For symbol '{symbol}' at base interval {interval} the csv file included"
-            " the following indices that are not aligned with the evaluated index and:"
+            " the following indices that are not aligned with the evaluated index and"
             f" have therefore been ignored:\n{indices}"
         )
 

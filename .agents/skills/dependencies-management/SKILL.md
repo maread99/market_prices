@@ -116,6 +116,8 @@ Any failing tests and fixable warnings will likely have their origin in changes 
 
 As a general RULE, **change the package code to get the tests passing, not the test code!** You may make changes to the test code only with good reason and only when this does not impair the test's efficacy.
 
+One such reason is a test failure that arises because a new version of `exchange_calendars` corrects a calendar that stored test resources were created with. Fix such a failure by reverting the correction in the class of `tests/utils.py` that reproduces the calendar as at an earlier version (for example `CMESAsAt4132`), and list the change in that class's docstring. If `tests/utils.py` has no such class for the calendar, add one that follows the pattern of the existing classes. Do not edit the stored resources to agree with the corrected calendar.
+
 To facilitate identifying the cause of test failures consider researching the changelogs of updated dependencies for versions released since the previously locked version.
 
 Iterate on this process until:

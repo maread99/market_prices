@@ -1640,7 +1640,8 @@ class PTIntraday(_PTIntervalIndex):
                     direction_ = "none" if direction is None else direction
                     s = calendar.minute_to_session(indice, direction=direction_)
                 else:
-                    s = calendar.minute_to_sessions(indice, direction=direction)[0]
+                    sessions = calendar.minute_to_sessions(indice, direction=direction)
+                    s = sessions[0] if len(sessions) else pd.NaT
             except ValueError:
                 s = pd.NaT
             return s
@@ -2194,13 +2195,13 @@ class PTIntraday(_PTIntervalIndex):
                 against `calendar`, one indice per session will represent
                 a partial trading indice. Any data falling within a break
                 or between a session close and the following session open
-                will be consolidated to non-trading indices (when evaluate
+                will be consolidated to non-trading indices (when evaluated
                 against `calendar`).
 
                 When there is no data immediately following a session close
                 although there is subsequently data prior to the next
                 session open, indices in between will be included and
-                filled with missing values (session's evalutated against
+                filled with missing values (sessions evaluated against
                 `calendar`). The introduction of these 'missing values'
                 indices can be avoided by passing a `composite_calendar`.
 
@@ -2217,12 +2218,12 @@ class PTIntraday(_PTIntervalIndex):
             True: Curtail final rows of base table in order that
                 downsampled indice is evaluated from a full interval of
                 data, i.e. if the resampled interval is 60 minutes then the
-                final interval will be evaluated from 60 mintues of base
+                final interval will be evaluated from 60 minutes of base
                 data, albeit at the cost that any excess rows at the
                 end of the base table will be excluded from the downsampled
                 data.
             False: Include all final rows in the resampled data. This may
-                result in the final indice being evaluted from fewer
+                result in the final indice being evaluated from fewer
                 minutes of data than the interval length, e.g. if the
                 table interval is 60 minutes then the final indice of
                 the resampled table may have been evaluated from only, for
