@@ -49,5 +49,7 @@ jobs:
       - name: Install the project
         run: uv sync --locked --group test --no-dev
       # Without `--no-sync`, `uv run` would sync the environment with the dev group.
+      # `-n auto` runs the tests in parallel on one pytest-xdist worker per CPU.
+      # `--durations=30` reports the 30 slowest tests.
       - name: Run tests
-        run: uv run --no-sync pytest
+        run: uv run --no-sync pytest -n auto --durations=30

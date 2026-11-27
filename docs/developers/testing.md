@@ -1,5 +1,18 @@
 # Testing
 
+## Running the tests in parallel
+The tests can be run in parallel with [pytest-xdist](https://pytest-xdist.readthedocs.io/):
+
+```bash
+pytest -n auto
+```
+
+`-n auto` starts one worker process per CPU. The 'Build and test' workflow runs the tests in this way.
+
+The `addopts` of `pytest.ini` include `--dist loadgroup`. Under this option, pytest-xdist sends every test that is marked with the same `xdist_group` to the same worker. `test_yahoo.py` marks all of its tests with the group 'yahoo' (see [Data from yahoo API is unreliable for the test suite](#data-from-yahoo-api-is-unreliable-for-the-test-suite)).
+
+A test that writes files should write them to pytest's `tmp_path` directory so that tests that run in parallel do not write to the same directory (`tmp_path` is unique to each test).
+
 ## Tests for `PricesBase`
 The tests for the `PricesBase` class are defined on different modules according to whether or not the tested method requests price data.
 
@@ -34,3 +47,5 @@ All seems to suggest that the API is implemented to change behaviour when the fr
 The sessions for which data becomes unavailable are USUALLY the same ones. These are listed in `_flakylist` towards the top of `test_yahoo.py`. **Tests that request data from the API should be written so as to avoid requesting data for a period that starts or ends on any of these flakylisted sessions**. To this end the `test_yahoo.py` module provides the following methods to evaluate sessions that are not flakylisted:
 * `get_valid_sessions`
 * `get_valid_conforming_sessions`
+
+If the tests are run in parallel, the tests of `test_yahoo.py` are all run by a single worker so that the frequency of requests to the API is no higher than if the tests were run serially (see [Running the tests in parallel](#running-the-tests-in-parallel)).
