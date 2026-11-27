@@ -2,6 +2,7 @@
 
 import datetime as dt
 import functools
+import inspect
 import os
 import shelve
 from collections import abc
@@ -14,6 +15,7 @@ import pandas as pd
 from exchange_calendars.exchange_calendar_cmes import CMESExchangeCalendar
 from exchange_calendars.exchange_calendar_xhkg import XHKGExchangeCalendar
 from exchange_calendars.utils import pandas_utils as xcals_pdutils
+from pandas.testing import assert_index_equal as _pd_assert_index_equal
 
 from market_prices import intervals
 from market_prices.helpers import UTC
@@ -21,6 +23,25 @@ from market_prices.prices.base import PricesBase
 from market_prices.utils import pandas_utils as pdutils
 
 ONE_DAY = pd.Timedelta(1, "D")
+
+# pandas added `check_freq` to `assert_index_equal` in pandas 3.1.
+_ASSERT_INDEX_EQUAL_HAS_CHECK_FREQ = (
+    "check_freq" in inspect.signature(_pd_assert_index_equal).parameters
+)
+
+
+def assert_index_equal(left: pd.Index, right: pd.Index, **kwargs):
+    """Assert `left` and `right` indices are equal.
+
+    As `pandas.testing.assert_index_equal` although silently drops a passed
+    `check_freq` keyword on a pandas version that predates that parameter
+    (such a version never checks an index's `freq` attribute, so dropping
+    the keyword cannot change the comparison).
+    """
+    if not _ASSERT_INDEX_EQUAL_HAS_CHECK_FREQ:
+        kwargs.pop("check_freq", None)
+    _pd_assert_index_equal(left, right, **kwargs)
+
 
 TEST_ROOT = Path(__file__).parent
 RESOURCES_PATH = TEST_ROOT / "resources"

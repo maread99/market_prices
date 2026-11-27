@@ -7,13 +7,14 @@ import exchange_calendars as xcals
 import pandas as pd
 import pytest
 from pandas import Timestamp as T
-from pandas.testing import assert_index_equal
 
 import market_prices.support.tutorial_helpers as m
 from market_prices import errors, intervals
 from market_prices.helpers import UTC
 from market_prices.prices.base import PricesBase
 from market_prices.utils import calendar_utils as calutils
+
+from .utils import assert_index_equal
 
 
 @pytest.fixture(scope="class")
